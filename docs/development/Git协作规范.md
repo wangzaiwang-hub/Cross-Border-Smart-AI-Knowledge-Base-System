@@ -30,3 +30,9 @@ powershell -ExecutionPolicy Bypass -File ygh-deploy/scripts/check-staged-secrets
 2. TODO 只有在实现、测试和证据齐全后才能勾选。
 3. 数据库迁移、事件 Schema、外部 API 和权限码的破坏性变更必须单独说明兼容策略。
 4. 部署记录必须关联 Git SHA；本地未提交改动不得作为正式部署基线。
+
+## 4. GitHub 交付目标
+
+- 唯一远程仓库：`https://github.com/wangzaiwang-hub/Cross-Border-Smart-AI-Knowledge-Base-System.git`。
+- 当前已验收基线允许推送到 `main` 作为远程灾备；后续功能使用 `feature/*` 分支开发并通过 Pull Request 合并。
+- 项目完成不等于本地构建成功；必须完成最终 Secret 扫描、推送、远程 SHA 核对、版本标签和发布说明才算交付。
