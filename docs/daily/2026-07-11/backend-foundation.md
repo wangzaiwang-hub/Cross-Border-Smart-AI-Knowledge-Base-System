@@ -200,3 +200,20 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - Reviewer 最终复核未发现 P0/P1 阻断，允许完成 `BE-0231`。
 - 全 Reactor `clean verify` 通过：9 个模块、121 项测试，0 失败、0 错误、0 跳过。
 - 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置均通过 `config --quiet`，本次验证未改变容器运行状态。
+
+## 17. common-redis Key、TTL 与 owner 安全锁
+
+- 新增标准 Maven 子模块 `ygh-common-redis`，纳入 `ygh-common` 聚合和企业 BOM。
+- Test-Author 先建立 Key、敏感标识散列、TTL、锁 owner、Lua、Boot 自动配置和真实 Redis 并发测试；生产类缺失时编译按预期失败。
+- Key 固定为 `ygh:{env}:{service}:{business}:{identifier}`，严格限制字符和长度；低熵敏感标识支持带至少 32 字节 Secret pepper 的 HMAC-SHA-256。
+- `cacheTtl` 只用于可重建缓存的对称抖动；`minimumRetentionTtl` 用于黑名单、撤销和幂等最短保留期，只增不减；显式拒绝超过 10 年和溢出输入。
+- 短租锁以 `SET NX PX` 获取，以 owner 比较 Lua 原子续租/释放；租约限定 1 秒至 5 分钟，owner 使用 192 bit 安全随机数。
+- `RedisLockHandle` 的日志输出和 Jackson JSON 均不暴露 owner capability。
+- Boot 自动配置显式排在 `DataRedisAutoConfiguration` 之后，真实 Bean 链测试证明不会因条件评估过早而静默缺失。
+- Testcontainers Redis 8.4.4 验证 NX/PX、错误 owner、正确续租释放、过期重入旧 owner 不删新锁及 16 并发仅一个成功。
+- 虚拟机 Redis 8.4.4 额外实测输出 `REDIS_OWNER_RENEW_RELEASE_OK`，测试 Key 已删除；本机 Testcontainers 容器测试后均已清理。
+- 模块验证 19 项测试通过，0 失败、0 错误、0 跳过且无编译警告。
+- Reviewer 四项 P1 修复后复审通过，未发现剩余 P0/P1，允许完成 `BE-0232`。
+- Redis 短租锁没有 Fencing Token；库存与资金仍必须使用数据库条件更新或乐观锁，禁止把 Redis 锁作为唯一正确性屏障。
+- 全 Reactor `clean verify` 通过：10 个模块、140 项测试，0 失败、0 错误、0 跳过。
+- 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置再次通过 `config --quiet`。

@@ -104,6 +104,11 @@
                 <artifactId>ygh-common-mybatis</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>com.yuegang.zhihui</groupId>
+                <artifactId>ygh-common-redis</artifactId>
+                <version>${revision}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>
