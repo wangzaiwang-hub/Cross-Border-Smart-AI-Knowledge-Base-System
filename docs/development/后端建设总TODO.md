@@ -83,7 +83,7 @@
 - [x] `BE-0212` Bean Validation 字段错误明细。
 - [x] `BE-0213` 401、403、429和依赖降级统一响应。
 - [x] `BE-0214` 请求日志、耗时和脱敏过滤器。
-- [ ] `BE-0215` OpenAPI 公共配置、鉴权头和统一错误 Schema。
+- [x] `BE-0215` OpenAPI 公共配置、鉴权头和统一错误 Schema。
 
 ### P02.3 common-security
 

@@ -161,3 +161,14 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 远程仓库推送前为空；本地已通过全量构建、67 项测试、Secret 扫描和差异检查。
 - 已将阶段基线提交 `91e0a0b` 推送到远程 `main`，并设置本地 `main` 跟踪 `origin/main`。
 - 后续开发转入 `feature/backend-p02-foundation`，完成阶段门禁后通过 Pull Request 合并，不再直接在远程主分支持续开发。
+
+## 14. common-web OpenAPI 公共契约
+
+- 按 Spring Boot 4.0.x 官方兼容矩阵引入 springdoc-openapi 3.0.3；企业 BOM 同时约束 common、WebMVC API/UI 与 WebFlux API/UI，各服务后续按运行模型选择 Starter。
+- `ygh-common-web` 仅依赖 `springdoc-openapi-starter-common`，通过 Boot AutoConfiguration 提供公共 `OpenApiCustomizer`，不强制服务暴露 Swagger UI。
+- 注册 `bearerAuth` HTTP Bearer/JWT 安全方案，但不设置全局安全要求，避免注册、登录、健康检查等公开接口被错误标记为必须认证。
+- 注册统一 `ApiResponse`、`ValidationErrorResponse` 和 `FieldValidationError` Schema，以及 400、401、403、404、409、429、503、500 可复用响应。
+- 429 契约声明 `Retry-After`，`X-Request-Id` 声明实际 allowlist `[A-Za-z0-9._-]{1,128}`；所有公共 Schema 显式标记必填字段。
+- Test-Author 先补契约门禁，Reviewer 在补齐响应、Header、必填字段和正则后静态复核通过，允许完成 `BE-0215`。
+- 模块验证 `mvnw.cmd -pl ygh-common/ygh-common-web -am test` 通过：common-core 21 项、common-web 30 项，共 51 项测试，0 失败、0 错误、0 跳过且无编译告警。
+- 最终串行执行 `mvnw.cmd clean verify`：8 个 Reactor 模块全部成功，共 70 项测试，0 失败、0 错误、0 跳过。
