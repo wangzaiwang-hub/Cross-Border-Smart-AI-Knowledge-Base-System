@@ -19,6 +19,12 @@ public class RequestLoggingAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(GlobalExceptionHandler.class)
+    GlobalExceptionHandler globalExceptionHandler() {
+        return new GlobalExceptionHandler();
+    }
+
+    @Bean
     @ConditionalOnMissingBean(RequestLoggingFilter.class)
     RequestLoggingFilter requestLoggingFilter(RequestLogSink sink) {
         return new RequestLoggingFilter(sink);

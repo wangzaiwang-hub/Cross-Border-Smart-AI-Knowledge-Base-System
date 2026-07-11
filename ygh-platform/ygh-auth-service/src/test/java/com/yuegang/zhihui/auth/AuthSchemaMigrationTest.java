@@ -6,11 +6,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import com.yuegang.zhihui.common.test.JdbcContainerFixture;
 import java.sql.DriverManager;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.LinkedHashSet;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 
 class AuthSchemaMigrationTest {
 
@@ -87,12 +92,13 @@ class AuthSchemaMigrationTest {
             }
 
             try (var runtimeContext = new SpringApplicationBuilder(AuthApplication.class)
-                    .web(WebApplicationType.NONE)
+                    .web(WebApplicationType.SERVLET)
                     .properties(
                             "YGH_AUTH_DB_URL=" + fixture.jdbcUrl(),
                             "YGH_AUTH_DB_APP_USERNAME=" + appUser,
                             "YGH_AUTH_DB_APP_PASSWORD=" + appPassword,
                             "spring.flyway.enabled=false",
+                            "YGH_AUTH_PORT=0",
                             "spring.cloud.nacos.discovery.enabled=false",
                             "YGH_NACOS_SERVER_ADDR=127.0.0.1:8848",
                             "YGH_NACOS_USERNAME=test",
@@ -100,6 +106,11 @@ class AuthSchemaMigrationTest {
                     .run()) {
                 assertThat(runtimeContext.isActive()).isTrue();
                 assertThat(runtimeContext.containsBean("flyway")).isFalse();
+                assertThat(runtimeContext.getBean(
+                        com.yuegang.zhihui.common.web.GlobalExceptionHandler.class)).isNotNull();
+                int port = ((ServletWebServerApplicationContext) runtimeContext)
+                        .getWebServer().getPort();
+                assertRuntimeErrorEnvelope(port);
             }
 
             try (var appConnection = DriverManager.getConnection(
@@ -118,6 +129,65 @@ class AuthSchemaMigrationTest {
                         .isInstanceOf(java.sql.SQLException.class);
             }
         }
+    }
+
+    private static void assertRuntimeErrorEnvelope(int port) throws Exception {
+        var client = HttpClient.newHttpClient();
+        var malformed = HttpRequest.newBuilder(URI.create(
+                        "http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                .header("Content-Type", "application/json")
+                .header("X-Trace-Id", "trace-malformed")
+                .POST(HttpRequest.BodyPublishers.ofString(
+                        "{\"principal\":\"user\",\"password\":\"Sensitive-123\""))
+                .build();
+        var malformedResponse = client.send(malformed, HttpResponse.BodyHandlers.ofString());
+        assertThat(malformedResponse.statusCode()).isEqualTo(400);
+        String malformedTrace = malformedResponse.headers()
+                .firstValue("X-Trace-Id").orElseThrow();
+        assertThat(malformedResponse.body()).contains("VALIDATION_ERROR", malformedTrace)
+                .doesNotContain("Sensitive-123");
+
+        var unavailable = HttpRequest.newBuilder(URI.create(
+                        "http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                .header("Content-Type", "application/json")
+                .header("X-Trace-Id", "trace-unavailable")
+                .POST(HttpRequest.BodyPublishers.ofString(
+                        "{\"principal\":\"user\",\"password\":\"Sensitive-456\"}"))
+                .build();
+        var unavailableResponse = client.send(unavailable, HttpResponse.BodyHandlers.ofString());
+        assertThat(unavailableResponse.statusCode()).isEqualTo(503);
+        String unavailableTrace = unavailableResponse.headers()
+                .firstValue("X-Trace-Id").orElseThrow();
+        assertThat(unavailableResponse.body()).contains("DEPENDENCY_UNAVAILABLE", unavailableTrace)
+                .doesNotContain("Sensitive-456");
+
+        var wrongMethod = HttpRequest.newBuilder(URI.create(
+                        "http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                .PUT(HttpRequest.BodyPublishers.noBody()).build();
+        var wrongMethodResponse = client.send(wrongMethod, HttpResponse.BodyHandlers.ofString());
+        assertThat(wrongMethodResponse.statusCode()).isEqualTo(405);
+        assertThat(wrongMethodResponse.headers().firstValue("Allow")).hasValue("POST");
+        assertThat(wrongMethodResponse.body()).contains("VALIDATION_ERROR");
+
+        var wrongMediaType = HttpRequest.newBuilder(URI.create(
+                        "http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                .header("Content-Type", "text/plain")
+                .POST(HttpRequest.BodyPublishers.ofString("Sensitive-789"))
+                .build();
+        var wrongMediaResponse = client.send(wrongMediaType, HttpResponse.BodyHandlers.ofString());
+        assertThat(wrongMediaResponse.statusCode()).isEqualTo(415);
+        assertThat(wrongMediaResponse.headers().firstValue("Accept").orElse(""))
+                .contains("application/json");
+        assertThat(wrongMediaResponse.body()).contains("VALIDATION_ERROR")
+                .doesNotContain("Sensitive-789");
+
+        var missing = HttpRequest.newBuilder(URI.create(
+                        "http://127.0.0.1:" + port + "/api/v1/auth/not-a-real-resource"))
+                .GET().build();
+        var missingResponse = client.send(missing, HttpResponse.BodyHandlers.ofString());
+        assertThat(missingResponse.statusCode()).isEqualTo(404);
+        assertThat(missingResponse.body()).contains("RESOURCE_NOT_FOUND")
+                .doesNotContain("not-a-real-resource");
     }
 
     private static void provisionSeparatedUsers(

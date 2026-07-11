@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-auth-service`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、MySQL 8.4.10、Flyway 11  
-> 当前完成：`BE-0320`
+> 当前完成：`BE-0320`—`BE-0321`
 
 ## 1. Maven 与服务边界
 
@@ -63,4 +63,18 @@ Testcontainer 从全新 MySQL 数据目录开始，测试顺序与正式部署�
 - Nacos 中出现唯一健康实例 `YGH_GROUP@@ygh-auth-service`，烟测结束后进程已停止；
 - `auth_db` 当前包含四张业务表及 `flyway_schema_history`，成功版本为 1。
 
-后续 `BE-0321` 开始定义注册、登录、刷新、退出、验证码和密码重置契约；本任务不提前虚报这些业务接口已经实现。
+## 6. BE-0321 HTTP 契约
+
+认证服务已冻结七个 `/api/v1/auth/**` 端点：注册、登录、刷新、退出、验证码、申请密码重置、确认密码重置。Controller 只依赖 `AuthCommandService` 应用端口，不暴露 Mapper、Entity 或数据库对象；后续认证实现可替换用例实现而不改变 HTTP 契约。
+
+- 注册成功为 201；密码重置申请采用防枚举语义并返回 202；其他成功请求为 200。
+- 所有响应统一为 `code/message/data/traceId/timestamp`。
+- Gateway 匿名白名单与接口矩阵一致；退出接口必须认证。
+- 参数错误和畸形 JSON 均返回 400/`VALIDATION_ERROR`，不回显 rejected secret 或 JSON 解析异常。
+- 所有 credential-bearing DTO 将秘密字段声明为 JSON write-only，并覆盖诊断字符串。
+- 密码重置申请响应只公开固定 `expiresIn`，不包含账号是否存在的布尔值；已知与未知主体必须保持相同外部响应和公开时序策略。
+- 在 `BE-0322`—`BE-0325` 完成前，条件回退用例仅在没有真实 `AuthCommandService` 时注册，并统一 fail-closed 为 503，不提供假 Token、固定验证码或伪注册结果。
+
+MockMvc 契约测试覆盖七条成功协议、校验失败、Envelope 与 traceId；DTO 测试覆盖反序列化、只写序列化、密码确认和诊断脱敏；占位应用服务测试覆盖所有方法的 fail-closed 行为。Auth 模块 `verify` 已通过 70% 行覆盖率门禁。
+
+下一项 `BE-0322` 实现强密码散列、密码策略和失败锁定；本阶段仍不宣称认证业务可联调。

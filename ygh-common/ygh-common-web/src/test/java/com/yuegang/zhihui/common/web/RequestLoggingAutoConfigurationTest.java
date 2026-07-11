@@ -21,6 +21,7 @@ class RequestLoggingAutoConfigurationTest {
         contextRunner.run(context -> {
             assertThat(context).hasSingleBean(RequestLogSink.class);
             assertThat(context).hasSingleBean(RequestLoggingFilter.class);
+            assertThat(context).hasSingleBean(GlobalExceptionHandler.class);
             assertThat(context).hasSingleBean(FilterRegistrationBean.class);
 
             var filter = context.getBean(RequestLoggingFilter.class);
