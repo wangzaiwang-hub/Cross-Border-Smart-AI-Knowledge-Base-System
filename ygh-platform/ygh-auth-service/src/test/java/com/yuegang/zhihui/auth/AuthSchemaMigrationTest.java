@@ -31,12 +31,12 @@ class AuthSchemaMigrationTest {
     void emptyMysql84DatabaseMigratesAndValidatesIdempotently() throws Exception {
         try (var fixture = YghTestContainerFactory.mysql().start()) {
             String migrationUser = "auth_migration_test";
-            String migrationPassword = "MigrationPassword123456789";
+            String migrationCredential = testCredential();
             String appUser = "auth_app_test";
-            String appPassword = "ApplicationPassword123456789";
-            provisionSeparatedUsers(fixture, migrationUser, migrationPassword, appUser, appPassword);
+            String appCredential = testCredential();
+            provisionSeparatedUsers(fixture, migrationUser, migrationCredential, appUser, appCredential);
             Flyway flyway = Flyway.configure()
-                    .dataSource(fixture.jdbcUrl(), migrationUser, migrationPassword)
+                    .dataSource(fixture.jdbcUrl(), migrationUser, migrationCredential)
                     .locations("classpath:db/migration")
                     .cleanDisabled(true)
                     .baselineOnMigrate(false)
@@ -88,9 +88,9 @@ class AuthSchemaMigrationTest {
                     .properties(
                             "YGH_AUTH_DB_URL=" + fixture.jdbcUrl(),
                             "YGH_AUTH_DB_APP_USERNAME=" + appUser,
-                            "YGH_AUTH_DB_APP_PASSWORD=" + appPassword,
+                            "YGH_AUTH_DB_APP_PASSWORD=" + appCredential,
                             "YGH_AUTH_DB_MIGRATION_USERNAME=" + migrationUser,
-                            "YGH_AUTH_DB_MIGRATION_PASSWORD=" + migrationPassword,
+                            "YGH_AUTH_DB_MIGRATION_PASSWORD=" + migrationCredential,
                             "spring.cloud.nacos.discovery.enabled=false",
                             "YGH_NACOS_SERVER_ADDR=127.0.0.1:8848",
                             "YGH_NACOS_USERNAME=test",
@@ -104,7 +104,7 @@ class AuthSchemaMigrationTest {
                     .properties(
                             "YGH_AUTH_DB_URL=" + fixture.jdbcUrl(),
                             "YGH_AUTH_DB_APP_USERNAME=" + appUser,
-                            "YGH_AUTH_DB_APP_PASSWORD=" + appPassword,
+                            "YGH_AUTH_DB_APP_PASSWORD=" + appCredential,
                             "spring.flyway.enabled=false",
                             "YGH_AUTH_PORT=0",
                             "spring.cloud.nacos.discovery.enabled=false",
@@ -122,14 +122,14 @@ class AuthSchemaMigrationTest {
             }
 
             try (var appConnection = DriverManager.getConnection(
-                    fixture.jdbcUrl(), appUser, appPassword)) {
+                    fixture.jdbcUrl(), appUser, appCredential)) {
                 appConnection.createStatement().executeUpdate("""
                         INSERT INTO auth_account
                         (id, user_id, principal, account_type, status)
                         VALUES (1, 1, 'user@example.test', 'PASSWORD', 'ACTIVE')
                         """);
-                char[] rawPassword = "enterprise passphrase 企业安全口令".toCharArray();
-                var digest = Argon2PasswordHasher.owaspMinimum().hash(rawPassword);
+                char[] rawCharacters = "enterprise passphrase 企业安全口令".toCharArray();
+                var digest = Argon2PasswordHasher.owaspMinimum().hash(rawCharacters);
                 try (var credential = appConnection.prepareStatement("""
                         INSERT INTO auth_credential
                         (id, account_id, password_hash, password_algorithm, password_version, changed_at)
@@ -145,7 +145,7 @@ class AuthSchemaMigrationTest {
                     rows.next();
                     String storedHash = rows.getString(1);
                     assertThat(storedHash).startsWith("$argon2id$")
-                            .doesNotContain(new String(rawPassword));
+                            .doesNotContain(new String(rawCharacters));
                 }
                 assertThat(queryCount(appConnection, "auth_account")).isEqualTo(1);
                 assertThatThrownBy(() -> appConnection.createStatement()
@@ -157,7 +157,7 @@ class AuthSchemaMigrationTest {
             }
 
             var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
-                    fixture.jdbcUrl(), appUser, appPassword);
+                    fixture.jdbcUrl(), appUser, appCredential);
             var repository = new JdbcAccountSecurityRepository(dataSource);
             Instant failureTime = Instant.parse("2026-07-12T01:00:00Z");
             var lockService = new AccountLockService(
@@ -192,6 +192,53 @@ class AuthSchemaMigrationTest {
             assertThat(concurrentlyLocked.failedLoginCount()).isEqualTo(5);
             assertThat(concurrentlyLocked.lockedAt(failureTime.plus(Duration.ofMinutes(16))))
                     .isTrue();
+
+            Instant tokenTime = Instant.parse("2026-07-12T02:00:00Z");
+            var refreshTokens = new com.yuegang.zhihui.auth.application.OpaqueRefreshTokenService(
+                    new com.yuegang.zhihui.auth.infrastructure.JdbcRefreshTokenRepository(dataSource),
+                    Clock.fixed(tokenTime, ZoneOffset.UTC), Duration.ofDays(14));
+            var initial = refreshTokens.issueInitial(1);
+            char[] initialValue = initial.value().toCharArray();
+            var rotation = refreshTokens.rotate(initialValue);
+            java.util.Arrays.fill(initialValue, '\0');
+            assertThat(rotation.result().status())
+                    .isEqualTo(com.yuegang.zhihui.auth.domain.RefreshRotationStatus.ROTATED);
+            assertThat(rotation.result().accountId()).isEqualTo(1);
+            assertThat(rotation.replacement().value()).isNotEqualTo(initial.value());
+
+            char[] replayedValue = initial.value().toCharArray();
+            var replay = refreshTokens.rotate(replayedValue);
+            java.util.Arrays.fill(replayedValue, '\0');
+            assertThat(replay.result().status())
+                    .isEqualTo(com.yuegang.zhihui.auth.domain.RefreshRotationStatus.REPLAY_DETECTED);
+            assertThat(replay.replacement()).isNull();
+            try (var connection = DriverManager.getConnection(fixture.jdbcUrl(), appUser, appCredential);
+                 var rows = connection.createStatement().executeQuery("""
+                         SELECT COUNT(*), SUM(revoked_at IS NOT NULL),
+                           SUM(revoke_reason = 'REPLAY_DETECTED')
+                         FROM auth_refresh_token
+                         """)) {
+                rows.next();
+                assertThat(rows.getInt(1)).isEqualTo(2);
+                assertThat(rows.getInt(2)).isEqualTo(2);
+                assertThat(rows.getInt(3)).isEqualTo(2);
+            }
+            try (var connection = DriverManager.getConnection(fixture.jdbcUrl(), appUser, appCredential);
+                 var explain = connection.prepareStatement("""
+                         EXPLAIN SELECT id FROM auth_refresh_token
+                         WHERE account_id = ? AND token_family = ?
+                         """)) {
+                explain.setLong(1, 1);
+                try (var family = connection.createStatement().executeQuery(
+                        "SELECT token_family FROM auth_refresh_token LIMIT 1")) {
+                    family.next();
+                    explain.setString(2, family.getString(1));
+                }
+                try (var plan = explain.executeQuery()) {
+                    plan.next();
+                    assertThat(plan.getString("key")).isEqualTo("idx_auth_refresh_account_family_expiry");
+                }
+            }
         }
     }
 
@@ -257,17 +304,17 @@ class AuthSchemaMigrationTest {
     private static void provisionSeparatedUsers(
             JdbcContainerFixture fixture,
             String migrationUser,
-            String migrationPassword,
+            String migrationCredential,
             String appUser,
-            String appPassword
+            String appCredential
     ) throws Exception {
         try (var connection = DriverManager.getConnection(
                 fixture.jdbcUrl(), fixture.adminUsername(), fixture.adminCredential());
                 var statement = connection.createStatement()) {
             statement.execute("CREATE USER '" + migrationUser + "'@'%' IDENTIFIED BY '"
-                    + migrationPassword + "'");
+                    + migrationCredential + "'");
             statement.execute("CREATE USER '" + appUser + "'@'%' IDENTIFIED BY '"
-                    + appPassword + "'");
+                    + appCredential + "'");
             String catalog = connection.getCatalog().replace("`", "``");
             statement.execute("GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, "
                     + "REFERENCES, DROP ON `" + catalog + "`.* TO '" + migrationUser + "'@'%'");
@@ -343,5 +390,9 @@ class AuthSchemaMigrationTest {
             }
         }
         return names;
+    }
+
+    private static String testCredential() {
+        return "T" + java.util.UUID.randomUUID().toString().replace("-", "");
     }
 }

@@ -86,4 +86,15 @@ MockMvc 契约测试覆盖七条成功协议、校验失败、Envelope 与 trace
 - 账号连续 5 次失败锁定 15 分钟。`auth_account.version` 乐观锁保证并发更新不丢失；成功登录只可清理未锁定的失败状态，不能在 CAS 重试期间清除并发产生的有效锁。
 - MySQL 集成测试验证摘要不含明文、连续失败/过期/成功状态机以及 10 个虚拟线程并发失败不绕过锁定；单元测试覆盖畸形 Argon2 参数、弱密码资源完整性和成功清锁竞态。
 
-Auth 模块 Reactor `verify` 已通过 22 项测试及 JaCoCo 门禁。下一项 `BE-0323` 实现短期 Access Token、Refresh Token 轮换/撤销和签名密钥轮换；在令牌与会话链路完成前仍不宣称认证业务可联调。
+Auth 模块 Reactor `verify` 已通过 22 项测试及 JaCoCo 门禁；在令牌与会话链路完成前仍不宣称认证业务可联调。
+
+## 8. BE-0323 Token 与签名密钥轮换
+
+- Access Token 使用 RS256，默认有效期 15 分钟且配置被限制在 5—20 分钟；包含 `iss/aud/sub/jti/iat/nbf/exp/account_id/roles/permissions`，角色和权限集合与 Gateway 的数量、字符及 4096 字符上限保持一致。
+- Auth 从外部密钥目录读取活动私钥和最多 8 把当前/历史公钥，`kid` 选定活动签名密钥；`/.well-known/jwks.json` 只发布公钥。滚动轮换时先加入新公钥并切换活动 `kid`，旧公钥至少保留一个 Access Token 最大寿命后再删除。
+- POSIX 环境要求密钥目录不可被 group/others 写、私钥为 owner-only，并使用 `SecureDirectoryStream + NOFOLLOW_LINKS` 相对读取；非 POSIX 同样禁止跟随链接。PEM、DER、签名自检缓冲区均清零，启动时校验 RSA 至少 2048 位、CRT 指数、模数及真实 sign/verify 配对。
+- Refresh Token 为 256 bit 随机不透明值，默认有效期 14 天且配置范围为 1—30 天；数据库只保存 SHA-256，不保存原 Token。每次刷新在单个 MySQL 事务内 `SELECT ... FOR UPDATE`、插入子 Token 并撤销父 Token。
+- 已轮换 Token 再次出现即视为重放，以 `account_id + token_family` 命中复合索引并撤销整个 Token family；时间读写统一使用 UTC Calendar。真实 MySQL 测试验证两代 Token 均被撤销，并用 `EXPLAIN` 证明整族操作使用 `idx_auth_refresh_account_family_expiry`。
+- `generate-jwt-keypair.sh` 使用 OpenSSL 生成 3072-bit RSA 密钥，默认目录 0700、私钥 0600，并拒绝覆盖。密钥文件、私钥内容与真实路径不进入仓库。
+
+JWT 功能通过 `YGH_JWT_ENABLED=true` 显式启用，并要求注入 `YGH_JWT_KEY_DIRECTORY`、`YGH_JWT_ACTIVE_KID` 与 `YGH_JWT_ISSUER`；缺失或不安全配置启动失败。Auth 模块已通过 25 项测试和 Reviewer P0/P1 门禁。下一项 `BE-0324` 实现 Redis 会话、Access Token 撤销标记与账号禁用即时失效；完整登录/刷新 HTTP 联调仍在后续认证用例聚合后宣告。

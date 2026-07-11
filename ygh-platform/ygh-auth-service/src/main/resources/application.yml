@@ -57,3 +57,14 @@ management:
       enabled: true
     readinessstate:
       enabled: true
+
+ygh:
+  security:
+    jwt:
+      enabled: ${YGH_JWT_ENABLED:false}
+      key-directory: ${YGH_JWT_KEY_DIRECTORY:}
+      active-kid: ${YGH_JWT_ACTIVE_KID:}
+      issuer: ${YGH_JWT_ISSUER:}
+      audience: ${YGH_JWT_AUDIENCE:ygh-api}
+      access-token-minutes: ${YGH_JWT_ACCESS_TOKEN_MINUTES:15}
+      refresh-token-days: ${YGH_JWT_REFRESH_TOKEN_DAYS:14}
