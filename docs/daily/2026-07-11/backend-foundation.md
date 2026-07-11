@@ -135,3 +135,12 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 领域事件重构为 `DomainEvent<T>`、独立 `EventMetadata` 和受控 `VersionedDomainEvent<T>`；业务 DTO 走不可变 marker 工厂，动态 Map 走类型安全工厂并递归冻结 Map/List/Set，禁止数组载荷。
 - Reviewer 发现并阻断了初版泛型深复制可能导致的 `ClassCastException`；补充 LinkedHashMap 回归与构造入口测试后复核通过。
 - 最终串行 `mvnw.cmd clean verify` 通过：8 个 Reactor 模块、46 项测试、0 失败、0 错误、0 跳过。
+
+## 11. common-web 校验与安全错误闭环
+
+- 请求体、方法参数/路径参数和 `ConstraintViolationException` 三类 Bean Validation 错误统一返回 400/`VALIDATION_ERROR`。
+- 字段错误包含字段定位和消息，但 `rejectedValue` 永久清空，避免密码、Token、金额原值和个人数据泄漏。
+- 401、403、429、503 强制使用公共默认消息；429 返回 `Retry-After: 1`。
+- 新增 Servlet `ApiAuthenticationEntryPoint` 与 `ApiAccessDeniedHandler`，过滤器链错误同样写入标准 `ApiResponse` JSON。
+- Test-Author 增加 Spring 7 真实验证对象和 Servlet 安全入口测试；common-core 21 项、common-web 15 项测试通过，Reviewer 复核允许完成 `BE-0212/0213`。
+- 全 Reactor `mvnw.cmd clean verify` 通过：8 个模块、55 项测试、0 失败、0 错误、0 跳过。

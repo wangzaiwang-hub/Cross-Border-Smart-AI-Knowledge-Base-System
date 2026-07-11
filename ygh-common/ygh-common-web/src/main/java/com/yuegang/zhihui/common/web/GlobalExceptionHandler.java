@@ -4,11 +4,16 @@ import com.yuegang.zhihui.common.core.ApiResponse;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.core.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
@@ -25,9 +30,59 @@ public class GlobalExceptionHandler {
             BusinessException exception,
             HttpServletRequest request) {
         var status = statusFor(exception.errorCode());
+        var message = externalMessage(exception);
         var body = ApiResponse.<Void>failure(
-                exception.errorCode(), exception.getMessage(), TraceIdResolver.resolve(request));
-        return ResponseEntity.status(status).body(body);
+                exception.errorCode(), message, TraceIdResolver.resolve(request));
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(status);
+        if (exception.errorCode() == ErrorCode.RATE_LIMITED) {
+            response.header(HttpHeaders.RETRY_AFTER, "1");
+        }
+        return response.body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<List<FieldValidationError>>> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException exception,
+            HttpServletRequest request
+    ) {
+        List<FieldValidationError> fieldErrors = exception.getBindingResult().getFieldErrors().stream()
+                .map(error -> FieldValidationError.sanitized(
+                        error.getField(),
+                        resolveValidationMessage(error.getDefaultMessage())))
+                .toList();
+        var body = ApiResponse.failure(
+                ErrorCode.VALIDATION_ERROR,
+                ErrorCode.VALIDATION_ERROR.defaultMessage(),
+                fieldErrors,
+                TraceIdResolver.resolve(request));
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<List<FieldValidationError>>> handleHandlerMethodValidation(
+            HandlerMethodValidationException exception,
+            HttpServletRequest request
+    ) {
+        List<FieldValidationError> fieldErrors = exception.getParameterValidationResults().stream()
+                .flatMap(result -> result.getResolvableErrors().stream()
+                        .map(error -> FieldValidationError.sanitized(
+                                resolveParameterName(result.getMethodParameter()),
+                                resolveValidationMessage(error.getDefaultMessage()))))
+                .toList();
+        return validationFailure(fieldErrors, request);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<List<FieldValidationError>>> handleConstraintViolation(
+            ConstraintViolationException exception,
+            HttpServletRequest request
+    ) {
+        List<FieldValidationError> fieldErrors = exception.getConstraintViolations().stream()
+                .map(violation -> FieldValidationError.sanitized(
+                        violation.getPropertyPath().toString(),
+                        resolveValidationMessage(violation.getMessage())))
+                .toList();
+        return validationFailure(fieldErrors, request);
     }
 
     @ExceptionHandler(Exception.class)
@@ -55,5 +110,36 @@ public class GlobalExceptionHandler {
             case INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
             case SUCCESS -> HttpStatus.OK;
         };
+    }
+
+    private String externalMessage(BusinessException exception) {
+        return switch (exception.errorCode()) {
+            case UNAUTHENTICATED, PERMISSION_DENIED, RATE_LIMITED,
+                    DEPENDENCY_UNAVAILABLE, INTERNAL_ERROR -> exception.errorCode().defaultMessage();
+            default -> exception.getMessage();
+        };
+    }
+
+    private String resolveValidationMessage(String message) {
+        return message == null || message.isBlank() ? "字段值不合法" : message;
+    }
+
+    private String resolveParameterName(org.springframework.core.MethodParameter parameter) {
+        String parameterName = parameter.getParameterName();
+        return parameterName == null || parameterName.isBlank()
+                ? "arg" + parameter.getParameterIndex()
+                : parameterName;
+    }
+
+    private ResponseEntity<ApiResponse<List<FieldValidationError>>> validationFailure(
+            List<FieldValidationError> fieldErrors,
+            HttpServletRequest request
+    ) {
+        var body = ApiResponse.failure(
+                ErrorCode.VALIDATION_ERROR,
+                ErrorCode.VALIDATION_ERROR.defaultMessage(),
+                fieldErrors,
+                TraceIdResolver.resolve(request));
+        return ResponseEntity.badRequest().body(body);
     }
 }

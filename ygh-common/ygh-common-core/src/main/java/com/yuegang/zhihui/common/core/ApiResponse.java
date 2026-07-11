@@ -30,10 +30,19 @@ public record ApiResponse<T>(
     }
 
     public static <T> ApiResponse<T> failure(ErrorCode errorCode, String message, String traceId) {
+        return failure(errorCode, message, null, traceId);
+    }
+
+    public static <T> ApiResponse<T> failure(
+            ErrorCode errorCode,
+            String message,
+            T data,
+            String traceId
+    ) {
         Objects.requireNonNull(errorCode, "errorCode must not be null");
         var resolvedMessage = message == null || message.isBlank()
                 ? errorCode.defaultMessage()
                 : message;
-        return new ApiResponse<>(errorCode.code(), resolvedMessage, null, traceId, OffsetDateTime.now());
+        return new ApiResponse<>(errorCode.code(), resolvedMessage, data, traceId, OffsetDateTime.now());
     }
 }
