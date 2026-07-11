@@ -193,3 +193,10 @@ WebTestClient
 - `deploy-gateway-dev.ps1` 启动前对旧 PID 同时校验 `java.exe` 和当前 Gateway JAR 命令行，不会因 PID 复用误终止其他进程。
 
 BE-0324 模块 Reactor 已通过，包含真实 Redis Testcontainers 集成验证和 JaCoCo 门禁。
+
+## 13. Gateway 到 Auth 的可信客户端 IP
+
+- `TrustedClientIpFilter` 位于 correlation 之后、用户上下文注入之前，永远删除外部传入的 `X-YGH-Client-IP*` 三个头并使用 TCP 对端地址重建。
+- 内部签名覆盖客户端 IP、traceId、requestId、方法、路径和时间戳，Auth 使用共享 Secret 在 30 秒窗口内验证；篡改任一字段、重放过期请求或缺少签名均失败关闭。
+- 当前开发拓扑将 Gateway 作为直接边缘入口，因此不采信 `Forwarded/X-Forwarded-For`。未来置于企业反向代理后时，必须在 `BE-1223` 建立代理 CIDR 白名单后才可采信代理地址。
+- 无真实 remote address 的 ApplicationContext mock 测试显式关闭此过滤器；真实 Netty 契约测试和生产默认均启用。

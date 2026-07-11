@@ -24,6 +24,7 @@ class AuthModuleContractTest {
                 .contains("user: ${YGH_AUTH_DB_MIGRATION_USERNAME:ygh_auth_migration}")
                 .contains("password: ${YGH_AUTH_DB_MIGRATION_PASSWORD}")
                 .contains("server-addr: ${YGH_NACOS_SERVER_ADDR}")
+                .contains("audit-pepper-base64: ${YGH_AUTH_AUDIT_PEPPER_BASE64}")
                 .contains("clean-disabled: true")
                 .contains("baseline-on-migrate: false")
                 .contains("out-of-order: false")
@@ -43,5 +44,16 @@ class AuthModuleContractTest {
                 "create table auth_refresh_token",
                 "create table auth_login_attempt");
         assertThat(sql).doesNotContain("plain_password", "raw_token", "drop table");
+    }
+
+    @Test
+    void secondMigrationRemovesReversibleClientIpFromAuditStorage() throws Exception {
+        var migration = new ClassPathResource("db/migration/V2__hash_login_audit_client_ip.sql");
+        assertThat(migration.exists()).isTrue();
+        String sql = migration.getContentAsString(StandardCharsets.UTF_8).toLowerCase();
+
+        assertThat(sql).contains("client_ip_hash", "drop column client_ip", "random_bytes(32)");
+        assertThat(sql).doesNotContain("sha2(", "hex(client_ip)");
+        assertThat(sql).doesNotContain("drop table", "truncate table");
     }
 }

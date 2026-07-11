@@ -18,7 +18,7 @@ class AuthFallbackConfigurationTest {
                 .hasSingleBean(AuthCommandService.class)
                 .hasBean("contractOnlyAuthCommandService"));
 
-        runner.withPropertyValues("ygh.auth.fallback.enabled=false")
+        runner.withPropertyValues("ygh.security.jwt.enabled=true")
                 .withUserConfiguration(RealServiceConfiguration.class).run(context -> {
             assertThat(context).hasSingleBean(AuthCommandService.class);
             assertThat(context).doesNotHaveBean("contractOnlyAuthCommandService");

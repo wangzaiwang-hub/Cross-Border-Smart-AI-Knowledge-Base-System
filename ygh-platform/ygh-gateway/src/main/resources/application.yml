@@ -47,6 +47,9 @@ spring:
                 - Path=/api/v1/admin/**
 
 ygh:
+  internal-request:
+    enabled: ${YGH_INTERNAL_REQUEST_SIGNATURE_ENABLED:true}
+    hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
   gateway:
     cors:
       allowed-origins: ${YGH_GATEWAY_CORS_ALLOWED_ORIGINS}

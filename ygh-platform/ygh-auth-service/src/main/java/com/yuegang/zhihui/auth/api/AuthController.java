@@ -5,6 +5,8 @@ import com.yuegang.zhihui.auth.application.AuthCommandService;
 import com.yuegang.zhihui.common.core.ApiResponse;
 import com.yuegang.zhihui.common.web.TraceIdResolver;
 import jakarta.servlet.http.HttpServletRequest;
+import com.yuegang.zhihui.auth.application.TrustedClientContextResolver;
+import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +16,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/auth")
 public final class AuthController {
     private final AuthCommandService authService;
+    private final TrustedClientContextResolver clientContextResolver;
 
     public AuthController(AuthCommandService authService) {
+        this(authService, TrustedClientContextResolver.directForTests());
+    }
+
+    @Autowired
+    public AuthController(AuthCommandService authService, TrustedClientContextResolver clientContextResolver) {
         this.authService = authService;
+        this.clientContextResolver = clientContextResolver;
     }
 
     @PostMapping("/register")
@@ -29,7 +38,7 @@ public final class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthenticationResponse> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-        return success(authService.login(request), servletRequest);
+        return success(authService.login(request, clientContextResolver.resolve(servletRequest)), servletRequest);
     }
 
     @PostMapping("/refresh")
@@ -66,4 +75,5 @@ public final class AuthController {
     private static <T> ApiResponse<T> success(T data, HttpServletRequest request) {
         return ApiResponse.success(data, TraceIdResolver.resolve(request));
     }
+
 }

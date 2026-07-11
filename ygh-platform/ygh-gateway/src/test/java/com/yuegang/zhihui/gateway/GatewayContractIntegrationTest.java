@@ -79,7 +79,8 @@ class GatewayContractIntegrationTest {
                             "--ygh.security.session-validation.enabled=false",
                             "--YGH_REDIS_HOST=127.0.0.1",
                             "--YGH_REDIS_PASSWORD=change-me",
-                            "--YGH_REDIS_ENVIRONMENT=test")) {
+                            "--YGH_REDIS_ENVIRONMENT=test",
+                            "--YGH_INTERNAL_REQUEST_HMAC_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")) {
                 Integer gatewayPort = context.getEnvironment()
                         .getProperty("local.server.port", Integer.class);
                 WebTestClient client = WebTestClient.bindToServer()

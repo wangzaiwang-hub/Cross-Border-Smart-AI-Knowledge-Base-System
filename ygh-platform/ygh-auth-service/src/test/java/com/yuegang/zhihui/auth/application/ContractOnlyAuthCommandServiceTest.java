@@ -14,7 +14,7 @@ class ContractOnlyAuthCommandServiceTest {
     @Test
     void everyUnimplementedUseCaseFailsClosedAsDependencyUnavailable() {
         assertUnavailable(() -> service.register(null));
-        assertUnavailable(() -> service.login(null));
+        assertUnavailable(() -> service.login(null, null));
         assertUnavailable(() -> service.refresh(null));
         assertUnavailable(() -> service.logout(null));
         assertUnavailable(service::captcha);

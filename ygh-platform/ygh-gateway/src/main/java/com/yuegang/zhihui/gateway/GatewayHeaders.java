@@ -8,4 +8,7 @@ interface GatewayHeaders {
     String USER_ID = "X-YGH-User-Id";
     String ROLES = "X-YGH-Roles";
     String PERMISSIONS = "X-YGH-Permissions";
+    String CLIENT_IP = "X-YGH-Client-IP";
+    String CLIENT_IP_TIMESTAMP = "X-YGH-Client-IP-Timestamp";
+    String CLIENT_IP_SIGNATURE = "X-YGH-Client-IP-Signature";
 }

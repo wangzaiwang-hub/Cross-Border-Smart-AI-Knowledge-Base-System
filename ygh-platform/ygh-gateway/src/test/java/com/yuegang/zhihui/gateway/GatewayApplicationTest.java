@@ -98,7 +98,9 @@ class GatewayApplicationTest {
                         "--management.health.redis.enabled=false",
                         "--YGH_REDIS_HOST=127.0.0.1",
                         "--YGH_REDIS_PASSWORD=change-me",
-                        "--YGH_REDIS_ENVIRONMENT=test")) {
+                        "--YGH_REDIS_ENVIRONMENT=test",
+                        "--ygh.internal-request.enabled=false",
+                        "--YGH_INTERNAL_REQUEST_HMAC_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")) {
             assertThat(context).isInstanceOf(ConfigurableReactiveWebApplicationContext.class);
             assertThat(context.containsBean("webHandler")).isTrue();
 

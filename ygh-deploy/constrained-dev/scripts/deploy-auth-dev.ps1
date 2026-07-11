@@ -20,7 +20,8 @@ Get-Content -LiteralPath $envFile | ForEach-Object {
     if ($_ -match '^([^#=]+)=(.*)$') { $config[$matches[1]] = $matches[2] }
 }
 foreach ($required in @(
-        "AUTH_DB_APP_PASSWORD", "AUTH_DB_MIGRATION_PASSWORD", "NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD")) {
+        "AUTH_DB_APP_PASSWORD", "AUTH_DB_MIGRATION_PASSWORD", "AUTH_AUDIT_PEPPER_BASE64",
+        "INTERNAL_REQUEST_HMAC_BASE64", "NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD")) {
     if ([string]::IsNullOrWhiteSpace($config[$required])) { throw "$required missing" }
 }
 
@@ -46,6 +47,8 @@ try {
     $env:YGH_REDIS_PORT = "6379"
     $env:YGH_REDIS_PASSWORD = $config.REDIS_PASSWORD
     $env:YGH_REDIS_ENVIRONMENT = "dev"
+    $env:YGH_AUTH_AUDIT_PEPPER_BASE64 = $config.AUTH_AUDIT_PEPPER_BASE64
+    $env:YGH_INTERNAL_REQUEST_HMAC_BASE64 = $config.INTERNAL_REQUEST_HMAC_BASE64
 
     & java '-Dloader.main=com.yuegang.zhihui.auth.AuthMigrationApplication' `
         -cp $jar org.springframework.boot.loader.launch.PropertiesLauncher

@@ -5,14 +5,31 @@ import com.yuegang.zhihui.auth.domain.AccountSecurityRepository;
 import com.yuegang.zhihui.auth.domain.Argon2PasswordHasher;
 import com.yuegang.zhihui.auth.domain.PasswordPolicy;
 import com.yuegang.zhihui.auth.domain.RefreshTokenRepository;
+import com.yuegang.zhihui.auth.domain.LoginAttemptRepository;
+import com.yuegang.zhihui.auth.domain.LoginAccountRepository;
+import com.yuegang.zhihui.auth.domain.LoginRateLimitPolicy;
+import com.yuegang.zhihui.auth.domain.LoginRateLimiter;
+import com.yuegang.zhihui.auth.domain.SensitiveValueHasher;
+import com.yuegang.zhihui.auth.domain.AccessTokenIssuer;
+import com.yuegang.zhihui.auth.domain.PasswordDigest;
 import com.yuegang.zhihui.auth.infrastructure.ClasspathCompromisedPasswordChecker;
 import com.yuegang.zhihui.auth.infrastructure.JdbcAccountSecurityRepository;
 import com.yuegang.zhihui.auth.infrastructure.JdbcRefreshTokenRepository;
+import com.yuegang.zhihui.auth.infrastructure.JdbcLoginAttemptRepository;
+import com.yuegang.zhihui.auth.infrastructure.JdbcLoginAccountRepository;
+import com.yuegang.zhihui.auth.infrastructure.RedisLoginRateLimiter;
+import com.yuegang.zhihui.common.redis.RedisKeyBuilder;
+import com.yuegang.zhihui.common.redis.SessionStateStore;
+import com.yuegang.zhihui.common.security.InternalRequestSignature;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Base64;
 import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Configuration(proxyBeanMethods = false)
 class AuthSecurityConfiguration {
@@ -58,5 +75,124 @@ class AuthSecurityConfiguration {
             AccountLockPolicy policy,
             Clock clock) {
         return new AccountLockService(repository, policy, clock);
+    }
+
+    @Bean
+    SensitiveValueHasher sensitiveValueHasher(
+            @org.springframework.beans.factory.annotation.Value("${ygh.auth.audit-pepper-base64}")
+            String encodedPepper) {
+        byte[] pepper;
+        try {
+            pepper = Base64.getDecoder().decode(encodedPepper);
+        } catch (IllegalArgumentException malformed) {
+            throw new IllegalStateException("YGH_AUTH_AUDIT_PEPPER_BASE64 must be valid Base64", malformed);
+        }
+        try {
+            return new SensitiveValueHasher(pepper);
+        } finally {
+            Arrays.fill(pepper, (byte) 0);
+        }
+    }
+
+    @Bean
+    InternalRequestSignature internalRequestSignature(
+            @org.springframework.beans.factory.annotation.Value("${ygh.internal-request.hmac-base64}")
+            String encodedSecret,
+            Clock clock) {
+        byte[] secret;
+        try {
+            secret = Base64.getDecoder().decode(encodedSecret);
+        } catch (IllegalArgumentException malformed) {
+            throw new IllegalStateException("YGH_INTERNAL_REQUEST_HMAC_BASE64 must be valid Base64", malformed);
+        }
+        try {
+            return new InternalRequestSignature(secret, clock, Duration.ofSeconds(30));
+        } finally {
+            Arrays.fill(secret, (byte) 0);
+        }
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    TrustedClientContextResolver trustedClientContextResolver(InternalRequestSignature signatures) {
+        return new TrustedClientContextResolver(signatures);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "false", matchIfMissing = true)
+    TrustedClientContextResolver directClientContextResolver() {
+        return TrustedClientContextResolver.directForTests();
+    }
+
+    @Bean
+    LoginRateLimitPolicy loginRateLimitPolicy(
+            @org.springframework.beans.factory.annotation.Value("${ygh.auth.rate-limit.principal-limit:10}")
+            int principalLimit,
+            @org.springframework.beans.factory.annotation.Value("${ygh.auth.rate-limit.principal-window:15m}")
+            Duration principalWindow,
+            @org.springframework.beans.factory.annotation.Value("${ygh.auth.rate-limit.ip-limit:30}")
+            int ipLimit,
+            @org.springframework.beans.factory.annotation.Value("${ygh.auth.rate-limit.ip-window:15m}")
+            Duration ipWindow) {
+        return new LoginRateLimitPolicy(principalLimit, principalWindow, ipLimit, ipWindow);
+    }
+
+    @Bean
+    LoginAttemptRepository loginAttemptRepository(DataSource dataSource) {
+        return new JdbcLoginAttemptRepository(dataSource);
+    }
+
+    @Bean
+    LoginAccountRepository loginAccountRepository(DataSource dataSource) {
+        return new JdbcLoginAccountRepository(dataSource);
+    }
+
+    @Bean
+    LoginAuditService loginAuditService(
+            LoginAttemptRepository repository, SensitiveValueHasher hasher, Clock clock) {
+        return new LoginAuditService(repository, hasher, clock);
+    }
+
+    @Bean
+    LoginRateLimiter loginRateLimiter(
+            StringRedisTemplate redis,
+            RedisKeyBuilder keys,
+            SensitiveValueHasher hasher,
+            LoginRateLimitPolicy policy,
+            @org.springframework.beans.factory.annotation.Value("${ygh.redis.environment}") String environment) {
+        return new RedisLoginRateLimiter(redis, keys, hasher, policy, environment);
+    }
+
+    @Bean
+    PasswordDigest dummyLoginPasswordDigest(Argon2PasswordHasher hasher) {
+        char[] dummy = "non-account timing equalizer 2026".toCharArray();
+        try {
+            return hasher.hash(dummy);
+        } finally {
+            Arrays.fill(dummy, '\0');
+        }
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    LoginUseCase loginUseCase(
+            LoginAccountRepository accounts,
+            LoginRateLimiter rateLimiter,
+            AccountLockService accountLocks,
+            Argon2PasswordHasher passwordHasher,
+            PasswordDigest dummyLoginPasswordDigest,
+            AccessTokenIssuer accessTokens,
+            OpaqueRefreshTokenService refreshTokens,
+            LoginAuditService audit,
+            SessionStateStore sessions,
+            Clock clock) {
+        return new LoginUseCase(accounts, rateLimiter, accountLocks, passwordHasher,
+                dummyLoginPasswordDigest, accessTokens, refreshTokens, audit, sessions, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    AuthCommandService operationalAuthCommandService(LoginUseCase loginUseCase) {
+        return new OperationalAuthCommandService(loginUseCase);
     }
 }

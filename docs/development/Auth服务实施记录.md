@@ -38,7 +38,7 @@
 
 ## 4. Flyway 安全策略
 
-- 唯一位置为 `classpath:db/migration`，当前版本为 `V1__create_auth_schema.sql`。
+- 唯一位置为 `classpath:db/migration`，当前版本为 V2；V1 创建认证事实表，V2 将登录审计原始 IP 前向迁移为不可逆摘要。
 - `clean`、baseline、out-of-order 均关闭，启动时强制 validate。
 - 修复公共 Flyway 门禁对 Flyway 11 绝对 classpath 资源路径的误判；仍先验证资源属于批准位置，再规范化为策略路径。
 - 数据库迁移使用独立账号，应用 Hikari 数据源始终使用无 DDL 权限账号。
@@ -61,7 +61,7 @@ Testcontainer 从全新 MySQL 数据目录开始，测试顺序与正式部署�
 - `verify-auth-db.sh` 验证应用账号 DDL 被拒绝、迁移账号 DDL 成功、授权无漂移；
 - 本机启动 Auth 可执行 JAR，连接虚拟机 MySQL 完成 V1，readiness 为 `UP`；
 - Nacos 中出现唯一健康实例 `YGH_GROUP@@ygh-auth-service`，烟测结束后进程已停止；
-- `auth_db` 当前包含四张业务表及 `flyway_schema_history`，成功版本为 1。
+- `auth_db` 当前包含四张业务表及 `flyway_schema_history`；该条初始部署证据当时成功版本为 1，后续 V2 实际迁移证据见第 10 节。
 
 ## 6. BE-0321 HTTP 契约
 
@@ -109,3 +109,17 @@ JWT 功能通过 `YGH_JWT_ENABLED=true` 显式启用，并要求注入 `YGH_JWT_
 - 真实 Redis Testcontainers 覆盖注册、撤销、账号禁用/启用、TTL 和 Cluster hash slot；Gateway 集成测试覆盖正常、撤销、Redis 故障及下游异常边界。
 
 阶段模块 Reactor `verify` 已通过 11 个模块，所有 JaCoCo 门禁通过。完整登录用例仍由 `BE-0325` 继续聚合。
+
+## 10. BE-0325 登录审计、双维限流与可信客户端 IP
+
+- 登录前以 Redis Lua 对账号主体和客户端 IP 分别执行固定窗口原子计数，默认阈值为账号 `10 次/15 分钟`、IP `30 次/15 分钟`；两个维度始终都计数，任一超限即返回 429，Redis 故障失败关闭。
+- 主体和 IP 在进入 Redis key 或 MySQL 审计表前均使用独立环境 Pepper 的 HMAC-SHA256；数据库只保存 64 位摘要。V2 前向迁移使用逐行随机 256-bit 值替换历史原始 IP 后删除 `client_ip` 列，避免低熵 IP 被字典还原。
+- Gateway 删除客户端提交的内部 IP、时间戳和签名头，以 TCP 对端地址重建。HMAC 签名绑定 IP、traceId、requestId、HTTP 方法、路径和毫秒时间戳；Auth 只接受 30 秒窗口内的有效签名。
+- `YGH_AUTH_AUDIT_PEPPER_BASE64` 与 `YGH_INTERNAL_REQUEST_HMAC_BASE64` 均要求至少 32 字节随机值，只通过 Secret/环境变量注入；生成脚本可幂等补齐既有 `.env`，不输出实际值。
+- 登录状态机按限流、账户读取、Dummy/真实 Argon2 校验、禁用/锁定判断、失败次数 CAS、Token 签发和审计顺序执行。未知账户同样执行 Dummy Argon2，外部统一返回 `UNAUTHENTICATED`。
+- Access/Refresh Token 签发后若成功审计失败，系统失败关闭并补偿撤销 Redis Access Session 与 Refresh Token family；清理失败作为 suppressed exception 保留，不覆盖原始错误。
+- 请求日志只记录方法、无 Query 的路径、状态、耗时、相关 ID 和经过敏感词检查的 User-Agent；不读取请求体，不记录密码、验证码、Authorization、Cookie 或 Token。
+
+真实 MySQL 8.4.10 + Redis 8.4.4 + 临时 RSA 密钥 + Auth 随机端口 HTTP 测试已验证：登录 200、JWT `sub/account_id/roles`、Refresh Token 行、Redis Session/账号状态和 HMAC 登录审计五处事实一致。Reviewer 复核无 P0/P1。
+
+虚拟机 MySQL 于 2026-07-12 从 V1 前向迁移至 V2，Flyway 校验并成功应用 1 个迁移；更新后的 `verify-auth-db.sh` 已确认版本为 2、`client_ip` 已删除、仅保留 `client_ip_hash`，同时应用账号 DDL 拒绝、迁移账号 DDL 成功及五张含 Flyway 历史表的表数量门禁均通过。随后开发 Auth 实例重新部署成功。

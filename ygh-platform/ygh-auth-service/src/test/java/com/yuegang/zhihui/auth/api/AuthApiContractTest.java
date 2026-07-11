@@ -114,7 +114,8 @@ class AuthApiContractTest {
     void unavailableBusinessImplementationFailsClosedWithStable503Envelope() throws Exception {
         var unavailableService = new StubAuthService() {
             @Override
-            public AuthenticationResponse login(com.yuegang.zhihui.auth.api.dto.LoginRequest request) {
+            public AuthenticationResponse login(com.yuegang.zhihui.auth.api.dto.LoginRequest request,
+                    com.yuegang.zhihui.auth.application.LoginSecurityContext context) {
                 throw new BusinessException(ErrorCode.DEPENDENCY_UNAVAILABLE);
             }
         };
@@ -144,7 +145,8 @@ class AuthApiContractTest {
         }
 
         @Override
-        public AuthenticationResponse login(com.yuegang.zhihui.auth.api.dto.LoginRequest request) {
+        public AuthenticationResponse login(com.yuegang.zhihui.auth.api.dto.LoginRequest request,
+                com.yuegang.zhihui.auth.application.LoginSecurityContext context) {
             return new AuthenticationResponse("10001", tokens());
         }
 

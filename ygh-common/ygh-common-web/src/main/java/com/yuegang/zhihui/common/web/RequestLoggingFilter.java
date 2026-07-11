@@ -62,8 +62,10 @@ public final class RequestLoggingFilter extends OncePerRequestFilter {
     }
 
     private String resolveOrCreateTraceId(HttpServletRequest request) {
-        String resolved = TraceIdResolver.resolve(request);
-        return isSafeIdentifier(resolved) ? resolved : newIdentifier();
+        Object attribute = request.getAttribute(TraceIdResolver.TRACE_ID_ATTRIBUTE);
+        if (attribute instanceof String value && isSafeIdentifier(value)) return value;
+        String header = request.getHeader(TraceIdResolver.TRACE_ID_HEADER);
+        return isSafeIdentifier(header) ? header : newIdentifier();
     }
 
     private String resolveOrCreateRequestId(HttpServletRequest request) {

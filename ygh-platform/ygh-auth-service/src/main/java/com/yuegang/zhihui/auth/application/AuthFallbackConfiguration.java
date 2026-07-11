@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(
-        prefix = "ygh.auth.fallback", name = "enabled", havingValue = "true", matchIfMissing = true)
+        prefix = "ygh.security.jwt", name = "enabled", havingValue = "false", matchIfMissing = true)
 class AuthFallbackConfiguration {
 
     @Bean

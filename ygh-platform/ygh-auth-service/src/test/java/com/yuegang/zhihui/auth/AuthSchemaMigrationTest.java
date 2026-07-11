@@ -49,7 +49,7 @@ class AuthSchemaMigrationTest {
             var second = flyway.migrate();
             grantAppTablePrivileges(fixture, appUser);
 
-            assertThat(first.migrationsExecuted).isEqualTo(1);
+            assertThat(first.migrationsExecuted).isEqualTo(2);
             assertThat(second.migrationsExecuted).isZero();
             try (var connection = DriverManager.getConnection(
                     fixture.jdbcUrl(), fixture.username(), fixture.credential())) {
@@ -70,7 +70,7 @@ class AuthSchemaMigrationTest {
                         "account_id", "token_hash", "token_family", "expires_at",
                         "revoked_at", "replaced_by_token_id");
                 assertThat(columnNames(connection, "auth_login_attempt")).contains(
-                        "principal_hash", "client_ip", "result", "failure_reason",
+                        "principal_hash", "client_ip_hash", "result", "failure_reason",
                         "occurred_at", "trace_id");
                 assertThat(indexNames(connection, "auth_account"))
                         .contains("uk_auth_account_principal", "idx_auth_account_status");
@@ -78,7 +78,7 @@ class AuthSchemaMigrationTest {
                         .contains("uk_auth_refresh_token_hash", "idx_auth_refresh_account_family_expiry",
                                 "idx_auth_refresh_expiry");
                 assertThat(indexNames(connection, "auth_login_attempt"))
-                        .contains("idx_auth_login_occurred_at");
+                        .contains("idx_auth_login_occurred_at", "idx_auth_login_ip_hash_time");
                 assertThat(importedKeyTables(connection, "auth_credential"))
                         .contains("auth_account");
             }
@@ -97,7 +97,9 @@ class AuthSchemaMigrationTest {
                             "YGH_NACOS_PASSWORD=test",
                             "YGH_REDIS_HOST=127.0.0.1",
                             "YGH_REDIS_PASSWORD=change-me",
-                            "YGH_REDIS_ENVIRONMENT=test")
+                            "YGH_REDIS_ENVIRONMENT=test",
+                            "YGH_AUTH_AUDIT_PEPPER_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+                            "YGH_INTERNAL_REQUEST_HMAC_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
                     .run()) {
                 assertThat(context.isActive()).isTrue();
             }
@@ -116,7 +118,9 @@ class AuthSchemaMigrationTest {
                             "YGH_NACOS_PASSWORD=test",
                             "YGH_REDIS_HOST=127.0.0.1",
                             "YGH_REDIS_PASSWORD=change-me",
-                            "YGH_REDIS_ENVIRONMENT=test")
+                            "YGH_REDIS_ENVIRONMENT=test",
+                            "YGH_AUTH_AUDIT_PEPPER_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+                            "YGH_INTERNAL_REQUEST_HMAC_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
                     .run()) {
                 assertThat(runtimeContext.isActive()).isTrue();
                 assertThat(runtimeContext.containsBean("flyway")).isFalse();

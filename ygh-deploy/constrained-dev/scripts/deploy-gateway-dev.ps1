@@ -17,7 +17,7 @@ $config = @{}
 Get-Content -LiteralPath $envFile | ForEach-Object {
     if ($_ -match '^([^#=]+)=(.*)$') { $config[$matches[1]] = $matches[2] }
 }
-foreach ($required in @("NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD")) {
+foreach ($required in @("NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD", "INTERNAL_REQUEST_HMAC_BASE64")) {
     if ([string]::IsNullOrWhiteSpace($config[$required])) { throw "$required missing" }
 }
 
@@ -40,6 +40,7 @@ try {
     $env:YGH_JWT_JWK_SET_URI = $JwkSetUri
     $env:YGH_GATEWAY_CORS_ALLOWED_ORIGINS = "http://127.0.0.1:5173"
     $env:YGH_GATEWAY_PORT = $Port.ToString()
+    $env:YGH_INTERNAL_REQUEST_HMAC_BASE64 = $config.INTERNAL_REQUEST_HMAC_BASE64
 
     $target = Split-Path $jar
     $stdout = Join-Path $target "gateway.log"

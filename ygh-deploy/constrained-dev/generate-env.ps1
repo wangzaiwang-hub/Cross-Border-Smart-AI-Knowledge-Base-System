@@ -8,7 +8,17 @@ function New-Secret([int]$bytes = 32) {
 
 $envPath = Join-Path $PSScriptRoot '.env'
 if (Test-Path $envPath) {
-    Write-Output 'ENV_EXISTS_NO_CHANGE'
+    $existing = Get-Content -Raw -LiteralPath $envPath
+    $updated = $false
+    if ($existing -notmatch '(?m)^AUTH_AUDIT_PEPPER_BASE64=') {
+        Add-Content -LiteralPath $envPath -Value "AUTH_AUDIT_PEPPER_BASE64=$(New-Secret 32)" -Encoding UTF8NoBOM
+        $updated = $true
+    }
+    if ($existing -notmatch '(?m)^INTERNAL_REQUEST_HMAC_BASE64=') {
+        Add-Content -LiteralPath $envPath -Value "INTERNAL_REQUEST_HMAC_BASE64=$(New-Secret 32)" -Encoding UTF8NoBOM
+        $updated = $true
+    }
+    Write-Output $(if ($updated) { 'ENV_UPDATED_MISSING_VALUES_HIDDEN' } else { 'ENV_EXISTS_NO_CHANGE' })
     exit 0
 }
 
@@ -21,6 +31,8 @@ MYSQL_ROOT_PASSWORD=$(New-Secret 24)
 NACOS_DB_PASSWORD=$(New-Secret 24)
 AUTH_DB_APP_PASSWORD=$(New-Secret 24)
 AUTH_DB_MIGRATION_PASSWORD=$(New-Secret 24)
+AUTH_AUDIT_PEPPER_BASE64=$(New-Secret 32)
+INTERNAL_REQUEST_HMAC_BASE64=$(New-Secret 32)
 REDIS_PASSWORD=$(New-Secret 24)
 NACOS_AUTH_TOKEN=$nacosToken
 NACOS_AUTH_IDENTITY_KEY=ygh-server-$(New-Secret 12)

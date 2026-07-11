@@ -31,7 +31,7 @@ MYSQL_PWD=$AUTH_DB_APP_PASSWORD
 export MYSQL_PWD
 compose_exec -e MYSQL_PWD mysql \
   mysql -h127.0.0.1 -uygh_auth_app -Dauth_db -Nse "SELECT 1" >/dev/null
-if [ "$table_count" -ne 4 ]; then
+if [ "$table_count" -ne 5 ]; then
   echo "AUTH_DB_TABLE_COUNT_UNEXPECTED:$table_count" >&2
   exit 1
 fi
@@ -40,8 +40,15 @@ export MYSQL_PWD
 schema_version=$(compose_exec -e MYSQL_PWD mysql \
   mysql -h127.0.0.1 -uygh_auth_migration -Dauth_db -Nse \
   "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank DESC LIMIT 1")
-if [ "$schema_version" != "1" ]; then
+if [ "$schema_version" != "2" ]; then
   echo "AUTH_DB_SCHEMA_VERSION_UNEXPECTED:$schema_version" >&2
+  exit 1
+fi
+login_attempt_columns=$(compose_exec -e MYSQL_PWD mysql \
+  mysql -h127.0.0.1 -uygh_auth_migration -Dauth_db -Nse \
+  "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth_login_attempt' AND COLUMN_NAME IN ('client_ip', 'client_ip_hash') ORDER BY COLUMN_NAME")
+if [ "$login_attempt_columns" != "client_ip_hash" ]; then
+  echo "AUTH_LOGIN_ATTEMPT_IP_SCHEMA_UNEXPECTED:$login_attempt_columns" >&2
   exit 1
 fi
 

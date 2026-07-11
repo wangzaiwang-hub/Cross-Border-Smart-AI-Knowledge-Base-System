@@ -65,6 +65,15 @@ management:
       enabled: true
 
 ygh:
+  internal-request:
+    hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
+  auth:
+    audit-pepper-base64: ${YGH_AUTH_AUDIT_PEPPER_BASE64}
+    rate-limit:
+      principal-limit: ${YGH_AUTH_PRINCIPAL_LOGIN_LIMIT:10}
+      principal-window: ${YGH_AUTH_PRINCIPAL_LOGIN_WINDOW:15m}
+      ip-limit: ${YGH_AUTH_IP_LOGIN_LIMIT:30}
+      ip-window: ${YGH_AUTH_IP_LOGIN_WINDOW:15m}
   redis:
     environment: ${YGH_REDIS_ENVIRONMENT}
   security:

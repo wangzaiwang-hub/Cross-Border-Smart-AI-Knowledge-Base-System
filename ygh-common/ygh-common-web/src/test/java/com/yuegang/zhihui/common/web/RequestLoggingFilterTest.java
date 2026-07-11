@@ -181,6 +181,21 @@ class RequestLoggingFilterTest {
     }
 
     @Test
+    void reusesSafeTraceHeaderWhenNoTrustedAttributeExists() throws Exception {
+        var events = new ArrayList<RequestLogEvent>();
+        var filter = new RequestLoggingFilter(events::add);
+        var request = new MockHttpServletRequest("GET", "/api/v1/products");
+        request.addHeader(TraceIdResolver.TRACE_ID_HEADER, "gateway-trace-01");
+        request.setAttribute(TraceIdResolver.REQUEST_ID_ATTRIBUTE, "request-attribute-01");
+
+        filter.doFilter(request, new MockHttpServletResponse(), (servletRequest, servletResponse) -> {
+        });
+
+        assertThat(events.getFirst().traceId()).isEqualTo("gateway-trace-01");
+        assertThat(events.getFirst().requestId()).isEqualTo("request-attribute-01");
+    }
+
+    @Test
     void userAgentRemovesControlCharactersAndIsBoundedTo256Characters() throws Exception {
         var events = new ArrayList<RequestLogEvent>();
         var filter = new RequestLoggingFilter(events::add);

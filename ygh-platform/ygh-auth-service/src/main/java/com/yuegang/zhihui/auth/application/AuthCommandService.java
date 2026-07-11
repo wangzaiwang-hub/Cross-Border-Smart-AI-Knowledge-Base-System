@@ -15,7 +15,7 @@ import com.yuegang.zhihui.auth.api.dto.TokenResponse;
 /** Application boundary implemented incrementally by BE-0322 through BE-0325. */
 public interface AuthCommandService {
     AuthenticationResponse register(RegisterRequest request);
-    AuthenticationResponse login(LoginRequest request);
+    AuthenticationResponse login(LoginRequest request, LoginSecurityContext context);
     TokenResponse refresh(RefreshTokenRequest request);
     OperationResponse logout(LogoutRequest request);
     CaptchaResponse captcha();
