@@ -144,3 +144,13 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 新增 Servlet `ApiAuthenticationEntryPoint` 与 `ApiAccessDeniedHandler`，过滤器链错误同样写入标准 `ApiResponse` JSON。
 - Test-Author 增加 Spring 7 真实验证对象和 Servlet 安全入口测试；common-core 21 项、common-web 15 项测试通过，Reviewer 复核允许完成 `BE-0212/0213`。
 - 全 Reactor `mvnw.cmd clean verify` 通过：8 个模块、55 项测试、0 失败、0 错误、0 跳过。
+
+## 12. common-web 安全请求日志
+
+- 新增结构化 `RequestLogEvent`/`RequestLogSink` 与不读取 query/body 的 Servlet 请求日志过滤器。
+- 仅记录 traceId、requestId、method、纯 path、status、duration 和脱敏 User-Agent；Authorization、Cookie、密码、Token、Secret、完整地址和请求体均不进入事件。
+- 关联 ID 限制为 `[A-Za-z0-9._-]` 且不超过 128 字符；User-Agent 清除控制字符、限制 256 字符，含敏感词时整值替换。
+- 默认结构化日志 Sink 失败不会破坏正常响应，也不会覆盖原始业务异常。
+- 使用 Boot AutoConfiguration 和 `FilterRegistrationBean` 自动注册，顺序固定为 `HIGHEST_PRECEDENCE + 10`，确保早于 Spring Security 短路响应。
+- common-web 27 项日志与自动配置测试通过且无 unchecked 编译警告；Reviewer 复核允许完成 `BE-0214`。
+- 全 Reactor `mvnw.cmd clean verify` 通过：8 个模块、67 项测试、0 失败、0 错误、0 跳过。
