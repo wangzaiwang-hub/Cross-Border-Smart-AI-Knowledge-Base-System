@@ -27,6 +27,17 @@ final class GatewaySecurityErrorWriter {
         return write(exchange, HttpStatus.FORBIDDEN, ErrorCode.PERMISSION_DENIED);
     }
 
+    Mono<Void> rateLimited(ServerWebExchange exchange) {
+        if (!exchange.getResponse().isCommitted()) {
+            exchange.getResponse().getHeaders().set("Retry-After", "1");
+        }
+        return write(exchange, HttpStatus.TOO_MANY_REQUESTS, ErrorCode.RATE_LIMITED);
+    }
+
+    Mono<Void> dependencyUnavailable(ServerWebExchange exchange) {
+        return write(exchange, HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.DEPENDENCY_UNAVAILABLE);
+    }
+
     private Mono<Void> write(ServerWebExchange exchange, HttpStatus status, ErrorCode errorCode) {
         if (exchange.getResponse().isCommitted()) {
             return Mono.empty();

@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-gateway`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud Gateway 5.0.2  
-> 当前完成：`BE-0301`—`BE-0305`
+> 当前完成：`BE-0301`—`BE-0306`
 
 ## 1. Maven 边界
 
@@ -26,7 +26,7 @@ ygh-platform/                       # packaging=pom，平台副项目
 - 网关不依赖 servlet 版 `ygh-common-web`；该模块当前含 Spring MVC 和 Servlet API，不允许进入 Gateway 依赖图。
 - 单元测试同时断言 `DispatcherHandler` 存在、`DispatcherServlet` 和 `jakarta.servlet.Servlet` 不存在。
 - 启动测试使用随机端口创建真实 Reactive ApplicationContext，验证 Gateway WebHandler 和 Netty 启停。
-- Nacos Discovery 通过环境变量接入；JWT、限流和 Sentinel 分别在后续任务中接入。
+- Nacos Discovery、JWT 与 Sentinel Gateway Adapter 已接入；动态限流规则持久化仍归 `BE-1003`。
 
 ## 3. 路由与服务发现
 
@@ -96,3 +96,20 @@ ygh-platform/                       # packaging=pom，平台副项目
 - JWT Claim 只允许安全字符串数组，角色/权限最多 128 项、编码后最多 4096 字符；用户 ID、Claim 类型和内容异常均 fail-closed。
 - JWT Bridge 只执行一次下游链；认证 JWT 被映射为 `CurrentUserPrincipal` Exchange Attribute，再由 Trusted Context Filter 生成内部头。
 - 401/403 使用公共 `ApiResponse`，并复用 Correlation WebFilter 提前建立的 canonical traceId。
+
+## 8. Sentinel Gateway 限流与降级
+
+| Route ID | 默认 QPS | 突发额度 | 环境变量 |
+|---|---:|---:|---|
+| `auth-service` | 20 | 5 | `YGH_GATEWAY_AUTH_QPS/BURST` |
+| `user-service` | 100 | 10 | `YGH_GATEWAY_SERVICE_QPS/BURST` |
+| `system-service` | 100 | 10 | 同上 |
+| `admin-service` | 100 | 10 | 同上 |
+
+- 使用 Sentinel `sentinel-spring-cloud-gateway-v6x-adapter`，按已解析的 Route ID 执行一秒窗口 QPS 与突发流控。
+- 启动时对 QPS 的正数、有限值和 burst 的非负值做 fail-fast 校验；QPS 与 burst 上限均为 10,000，禁止无界、NaN 或非法规则进入运行态。
+- Sentinel `BlockException` 统一转换为 HTTP 429、业务码 `RATE_LIMITED`，并返回 `Retry-After: 1`；LoadBalancer 无可用实例的 `NotFoundException` 转换为 HTTP 503、业务码 `DEPENDENCY_UNAVAILABLE`。
+- 429/503 均使用公共 `ApiResponse` 且包含 canonical traceId；未知异常保持原样交给后续异常链，避免误报依赖故障。
+- 当前只加载可重复验证的本地静态基线，不启动 Sentinel Dashboard/Transport 全局线程；Nacos 动态规则、接口级熔断和持久化归 `BE-1003`，不在本任务虚报完成。
+- 每个 Gateway 进程只运行一个 Spring ApplicationContext；Sentinel 静态 RuleManager 是 JVM 全局状态，测试保存并恢复原规则且串行锁定该资源。多上下文和动态规则生命周期统一在 `BE-1003` 收口。
+- 自动化验证覆盖四条路由规则、非法配置、正 QPS 首次放行/第二次真实阻断、阻断后不执行下游操作、429/503 Envelope 和未知异常透传；Gateway 33 项测试通过，模块分支覆盖率继续高于 90%。

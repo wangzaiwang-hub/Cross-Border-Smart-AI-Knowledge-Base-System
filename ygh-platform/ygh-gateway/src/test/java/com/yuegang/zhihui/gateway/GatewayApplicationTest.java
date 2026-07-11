@@ -55,6 +55,8 @@ class GatewayApplicationTest {
                 "org.springframework.cloud.gateway.filter.ReactiveLoadBalancerClientFilter", classLoader)).isTrue();
         assertThat(ClassUtils.isPresent(
                 "com.github.benmanes.caffeine.cache.Caffeine", classLoader)).isTrue();
+        assertThat(ClassUtils.isPresent(
+                "com.alibaba.csp.sentinel.adapter.gateway.sc.SentinelGatewayFilter", classLoader)).isTrue();
     }
 
     @Test
@@ -102,8 +104,13 @@ class GatewayApplicationTest {
                     .exchange()
                     .expectStatus().isOk();
             client.post().uri("/api/v1/auth/login")
+                    .header(GatewayHeaders.TRACE_ID, "trace-dependency-1234")
                     .exchange()
-                    .expectStatus().value(status -> assertThat(status).isNotEqualTo(401));
+                    .expectStatus().isEqualTo(503)
+                    .expectHeader().valueEquals(GatewayHeaders.TRACE_ID, "trace-dependency-1234")
+                    .expectBody()
+                    .jsonPath("$.code").isEqualTo("DEPENDENCY_UNAVAILABLE")
+                    .jsonPath("$.traceId").isEqualTo("trace-dependency-1234");
             client.get().uri("/api/v1/users/me")
                     .header(GatewayHeaders.TRACE_ID, "trace-security-1234")
                     .exchange()

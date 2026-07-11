@@ -38,6 +38,12 @@ spring:
                 - Path=/api/v1/admin/**
 
 ygh:
+  gateway:
+    sentinel:
+      auth-qps: ${YGH_GATEWAY_AUTH_QPS:20}
+      auth-burst: ${YGH_GATEWAY_AUTH_BURST:5}
+      service-qps: ${YGH_GATEWAY_SERVICE_QPS:100}
+      service-burst: ${YGH_GATEWAY_SERVICE_BURST:10}
   security:
     jwt:
       issuer: ${YGH_JWT_ISSUER}
