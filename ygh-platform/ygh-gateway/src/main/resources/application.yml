@@ -6,6 +6,32 @@ spring:
     name: ygh-gateway
   main:
     web-application-type: reactive
+  cloud:
+    nacos:
+      server-addr: ${YGH_NACOS_SERVER_ADDR}
+      username: ${YGH_NACOS_USERNAME}
+      password: ${YGH_NACOS_PASSWORD}
+      discovery:
+        enabled: ${YGH_NACOS_DISCOVERY_ENABLED:true}
+        namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
+        group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
+        ip: ${YGH_SERVICE_IP:}
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth-service
+              uri: lb://ygh-auth-service
+              predicates:
+                - Path=/api/v1/auth/**
+            - id: user-service
+              uri: lb://ygh-user-service
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/employees/**,/api/v1/departments/**,/api/v1/jobs/**,/api/v1/addresses/**
+            - id: system-service
+              uri: lb://ygh-system-service
+              predicates:
+                - Path=/api/v1/system/**,/api/v1/roles/**,/api/v1/permissions/**
 
 management:
   endpoints:

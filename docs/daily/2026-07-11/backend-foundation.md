@@ -268,3 +268,15 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 实际 Reactive ApplicationContext 在随机端口启动，Gateway WebHandler 存在，并完成 Netty 优雅关闭。
 - 首轮将 Nacos/Sentinel 提前放入脚手架时发现第三方全局线程导致测试 JVM 无法及时退出；依照任务边界移至 `BE-0303/BE-0308` 接入，脚手架验证恢复可重复退出。
 - 模块 Reactor `verify`：6 个模块、36 项测试通过；Gateway 可执行 JAR 重打包成功。
+
+## 22. Gateway 路由与 Nacos 服务发现
+
+- Test-Author 在真实 Reactive ApplicationContext 中先要求 auth/user/system 三条路由；未配置时测试按预期以空 RouteDefinition 集失败。
+- Gateway 增加 Spring Cloud LoadBalancer、Nacos Discovery 和 Caffeine；没有引入 MVC、Servlet 或 servlet 版公共 Web 模块。
+- 三条显式 `/api/v1/**` 路由分别指向 `lb://ygh-auth-service`、`lb://ygh-user-service`、`lb://ygh-system-service`，不设置未知路径 catch-all。
+- Nacos 地址、用户名、密码和多网卡注册地址由环境变量注入；Namespace/Group 采用 `ygh-dev/YGH_GROUP` 开发基线，仓库不保存凭据。
+- Caffeine 替换 Spring Cloud LoadBalancer 的开发默认缓存，启动日志不再出现生产缓存警告。
+- 自动化测试解析并核对 Route ID、目标 URI、Path predicate，同时验证 Nacos Registry、Reactive LoadBalancer 与 Caffeine 位于 classpath。
+- Reviewer 阻断了只检查 `/api/v1/` 前缀、无法发现 catch-all 或服务间路径错配的测试；现已按 Route ID 精确比较全部 Path 集合，并显式拒绝 `/api/v1/**`。
+- 模块 Reactor `verify` 通过；Gateway 3 项测试、受影响公共模块 33 项测试全部通过。
+- 真实组件烟测：可执行 JAR 注册到虚拟机 Nacos 3.1.1，实例为 `YGH_GROUP/ygh-gateway 192.168.154.1:18080`；本机 health 为 `UP`，虚拟机通过注册地址访问 health 也为 `UP`；进程随后停止。
