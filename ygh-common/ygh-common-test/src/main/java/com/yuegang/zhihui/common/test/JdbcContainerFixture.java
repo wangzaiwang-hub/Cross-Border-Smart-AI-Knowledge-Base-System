@@ -10,6 +10,8 @@ public final class JdbcContainerFixture implements AutoCloseable {
     private final String database;
     private final String username;
     private final String credential;
+    private final String adminUsername;
+    private final String adminCredential;
     private final int port;
     private final String jdbcScheme;
 
@@ -18,6 +20,8 @@ public final class JdbcContainerFixture implements AutoCloseable {
             String database,
             String username,
             String credential,
+            String adminUsername,
+            String adminCredential,
             int port,
             String jdbcScheme
     ) {
@@ -25,6 +29,8 @@ public final class JdbcContainerFixture implements AutoCloseable {
         this.database = Objects.requireNonNull(database, "database must not be null");
         this.username = Objects.requireNonNull(username, "username must not be null");
         this.credential = Objects.requireNonNull(credential, "credential must not be null");
+        this.adminUsername = Objects.requireNonNull(adminUsername, "adminUsername must not be null");
+        this.adminCredential = Objects.requireNonNull(adminCredential, "adminCredential must not be null");
         this.port = port;
         this.jdbcScheme = Objects.requireNonNull(jdbcScheme, "jdbcScheme must not be null");
     }
@@ -43,6 +49,14 @@ public final class JdbcContainerFixture implements AutoCloseable {
 
     public String credential() {
         return credential;
+    }
+
+    public String adminUsername() {
+        return adminUsername;
+    }
+
+    public String adminCredential() {
+        return adminCredential;
     }
 
     public JdbcContainerFixture start() {

@@ -19,6 +19,8 @@ $nacosToken = [Convert]::ToBase64String($tokenBytes)
 @"
 MYSQL_ROOT_PASSWORD=$(New-Secret 24)
 NACOS_DB_PASSWORD=$(New-Secret 24)
+AUTH_DB_APP_PASSWORD=$(New-Secret 24)
+AUTH_DB_MIGRATION_PASSWORD=$(New-Secret 24)
 REDIS_PASSWORD=$(New-Secret 24)
 NACOS_AUTH_TOKEN=$nacosToken
 NACOS_AUTH_IDENTITY_KEY=ygh-server-$(New-Secret 12)

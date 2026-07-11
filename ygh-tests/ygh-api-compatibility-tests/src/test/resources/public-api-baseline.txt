@@ -290,6 +290,8 @@ METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditE
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.requiredPermission()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.traceId()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.userId()
+METHOD public java.lang.String com.yuegang.zhihui.common.test.JdbcContainerFixture.adminCredential()
+METHOD public java.lang.String com.yuegang.zhihui.common.test.JdbcContainerFixture.adminUsername()
 METHOD public java.lang.String com.yuegang.zhihui.common.test.JdbcContainerFixture.credential()
 METHOD public java.lang.String com.yuegang.zhihui.common.test.JdbcContainerFixture.database()
 METHOD public java.lang.String com.yuegang.zhihui.common.test.JdbcContainerFixture.jdbcUrl()

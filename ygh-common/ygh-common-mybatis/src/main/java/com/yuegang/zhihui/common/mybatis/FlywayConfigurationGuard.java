@@ -52,8 +52,14 @@ public final class FlywayConfigurationGuard {
         Objects.requireNonNull(filepath, "filepath must not be null");
         for (Location location : configuration.getLocations()) {
             if (location.matchesPath(filepath)) {
-                String relativePath = location.getPathRelativeToThis(filepath)
-                        .replace('\\', '/');
+                String relativePath = location.getPathRelativeToThis(filepath).replace('\\', '/');
+                String marker = "/db/migration/";
+                int markerIndex = relativePath.lastIndexOf(marker);
+                if (markerIndex >= 0) {
+                    relativePath = relativePath.substring(markerIndex + marker.length());
+                } else if (relativePath.startsWith("db/migration/")) {
+                    relativePath = relativePath.substring("db/migration/".length());
+                }
                 return "db/migration/" + relativePath;
             }
         }

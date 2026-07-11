@@ -29,5 +29,6 @@
 
     <modules>
         <module>ygh-gateway</module>
+        <module>ygh-auth-service</module>
     </modules>
 </project>

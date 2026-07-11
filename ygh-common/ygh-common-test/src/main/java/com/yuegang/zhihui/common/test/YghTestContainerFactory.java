@@ -25,16 +25,18 @@ public final class YghTestContainerFactory {
 
     public static JdbcContainerFixture mysql() {
         String credential = randomCredential();
+        String rootCredential = randomCredential();
         var container = bounded(new GenericContainer<>(DockerImageName.parse("mysql:8.4.10"))
                 .withEnv("MYSQL_DATABASE", "ygh_test")
                 .withEnv("MYSQL_USER", "ygh_test")
                 .withEnv("MYSQL_PASSWORD", credential)
-                .withEnv("MYSQL_ROOT_PASSWORD", randomCredential())
+                .withEnv("MYSQL_ROOT_PASSWORD", rootCredential)
                 .withExposedPorts(3306)
                 .waitingFor(Wait.forListeningPort())
                 .withStartupTimeout(Duration.ofMinutes(2)), 768L);
         return new JdbcContainerFixture(
-                container, "ygh_test", "ygh_test", credential, 3306, "mysql");
+                container, "ygh_test", "ygh_test", credential,
+                "root", rootCredential, 3306, "mysql");
     }
 
     public static JdbcContainerFixture pgvector() {
@@ -48,7 +50,8 @@ public final class YghTestContainerFactory {
                 .waitingFor(Wait.forListeningPort())
                 .withStartupTimeout(Duration.ofMinutes(2)), 512L);
         return new JdbcContainerFixture(
-                container, "ygh_test", "ygh_test", credential, 5432, "postgresql");
+                container, "ygh_test", "ygh_test", credential,
+                "ygh_test", credential, 5432, "postgresql");
     }
 
     private static GenericContainer<?> bounded(

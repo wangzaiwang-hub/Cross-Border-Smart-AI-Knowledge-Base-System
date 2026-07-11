@@ -121,7 +121,7 @@
 
 ### P03.2 Auth
 
-- [ ] `BE-0320` 创建 `ygh-auth-service` 和私有 `auth_db` 迁移。
+- [x] `BE-0320` 创建 `ygh-auth-service` 和私有 `auth_db` 迁移。
 - [ ] `BE-0321` 定义注册、登录、刷新、退出、验证码和密码重置接口。
 - [ ] `BE-0322` 强密码散列、密码策略和失败锁定。
 - [ ] `BE-0323` 短期 Access Token、可撤销 Refresh Token和密钥轮换。

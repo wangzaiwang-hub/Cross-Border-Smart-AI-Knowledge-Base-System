@@ -7,4 +7,6 @@ docker compose --env-file .env -f vm-compose.yml --profile core config >/dev/nul
 docker compose --parallel 1 --env-file .env -f vm-compose.yml --profile core pull
 docker compose --env-file .env -f vm-compose.yml --profile core up -d
 "$(dirname "$0")/health-check.sh"
+"$(dirname "$0")/provision-auth-db.sh"
+"$(dirname "$0")/verify-auth-db.sh"
 "$(dirname "$0")/initialize-nacos-admin.sh"

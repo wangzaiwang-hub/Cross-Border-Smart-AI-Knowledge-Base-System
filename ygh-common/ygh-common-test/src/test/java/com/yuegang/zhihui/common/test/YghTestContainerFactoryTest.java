@@ -18,8 +18,11 @@ class YghTestContainerFactoryTest {
         assertThat(pgvector.container().getDockerImageName())
                 .isEqualTo("pgvector/pgvector:0.8.5-pg17-bookworm");
         assertThat(mysql.credential()).hasSizeGreaterThanOrEqualTo(32);
+        assertThat(mysql.adminCredential()).hasSizeGreaterThanOrEqualTo(32)
+                .isNotEqualTo(mysql.credential());
         assertThat(pgvector.credential()).hasSizeGreaterThanOrEqualTo(32);
-        assertThat(mysql.toString()).contains("[REDACTED]").doesNotContain(mysql.credential());
+        assertThat(mysql.toString()).contains("[REDACTED]")
+                .doesNotContain(mysql.credential(), mysql.adminCredential());
         assertThat(mysql).isInstanceOf(AutoCloseable.class);
         assertThatThrownBy(mysql::jdbcUrl).isInstanceOf(IllegalStateException.class);
     }

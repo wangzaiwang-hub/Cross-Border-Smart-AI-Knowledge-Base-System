@@ -1,0 +1,59 @@
+server:
+  port: ${YGH_AUTH_PORT:8081}
+  shutdown: graceful
+
+spring:
+  application:
+    name: ygh-auth-service
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: ${YGH_AUTH_DB_URL}
+    username: ${YGH_AUTH_DB_APP_USERNAME:ygh_auth_app}
+    password: ${YGH_AUTH_DB_APP_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${YGH_AUTH_DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${YGH_AUTH_DB_POOL_MIN_IDLE:1}
+      connection-timeout: 3000
+      validation-timeout: 2000
+  flyway:
+    url: ${YGH_AUTH_DB_URL}
+    user: ${YGH_AUTH_DB_MIGRATION_USERNAME:ygh_auth_migration}
+    password: ${YGH_AUTH_DB_MIGRATION_PASSWORD}
+    locations: classpath:db/migration
+    clean-disabled: true
+    baseline-on-migrate: false
+    out-of-order: false
+    validate-on-migrate: true
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${YGH_NACOS_SERVER_ADDR}
+        username: ${YGH_NACOS_USERNAME}
+        password: ${YGH_NACOS_PASSWORD}
+        namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
+        group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
+        ip: ${YGH_AUTH_ADVERTISE_IP:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
