@@ -116,7 +116,7 @@
 - [x] `BE-0305` 公共路径、登录路径、员工路径和后台路径鉴权边界。
 - [x] `BE-0306` Sentinel Gateway 限流和可识别降级响应。
 - [x] `BE-0307` CORS、请求体大小、上传路径和安全 Header。
-- [ ] `BE-0308` Actuator 健康检查和 Nacos 注册验证。
+- [x] `BE-0308` Actuator 健康检查和 Nacos 注册验证。
 - [ ] `BE-0309` Gateway 路由、401/403/429集成测试。
 
 ### P03.2 Auth

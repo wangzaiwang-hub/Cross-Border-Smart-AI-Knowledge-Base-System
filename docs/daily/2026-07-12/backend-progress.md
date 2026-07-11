@@ -21,3 +21,13 @@
 - 安全头在 beforeCommit 规范化，移除 Server；默认 no-store 但保留下游明确缓存策略，直接 HTTPS 增加 HSTS。
 - Reviewer 随后识别 `Mono<Void>` 空完成可能触发 `switchIfEmpty` 二次下游调用；现使用 `singleOptional` 物化空/非空状态，单元与真实 Netty 均证明合法 chunked 请求下游恰好执行一次。
 - `mvnw.cmd -pl ygh-platform/ygh-gateway -am clean verify` 通过：Gateway 43 项测试、0 失败，分支覆盖率 95.78%；最终复审 P0/P1 清零。
+
+## 3. BE-0308 Actuator 与 Nacos 注册验证
+
+- 新增 `/actuator/health/liveness`、`/actuator/health/readiness`、`/livez` 和 `/readyz`，四个真实 Netty 探针均返回 `UP` 且不泄露 components。
+- 匿名开放面收敛到四个健康路径、health 根和 info；`env` 与任意组件级 health 路径仍受保护。
+- 配置优雅停机与 20 秒阶段超时；readiness 仅代表应用可接流量，Nacos 注册使用独立验证脚本确认。
+- `verify-gateway-registration.ps1` 使用环境变量凭据和 Nacos v3 Admin API，具备注册异步轮询且不输出 Token。
+- 真实烟测结果：本机 live/ready `UP`；虚拟机反向访问 `192.168.154.1:18080` 为 `UP`；Nacos 精确命中 `YGH_GROUP@@ygh-gateway 192.168.154.1:18080 healthy=true`。
+- 正常结束烟测后本机 18080 listener 为 0，Nacos 不再保留目标实例；虚拟机核心组件未停止。
+- Reviewer 审查 P0/P1 为 0；在途请求 drain 留待 `BE-1225`，Nacos 纳入 readiness 的治理决策留待 `BE-1101`。

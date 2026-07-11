@@ -1,11 +1,14 @@
 server:
   port: ${YGH_GATEWAY_PORT:8080}
+  shutdown: graceful
 
 spring:
   application:
     name: ygh-gateway
   main:
     web-application-type: reactive
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   cloud:
     nacos:
       server-addr: ${YGH_NACOS_SERVER_ADDR}
@@ -65,4 +68,5 @@ management:
     health:
       probes:
         enabled: true
+        add-additional-paths: true
       show-details: never

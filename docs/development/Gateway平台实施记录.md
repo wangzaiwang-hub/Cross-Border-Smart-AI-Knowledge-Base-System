@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-gateway`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud Gateway 5.0.2  
-> 当前完成：`BE-0301`—`BE-0307`
+> 当前完成：`BE-0301`—`BE-0308`
 
 ## 1. Maven 边界
 
@@ -141,3 +141,23 @@ ygh-platform/                       # packaging=pom，平台副项目
 - 下游未声明缓存策略时使用 `Cache-Control: no-store`；下游明确声明的可缓存商品资源策略予以保留。
 - Gateway 直接收到 HTTPS 请求时写入一年 HSTS；企业部署若在受信反向代理终止 TLS，由代理负责外层 HSTS 和 Forwarded Header 信任边界，最终在 `BE-1223` 验证。
 - 真实 Netty 与单元测试共 43 项全部通过，Gateway 分支覆盖率 95.78%，高于 90% 阻断阈值。
+
+## 10. Actuator 探针与 Nacos 注册验证
+
+- Actuator 只暴露 `health,info`；匿名路径精确限制为 health 根、liveness/readiness 两个分组以及 `/livez`、`/readyz`，不使用 `/actuator/health/**` 通配。`env` 和任意组件级 health 路径不能匿名访问。
+- 所有公开 health 响应保持 `show-details: never`，真实 Netty 断言只返回 `status=UP`，不出现 `components`。
+- `/livez` 只说明进程存活；`/readyz` 只表示 Spring ApplicationAvailability 已准备接流量，不等价于 Nacos 已注册、JWKS 可用或所有共享下游健康。Nacos 注册状态必须由独立注册验证完成，不能把共享依赖错误加入 liveness 造成重启风暴。
+- 开启 `server.shutdown=graceful`，单阶段停机超时为 20 秒；在途请求 drain 的故障注入验证归 `BE-1225`。
+- 新增 `verify-gateway-registration.ps1`：凭据只接受环境变量注入，登录 Nacos 后轮询 v3 Admin API，精确核对 Namespace/Group/Service/IP/Port/healthy/enabled。临时 Token 不输出且异常被收敛为无 Token 的错误；当前 Nacos v3 Admin GET 接口使用 accessToken 查询参数，部署侧不得记录完整 Query String。
+
+真实环境验证（2026-07-12）：
+
+| 检查 | 结果 |
+|---|---|
+| 本机 `/livez`、`/readyz` | `UP` |
+| 虚拟机访问 `192.168.154.1:18080/livez` | `UP` |
+| Nacos 实例 | `YGH_GROUP@@ygh-gateway -> 192.168.154.1:18080` |
+| Nacos 状态 | `healthy=true`、唯一精确匹配 |
+| 正常停止 | 本机监听端口为 0；Nacos 目标实例消失 |
+
+烟测结束后 Gateway 进程已停止；虚拟机 MySQL、Redis、Nacos 保持原有健康运行状态，没有把 Java 服务常驻在低配环境。

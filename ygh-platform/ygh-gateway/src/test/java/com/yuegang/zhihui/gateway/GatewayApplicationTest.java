@@ -43,6 +43,9 @@ class GatewayApplicationTest {
                 .contains("server-addr: ${YGH_NACOS_SERVER_ADDR}")
                 .contains("password: ${YGH_NACOS_PASSWORD}")
                 .contains("allowed-origins: ${YGH_GATEWAY_CORS_ALLOWED_ORIGINS}")
+                .contains("shutdown: graceful")
+                .contains("add-additional-paths: true")
+                .contains("timeout-per-shutdown-phase: 20s")
                 .doesNotContain("YGH_GATEWAY_CORS_ALLOWED_ORIGINS:");
     }
 
@@ -139,6 +142,24 @@ class GatewayApplicationTest {
                     .expectHeader().valueEquals("X-Content-Type-Options", "nosniff")
                     .expectHeader().valueEquals("X-Frame-Options", "DENY")
                     .expectHeader().doesNotExist("Server");
+            for (String probe : Set.of(
+                    "/actuator/health/liveness",
+                    "/actuator/health/readiness",
+                    "/livez",
+                    "/readyz")) {
+                serverClient.get().uri(probe)
+                        .exchange()
+                        .expectStatus().isOk()
+                        .expectBody()
+                        .jsonPath("$.status").isEqualTo("UP")
+                        .jsonPath("$.components").doesNotExist();
+            }
+            serverClient.get().uri("/actuator/env")
+                    .exchange()
+                    .expectStatus().is4xxClientError();
+            serverClient.get().uri("/actuator/health/nacosDiscovery")
+                    .exchange()
+                    .expectStatus().isUnauthorized();
             serverClient.options().uri("/api/v1/auth/login")
                     .header(HttpHeaders.ORIGIN, "http://localhost:5173")
                     .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
