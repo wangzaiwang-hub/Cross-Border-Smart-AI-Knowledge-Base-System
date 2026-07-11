@@ -9,7 +9,12 @@ import java.util.List;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer;
+import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 
 /** Shared MyBatis-Plus auditing and bounded pagination infrastructure. */
 @AutoConfiguration
@@ -66,5 +71,37 @@ public class YghMybatisAutoConfiguration {
                                 + PageRequest.MAX_PAGE_SIZE);
             }
         };
+    }
+
+    @Bean
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    public FlywayConfigurationCustomizer yghFlywaySafetyCustomizer() {
+        return new YghFlywaySafetyCustomizer();
+    }
+
+    @Bean
+    public FlywayMigrationPolicy flywayMigrationPolicy() {
+        return new FlywayMigrationPolicy();
+    }
+
+    @Bean
+    public FlywayConfigurationGuard flywayConfigurationGuard() {
+        return new FlywayConfigurationGuard();
+    }
+
+    @Bean
+    public FlywayHistoryValidator flywayHistoryValidator() {
+        return new FlywayHistoryValidator();
+    }
+
+    @Bean
+    @Primary
+    public FlywayMigrationStrategy yghFlywayMigrationStrategy(
+            FlywayMigrationPolicy migrationPolicy,
+            FlywayConfigurationGuard configurationGuard,
+            FlywayHistoryValidator historyValidator
+    ) {
+        return new YghFlywayMigrationStrategy(
+                migrationPolicy, configurationGuard, historyValidator);
     }
 }

@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
 import java.io.IOException;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -24,6 +25,7 @@ class YghMybatisAutoConfigurationTest {
             assertThat(context).hasSingleBean(Clock.class);
             assertThat(context).hasSingleBean(MetaObjectHandler.class);
             assertThat(context).hasSingleBean(MybatisPlusInterceptor.class);
+            assertThat(context).hasSingleBean(FlywayMigrationStrategy.class);
         });
     }
 

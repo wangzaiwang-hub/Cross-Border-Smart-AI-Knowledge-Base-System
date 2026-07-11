@@ -188,3 +188,15 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 模块验证 `mvnw.cmd -pl ygh-common/ygh-common-mybatis -am test`：common-core 21 项、common-mybatis 23 项，共 44 项测试通过。
 - 全 Reactor `mvnw.cmd clean verify`：9 个模块、93 项测试，0 失败、0 错误、0 跳过。
 - 本机 `mall-deps`、`ai-deps` 及虚拟机 `core/ai-data` Compose 配置均通过 `docker compose config --quiet`，未启动或停止容器。
+
+## 16. Flyway 前向数据库迁移门禁
+
+- Spring Boot 4.0.7 的 `spring-boot-starter-flyway` 解析 Flyway Core 11.14.1；具体 MySQL/PostgreSQL 扩展留给持库 Service 引入。
+- Test-Author 建立命名、版本、重复、路径穿越、嵌套目录、自定义 Location、Repeatable、Undo、Java Migration、checksum 变化、历史缺失、历史插入和危险配置测试。
+- 公共主迁移策略在实际 `migrate` 前检查最终配置与 Flyway 真实解析结果，迁移后执行官方 `validate`，形成 fail-closed 链路。
+- 只允许 `classpath:db/migration/V<正整数>__<lower_snake_case>.sql`，禁止 out-of-order、生产 clean、自动 repair 和修改已应用迁移。
+- 回滚采用应用回滚、前向修复或已演练备份恢复；破坏性 DDL 采用 Expand → Migrate → Contract。
+- 模块 Reactor 验证通过：common-core 21 项、common-mybatis 51 项，0 失败、0 错误、0 跳过。
+- Reviewer 最终复核未发现 P0/P1 阻断，允许完成 `BE-0231`。
+- 全 Reactor `clean verify` 通过：9 个模块、121 项测试，0 失败、0 错误、0 跳过。
+- 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置均通过 `config --quiet`，本次验证未改变容器运行状态。

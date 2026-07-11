@@ -27,7 +27,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
             "spring.datasource.url=jdbc:h2:mem:ygh_audit;MODE=MySQL;DB_CLOSE_DELAY=-1",
             "spring.datasource.username=sa",
             "spring.datasource.password=",
-            "spring.sql.init.mode=always"
+            "spring.sql.init.mode=always",
+            "spring.flyway.enabled=false"
         })
 class MybatisRuntimeIntegrationTest {
 
