@@ -5,11 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import com.yuegang.zhihui.common.test.JdbcContainerFixture;
+import com.yuegang.zhihui.auth.application.AccountLockService;
+import com.yuegang.zhihui.auth.domain.AccountLockPolicy;
+import com.yuegang.zhihui.auth.domain.Argon2PasswordHasher;
+import com.yuegang.zhihui.auth.infrastructure.JdbcAccountSecurityRepository;
 import java.sql.DriverManager;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -120,6 +128,25 @@ class AuthSchemaMigrationTest {
                         (id, user_id, principal, account_type, status)
                         VALUES (1, 1, 'user@example.test', 'PASSWORD', 'ACTIVE')
                         """);
+                char[] rawPassword = "enterprise passphrase 企业安全口令".toCharArray();
+                var digest = Argon2PasswordHasher.owaspMinimum().hash(rawPassword);
+                try (var credential = appConnection.prepareStatement("""
+                        INSERT INTO auth_credential
+                        (id, account_id, password_hash, password_algorithm, password_version, changed_at)
+                        VALUES (1, 1, ?, ?, ?, CURRENT_TIMESTAMP(6))
+                        """)) {
+                    credential.setString(1, digest.hash());
+                    credential.setString(2, digest.algorithm());
+                    credential.setInt(3, digest.version());
+                    credential.executeUpdate();
+                }
+                try (var rows = appConnection.createStatement().executeQuery(
+                        "SELECT password_hash FROM auth_credential WHERE account_id = 1")) {
+                    rows.next();
+                    String storedHash = rows.getString(1);
+                    assertThat(storedHash).startsWith("$argon2id$")
+                            .doesNotContain(new String(rawPassword));
+                }
                 assertThat(queryCount(appConnection, "auth_account")).isEqualTo(1);
                 assertThatThrownBy(() -> appConnection.createStatement()
                         .execute("CREATE TABLE forbidden_ddl (id BIGINT)"))
@@ -128,6 +155,43 @@ class AuthSchemaMigrationTest {
                         .executeUpdate("DELETE FROM flyway_schema_history WHERE 1 = 0"))
                         .isInstanceOf(java.sql.SQLException.class);
             }
+
+            var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                    fixture.jdbcUrl(), appUser, appPassword);
+            var repository = new JdbcAccountSecurityRepository(dataSource);
+            Instant failureTime = Instant.parse("2026-07-12T01:00:00Z");
+            var lockService = new AccountLockService(
+                    repository,
+                    new AccountLockPolicy(5, Duration.ofMinutes(15)),
+                    Clock.fixed(failureTime, ZoneOffset.UTC));
+            for (int attempt = 0; attempt < 5; attempt++) {
+                lockService.recordFailure(1);
+            }
+            var locked = repository.findById(1).orElseThrow().accessState();
+            assertThat(locked.failedLoginCount()).isEqualTo(5);
+            assertThat(locked.lockedUntil()).hasValue(failureTime.plus(Duration.ofMinutes(15)));
+            assertThat(lockService.authenticationAllowed(1)).isFalse();
+
+            var afterExpiry = new AccountLockService(
+                    repository,
+                    new AccountLockPolicy(5, Duration.ofMinutes(15)),
+                    Clock.fixed(failureTime.plus(Duration.ofMinutes(16)), ZoneOffset.UTC));
+            assertThat(afterExpiry.recordFailure(1).failedLoginCount()).isEqualTo(1);
+            assertThat(afterExpiry.recordSuccess(1).failedLoginCount()).isZero();
+
+            try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                var attempts = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+                for (int attempt = 0; attempt < 10; attempt++) {
+                    attempts.add(executor.submit(() -> afterExpiry.recordFailure(1)));
+                }
+                for (var attempt : attempts) {
+                    attempt.get();
+                }
+            }
+            var concurrentlyLocked = repository.findById(1).orElseThrow().accessState();
+            assertThat(concurrentlyLocked.failedLoginCount()).isEqualTo(5);
+            assertThat(concurrentlyLocked.lockedAt(failureTime.plus(Duration.ofMinutes(16))))
+                    .isTrue();
         }
     }
 
