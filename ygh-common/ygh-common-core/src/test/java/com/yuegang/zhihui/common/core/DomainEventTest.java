@@ -68,6 +68,22 @@ class DomainEventTest {
     }
 
     @Test
+    void envelopeRejectsPoisonMetadataBeforeTransport() {
+        assertThatThrownBy(() -> new EventMetadata(
+                "x".repeat(129), "ORDER_CREATED", 1, OCCURRED_AT,
+                "trace-1", "order-service", "order-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new EventMetadata(
+                "event-1", "ORDER_CREATED", 1, OCCURRED_AT,
+                "trace\nforged", "order-service", "order-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new EventMetadata(
+                "event-1", "ORDER_CREATED", 1, OCCURRED_AT,
+                "trace-1", "Order Service", "order-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void nestedMapAndListPayloadIsDeeplyImmutable() {
         var mutableItem = new LinkedHashMap<String, Object>();
         mutableItem.put("skuId", "sku-1");

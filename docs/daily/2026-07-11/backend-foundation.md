@@ -217,3 +217,19 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - Redis 短租锁没有 Fencing Token；库存与资金仍必须使用数据库条件更新或乐观锁，禁止把 Redis 锁作为唯一正确性屏障。
 - 全 Reactor `clean verify` 通过：10 个模块、140 项测试，0 失败、0 错误、0 跳过。
 - 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置再次通过 `config --quiet`。
+
+## 18. common-mq Envelope、幂等消费与死信内核
+
+- 新增标准 Maven 子模块 `ygh-common-mq`，纳入 `ygh-common` 聚合和企业 BOM；直接声明 common-core、Jackson Annotation 与 Spring JDBC 依赖。
+- 收紧 `EventMetadata` 并增加 `MqEnvelopePolicy`，统一 eventId/type/traceId/producer/businessKey 长度和安全字符，毒元数据在 Broker 前失败。
+- `MqMessageHeaders` 输出固定 8 个稳定头，时间保留原始偏移并固定秒级格式，不包含 Payload 或凭据。
+- `IdempotentMessageConsumer` 实现 CLAIMED/DUPLICATE/IN_PROGRESS、有限重试、非重试失败、受管死信和基础设施故障状态机。
+- 每次 Claim 使用 192 bit 唯一 owner；Owner 日志与 Jackson JSON 脱敏；InterruptedException 恢复中断。
+- 新增 `JdbcMessageConsumptionStore`：业务操作与 SUCCEEDED 同本地事务，死信记录与 DEAD_LETTERED 同事务，所有更新比较 owner。
+- H2 MySQL 模式真实验证 10 并发 Claim、10 并发投递单一业务效果、异常回滚、成功提交、租约过期重领、stale owner 拒绝、死信原子性和提交失败回滚。
+- Reviewer 发现并阻断唯一键冲突/并发释放误 ACK、事务异常误分类、双时钟租约和 claim/release/DLQ 基础设施异常逸出；逐项修复并补回归。
+- RocketMQ ACK/RECONSUME、deliveryAttempt、重试延迟和 Broker DLQ 明确归入 `BE-0542`，本阶段不伪称真实 Broker 链路已完成。
+- Reviewer 最终复审未发现剩余 P0/P1，允许完成 `BE-0233`。
+- 模块 Reactor：common-core 22 项、common-mq 25 项，共 47 项测试通过。
+- 全 Reactor `clean verify`：11 个模块、166 项测试，0 失败、0 错误、0 跳过。
+- 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置再次通过 `config --quiet`。

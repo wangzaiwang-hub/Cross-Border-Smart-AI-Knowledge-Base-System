@@ -99,7 +99,7 @@
 - [x] `BE-0230` 创建 `ygh-common-mybatis`，统一审计字段和分页。
 - [x] `BE-0231` Flyway 迁移命名、校验和回滚规范。
 - [x] `BE-0232` 创建 `ygh-common-redis`，Key 规范、TTL 抖动、锁 owner 校验。
-- [ ] `BE-0233` 创建 `ygh-common-mq`，事件 Envelope、幂等消费和死信记录。
+- [x] `BE-0233` 创建 `ygh-common-mq`，事件 Envelope、幂等消费和死信记录。
 - [ ] `BE-0234` 创建 `ygh-common-test`，Testcontainers、Mock 时钟和测试数据工厂。
 - [ ] `BE-0235` 公共模块覆盖率与 API 兼容测试达标。
 
@@ -199,7 +199,7 @@
 
 - [ ] `BE-0540` 定义 ORDER_CREATED、WALLET_PAYMENT_SUCCEEDED、ORDER_CANCELLED 事件。
 - [ ] `BE-0541` Outbox/本地消息表或等价可靠事件方案。
-- [ ] `BE-0542` RocketMQ 生产、消费、重试、死信和幂等。
+- [ ] `BE-0542` RocketMQ 生产/消费适配器、deliveryAttempt、ACK/RECONSUME、重试延迟、Broker DLQ 和幂等集成验证。
 - [ ] `BE-0543` 评审 Seata 使用边界，只用于必要短链路。
 - [ ] `BE-0544` 订单、钱包、库存三方对账任务。
 - [ ] `BE-0545` 注册→充值→下单→支付→模拟履约 E2E。
