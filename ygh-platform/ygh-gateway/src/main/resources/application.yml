@@ -1,0 +1,19 @@
+server:
+  port: ${YGH_GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: ygh-gateway
+  main:
+    web-application-type: reactive
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

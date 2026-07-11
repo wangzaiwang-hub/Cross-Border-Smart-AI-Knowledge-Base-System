@@ -258,3 +258,13 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - Reviewer 首轮提出执行数据绕过、hash-only 无差异明细和遗漏 protected API 三项 P1，均已修复并补充验证。
 - 全 Reactor `clean verify`：13 个模块、176 项测试，0 失败、0 错误、0 跳过。
 - 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置均通过 `config --quiet`，未改变容器运行状态。
+
+## 21. Gateway 标准模块与 WebFlux 边界
+
+- 根 Reactor 新增 `ygh-platform` 平台副项目，并建立标准 Maven 可运行模块 `ygh-gateway`。
+- Gateway 使用 Spring Cloud Gateway Server WebFlux 5.0.2、Actuator 和 Boot Maven Plugin 4.0.7 可执行 JAR，不依赖含 MVC/Servlet 的 `ygh-common-web`。
+- Test-Author 先建立 bootstrap、配置、响应式 classpath 和真实上下文测试；生产类缺失时测试编译按预期失败。
+- 自动化断言 `DispatcherHandler` 存在，`DispatcherServlet` 与 `jakarta.servlet.Servlet` 不存在，防止依赖漂移把网关切回阻塞栈。
+- 实际 Reactive ApplicationContext 在随机端口启动，Gateway WebHandler 存在，并完成 Netty 优雅关闭。
+- 首轮将 Nacos/Sentinel 提前放入脚手架时发现第三方全局线程导致测试 JVM 无法及时退出；依照任务边界移至 `BE-0303/BE-0308` 接入，脚手架验证恢复可重复退出。
+- 模块 Reactor `verify`：6 个模块、36 项测试通过；Gateway 可执行 JAR 重打包成功。

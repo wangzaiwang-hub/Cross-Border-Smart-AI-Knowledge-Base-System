@@ -19,7 +19,7 @@
 | P00 环境与工程马具 | 已完成 | 环境、规格、验收、接口台账已建立 |
 | P01 Maven 与版本治理 | 已完成 | JDK 25、Maven Wrapper、企业 BOM、兼容性类加载测试通过 |
 | P02 公共能力 | 进行中 | 公共实现、覆盖率与 API 兼容门禁已完成；Token 攻击测试待 Auth 阶段闭环 |
-| P03 Gateway/Auth/User | 未开始 | 下一实施阶段 |
+| P03 Gateway/Auth/User | 进行中 | Reactive Gateway 标准模块已建立，路由与安全链路开发中 |
 | P04 商城基础 | 未开始 | 商品、库存 |
 | P05 交易闭环 | 未开始 | 购物车、订单、钱包、模拟支付 |
 | P06 知识与搜索 | 未开始 | 文档、审核、全文与向量索引 |
@@ -109,8 +109,8 @@
 
 ### P03.1 Gateway
 
-- [ ] `BE-0301` 创建 `ygh-platform/ygh-gateway` 标准 Maven 模块。
-- [ ] `BE-0302` Gateway 使用 WebFlux，禁止引入 MVC Starter。
+- [x] `BE-0301` 创建 `ygh-platform/ygh-gateway` 标准 Maven 模块。
+- [x] `BE-0302` Gateway 使用 WebFlux，禁止引入 MVC Starter。
 - [ ] `BE-0303` 配置 `/api/v1/**` 路由和 Nacos 服务发现。
 - [ ] `BE-0304` 生成/透传 traceId、请求 ID和用户上下文。
 - [ ] `BE-0305` 公共路径、登录路径、员工路径和后台路径鉴权边界。
