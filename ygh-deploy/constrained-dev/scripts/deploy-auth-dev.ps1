@@ -3,6 +3,7 @@ param(
     [string]$VmHost = "vm-ygh",
     [string]$DatabaseHost = "192.168.154.10",
     [string]$NacosHost = "192.168.154.10",
+    [string]$RedisHost = "192.168.154.10",
     [int]$Port = 18081
 )
 
@@ -19,7 +20,7 @@ Get-Content -LiteralPath $envFile | ForEach-Object {
     if ($_ -match '^([^#=]+)=(.*)$') { $config[$matches[1]] = $matches[2] }
 }
 foreach ($required in @(
-        "AUTH_DB_APP_PASSWORD", "AUTH_DB_MIGRATION_PASSWORD", "NACOS_ADMIN_PASSWORD")) {
+        "AUTH_DB_APP_PASSWORD", "AUTH_DB_MIGRATION_PASSWORD", "NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD")) {
     if ([string]::IsNullOrWhiteSpace($config[$required])) { throw "$required missing" }
 }
 
@@ -41,6 +42,10 @@ try {
     $env:YGH_NACOS_SERVER_ADDR = "${NacosHost}:8848"
     $env:YGH_NACOS_USERNAME = "nacos"
     $env:YGH_NACOS_PASSWORD = $config.NACOS_ADMIN_PASSWORD
+    $env:YGH_REDIS_HOST = $RedisHost
+    $env:YGH_REDIS_PORT = "6379"
+    $env:YGH_REDIS_PASSWORD = $config.REDIS_PASSWORD
+    $env:YGH_REDIS_ENVIRONMENT = "dev"
 
     & java '-Dloader.main=com.yuegang.zhihui.auth.AuthMigrationApplication' `
         -cp $jar org.springframework.boot.loader.launch.PropertiesLauncher

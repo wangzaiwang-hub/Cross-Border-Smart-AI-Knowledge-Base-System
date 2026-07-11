@@ -8,6 +8,9 @@ import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.yuegang.zhihui.auth.domain.TokenPrincipal;
+import com.yuegang.zhihui.auth.domain.AccessToken;
+import com.yuegang.zhihui.auth.application.SessionAwareAccessTokenIssuer;
+import com.yuegang.zhihui.common.redis.SessionStateStore;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -91,6 +94,28 @@ class JwtTokenInfrastructureTest {
         assertThatThrownBy(() -> RsaSigningKeyRing.load(keyDirectory, "active"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasRootCauseMessage("JWT private key permissions are too broad");
+    }
+
+    @Test
+    void sessionAwareIssuerRegistersEveryJwtBeforeReturningIt() {
+        Instant now = Instant.parse("2026-07-12T00:00:00Z");
+        var recorded = new java.util.ArrayList<String>();
+        SessionStateStore sessions = new SessionStateStore() {
+            @Override public void register(long accountId, String jwtId, Instant expiresAt, Instant registeredAt) {
+                recorded.add(accountId + ":" + jwtId + ":" + expiresAt + ":" + registeredAt);
+            }
+            @Override public void revoke(long accountId, String jwtId, Instant expiresAt, Instant registeredAt) { }
+            @Override public void disableAccount(long accountId) { }
+            @Override public void enableAccount(long accountId) { }
+        };
+        var issuer = new SessionAwareAccessTokenIssuer(
+                ignored -> new AccessToken("signed-value", "jwt-1", now.plusSeconds(900)),
+                sessions, Clock.fixed(now, ZoneOffset.UTC));
+
+        var issued = issuer.issue(new TokenPrincipal(7, 42, Set.of("USER"), Set.of("order:read")));
+
+        assertThat(issued.jwtId()).isEqualTo("jwt-1");
+        assertThat(recorded).containsExactly("7:jwt-1:2026-07-12T00:15:00Z:2026-07-12T00:00:00Z");
     }
 
     private KeyPair keyPair(int bits) throws Exception {

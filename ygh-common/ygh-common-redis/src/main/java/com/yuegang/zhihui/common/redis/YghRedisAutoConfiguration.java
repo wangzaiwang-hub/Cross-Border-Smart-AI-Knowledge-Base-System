@@ -6,6 +6,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 /** Shared Redis key, TTL and owner-safe short lock infrastructure. */
 @AutoConfiguration(after = DataRedisAutoConfiguration.class)
@@ -46,5 +48,28 @@ public class YghRedisAutoConfiguration {
             LockOwnerTokenGenerator ownerTokens
     ) {
         return new RedisDistributedLock(commands, keys, ownerTokens);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SessionRedisKeys sessionRedisKeys(
+            RedisKeyBuilder keys,
+            @Value("${ygh.redis.environment:dev}") String environment) {
+        return new SessionRedisKeys(keys, environment);
+    }
+
+    @Bean
+    @ConditionalOnBean(StringRedisTemplate.class)
+    @ConditionalOnMissingBean
+    public RedisSessionStateStore redisSessionStateStore(StringRedisTemplate redis, SessionRedisKeys keys) {
+        return new RedisSessionStateStore(redis, keys);
+    }
+
+    @Bean
+    @ConditionalOnBean(ReactiveStringRedisTemplate.class)
+    @ConditionalOnMissingBean
+    public ReactiveRedisSessionValidator reactiveRedisSessionValidator(
+            ReactiveStringRedisTemplate redis, SessionRedisKeys keys) {
+        return new ReactiveRedisSessionValidator(redis, keys);
     }
 }

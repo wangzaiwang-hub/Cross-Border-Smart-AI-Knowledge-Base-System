@@ -94,7 +94,10 @@ class AuthSchemaMigrationTest {
                             "spring.cloud.nacos.discovery.enabled=false",
                             "YGH_NACOS_SERVER_ADDR=127.0.0.1:8848",
                             "YGH_NACOS_USERNAME=test",
-                            "YGH_NACOS_PASSWORD=test")
+                            "YGH_NACOS_PASSWORD=test",
+                            "YGH_REDIS_HOST=127.0.0.1",
+                            "YGH_REDIS_PASSWORD=change-me",
+                            "YGH_REDIS_ENVIRONMENT=test")
                     .run()) {
                 assertThat(context.isActive()).isTrue();
             }
@@ -110,7 +113,10 @@ class AuthSchemaMigrationTest {
                             "spring.cloud.nacos.discovery.enabled=false",
                             "YGH_NACOS_SERVER_ADDR=127.0.0.1:8848",
                             "YGH_NACOS_USERNAME=test",
-                            "YGH_NACOS_PASSWORD=test")
+                            "YGH_NACOS_PASSWORD=test",
+                            "YGH_REDIS_HOST=127.0.0.1",
+                            "YGH_REDIS_PASSWORD=change-me",
+                            "YGH_REDIS_ENVIRONMENT=test")
                     .run()) {
                 assertThat(runtimeContext.isActive()).isTrue();
                 assertThat(runtimeContext.containsBean("flyway")).isFalse();

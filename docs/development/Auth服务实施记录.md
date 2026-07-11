@@ -98,3 +98,14 @@ Auth 模块 Reactor `verify` 已通过 22 项测试及 JaCoCo 门禁；在令牌
 - `generate-jwt-keypair.sh` 使用 OpenSSL 生成 3072-bit RSA 密钥，默认目录 0700、私钥 0600，并拒绝覆盖。密钥文件、私钥内容与真实路径不进入仓库。
 
 JWT 功能通过 `YGH_JWT_ENABLED=true` 显式启用，并要求注入 `YGH_JWT_KEY_DIRECTORY`、`YGH_JWT_ACTIVE_KID` 与 `YGH_JWT_ISSUER`；缺失或不安全配置启动失败。Auth 模块已通过 25 项测试和 Reviewer P0/P1 门禁。下一项 `BE-0324` 实现 Redis 会话、Access Token 撤销标记与账号禁用即时失效；完整登录/刷新 HTTP 联调仍在后续认证用例聚合后宣告。
+
+## 9. BE-0324 Redis 会话与即时失效
+
+- 每个 Access Token 签发时将 `accountId + jti` 会话写入 Redis，TTL 与 Token 剩余寿命一致；注销时用 Lua 原子删除会话并写入撤销标记。
+- Gateway 在 RS256、issuer、audience 和时间窗验签之后，强制使用 `account_id + jti` 查询 Redis。会话不存在、已撤销、所有者不匹配或账号不是显式 `ACTIVE` 均返回 401；Redis 不可用时失败关闭为 503。
+- Redis Cluster 键统一使用账号 hash tag：`ygh:<env>:auth:{<accountId>}:...`，确保 Lua 涉及的会话、撤销和账号状态键处于同一 slot。
+- 账号状态为显式 `ACTIVE/DISABLED`；缺失时不默认激活。禁用状态不设 TTL，重新启用必须显式写回 `ACTIVE`。
+- Auth 和 Gateway 的 Redis host、password、environment 均为必填环境配置，不提供 localhost 或弱密码回退；部署脚本只从 `.env`/环境变量注入。
+- 真实 Redis Testcontainers 覆盖注册、撤销、账号禁用/启用、TTL 和 Cluster hash slot；Gateway 集成测试覆盖正常、撤销、Redis 故障及下游异常边界。
+
+阶段模块 Reactor `verify` 已通过 11 个模块，所有 JaCoCo 门禁通过。完整登录用例仍由 `BE-0325` 继续聚合。

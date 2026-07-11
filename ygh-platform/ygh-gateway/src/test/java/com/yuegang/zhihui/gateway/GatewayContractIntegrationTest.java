@@ -75,7 +75,11 @@ class GatewayContractIntegrationTest {
                             "--ygh.gateway.cors.allowed-origins=https://mall.example.test",
                             "--ygh.security.jwt.issuer=" + ISSUER,
                             "--ygh.security.jwt.jwk-set-uri=" + backendUri + "/jwks",
-                            "--ygh.security.jwt.audience=" + AUDIENCE)) {
+                            "--ygh.security.jwt.audience=" + AUDIENCE,
+                            "--ygh.security.session-validation.enabled=false",
+                            "--YGH_REDIS_HOST=127.0.0.1",
+                            "--YGH_REDIS_PASSWORD=change-me",
+                            "--YGH_REDIS_ENVIRONMENT=test")) {
                 Integer gatewayPort = context.getEnvironment()
                         .getProperty("local.server.port", Integer.class);
                 WebTestClient client = WebTestClient.bindToServer()

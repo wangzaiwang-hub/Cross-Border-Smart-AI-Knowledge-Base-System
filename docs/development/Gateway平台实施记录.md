@@ -183,3 +183,13 @@ WebTestClient
 - 所有启动 Gateway Context 或修改 Sentinel 全局规则的测试使用相同 JUnit `ResourceLock` 并保存恢复规则，为未来并行执行保留隔离边界。
 
 阶段门禁：根 Reactor `mvnw.cmd clean verify` 通过，共 220 项测试、0 失败、0 错误、0 跳过；Gateway 分支覆盖率 95.78%。
+
+## 12. Redis 会话安全边界
+
+- `JwtSessionValidationFilter` 在 JWT 验签之后、可信用户头注入之前执行，使用 `account_id + jti` 校验会话和账号状态。
+- 会话不可用返回统一 401；Redis 连接、超时或执行故障返回统一 503，不把安全依赖故障降级为放行。
+- 错误恢复仅包围 Redis validator publisher，下游 Route/Filter 异常保持原样传播，避免误报为 Redis 503。
+- 生产默认启用会话校验，并强制注入 Redis 配置。只有明确的无外部依赖测试会关闭会话过滤器和 Redis health contributor。
+- `deploy-gateway-dev.ps1` 启动前对旧 PID 同时校验 `java.exe` 和当前 Gateway JAR 命令行，不会因 PID 复用误终止其他进程。
+
+BE-0324 模块 Reactor 已通过，包含真实 Redis Testcontainers 集成验证和 JaCoCo 门禁。

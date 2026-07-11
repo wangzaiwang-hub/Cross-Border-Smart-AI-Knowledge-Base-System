@@ -93,7 +93,12 @@ class GatewayApplicationTest {
                         "--ygh.gateway.cors.allowed-origins=http://localhost:5173,http://127.0.0.1:5173",
                         "--ygh.security.jwt.issuer=https://auth.example.test",
                         "--ygh.security.jwt.jwk-set-uri=https://auth.example.test/.well-known/jwks.json",
-                        "--ygh.security.jwt.audience=ygh-api")) {
+                        "--ygh.security.jwt.audience=ygh-api",
+                        "--ygh.security.session-validation.enabled=false",
+                        "--management.health.redis.enabled=false",
+                        "--YGH_REDIS_HOST=127.0.0.1",
+                        "--YGH_REDIS_PASSWORD=change-me",
+                        "--YGH_REDIS_ENVIRONMENT=test")) {
             assertThat(context).isInstanceOf(ConfigurableReactiveWebApplicationContext.class);
             assertThat(context.containsBean("webHandler")).isTrue();
 

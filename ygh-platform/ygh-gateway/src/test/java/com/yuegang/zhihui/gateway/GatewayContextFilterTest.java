@@ -298,11 +298,56 @@ class GatewayContextFilterTest {
     }
 
     @Test
+    void jwtSessionValidationAllowsActiveAndFailsClosedForRevokedOrUnavailableState() {
+        var writer = new GatewaySecurityErrorWriter(new tools.jackson.databind.ObjectMapper());
+        Jwt jwt = gatewayJwt();
+        var authentication = new JwtAuthenticationToken(jwt, List.of(), jwt.getSubject());
+
+        AtomicInteger activeCalls = new AtomicInteger();
+        var active = new JwtSessionValidationFilter((accountId, jwtId) -> {
+            assertThat(accountId).isEqualTo(7);
+            assertThat(jwtId).isEqualTo("jwt-session-1");
+            return Mono.just(true);
+        }, writer);
+        active.filter(
+                        MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build()),
+                        ignored -> { activeCalls.incrementAndGet(); return Mono.empty(); })
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication)).block();
+        assertThat(activeCalls).hasValue(1);
+
+        AtomicInteger revokedCalls = new AtomicInteger();
+        var revokedExchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build());
+        new JwtSessionValidationFilter((ignoredAccount, ignoredJti) -> Mono.just(false), writer)
+                .filter(revokedExchange, ignored -> { revokedCalls.incrementAndGet(); return Mono.empty(); })
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication)).block();
+        assertThat(revokedCalls).hasValue(0);
+        assertThat(revokedExchange.getResponse().getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
+
+        var unavailableExchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build());
+        new JwtSessionValidationFilter((ignoredAccount, ignoredJti) -> Mono.error(new IllegalStateException("redis")), writer)
+                .filter(unavailableExchange, ignored -> Mono.empty())
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication)).block();
+        assertThat(unavailableExchange.getResponse().getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+
+        var downstreamFailure = new JwtSessionValidationFilter(
+                (ignoredAccount, ignoredJti) -> Mono.just(true), writer);
+        assertThatThrownBy(() -> downstreamFailure.filter(
+                        MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build()),
+                        ignored -> Mono.error(new IllegalArgumentException("downstream")))
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication)).block())
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("downstream");
+    }
+
+    @Test
     void filtersHaveStableOrderAroundFutureAuthenticationFilter() {
         assertThat(new CorrelationIdFilter().getOrder())
                 .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 10);
         assertThat(new JwtPrincipalBridgeFilter(new JwtPrincipalMapper()).getOrder())
                 .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 20);
+        assertThat(new JwtSessionValidationFilter((account, jwt) -> Mono.just(true),
+                new GatewaySecurityErrorWriter(new tools.jackson.databind.ObjectMapper())).getOrder())
+                .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 15);
         assertThat(new TrustedUserContextFilter().getOrder())
                 .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 30);
     }
@@ -358,6 +403,8 @@ class GatewayContextFilterTest {
                 .expiresAt(now.plusSeconds(60))
                 .claim("roles", List.of("CUSTOMER"))
                 .claim("permissions", List.of("user:profile:read"))
+                .claim("account_id", "7")
+                .claim("jti", "jwt-session-1")
                 .build();
     }
 }

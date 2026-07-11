@@ -17,6 +17,12 @@ spring:
       minimum-idle: ${YGH_AUTH_DB_POOL_MIN_IDLE:1}
       connection-timeout: 3000
       validation-timeout: 2000
+  data:
+    redis:
+      host: ${YGH_REDIS_HOST}
+      port: ${YGH_REDIS_PORT:6379}
+      password: ${YGH_REDIS_PASSWORD}
+      timeout: 2s
   flyway:
     url: ${YGH_AUTH_DB_URL}
     user: ${YGH_AUTH_DB_MIGRATION_USERNAME:ygh_auth_migration}
@@ -59,6 +65,8 @@ management:
       enabled: true
 
 ygh:
+  redis:
+    environment: ${YGH_REDIS_ENVIRONMENT}
   security:
     jwt:
       enabled: ${YGH_JWT_ENABLED:false}

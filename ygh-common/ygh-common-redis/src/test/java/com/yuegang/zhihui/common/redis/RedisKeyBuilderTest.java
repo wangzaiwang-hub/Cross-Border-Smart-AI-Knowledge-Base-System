@@ -61,4 +61,14 @@ class RedisKeyBuilderTest {
         assertThatThrownBy(() -> RedisKeyIdentifier.hmacSha256("user@example.com", new byte[16]))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void sessionKeysShareAccountHashTagForClusterLuaAtomicity() {
+        var keys = new SessionRedisKeys(new RedisKeyBuilder(), "prod");
+
+        assertThat(keys.session(42, "jwt-1")).contains("{42}");
+        assertThat(keys.revoked(42, "jwt-1")).contains("{42}");
+        assertThat(keys.accountState(42)).contains("{42}");
+        assertThat(keys.session(43, "jwt-1")).contains("{43}").doesNotContain("{42}");
+    }
 }

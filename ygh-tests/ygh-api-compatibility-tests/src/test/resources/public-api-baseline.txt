@@ -31,10 +31,13 @@ CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.MigrationViolation(com.yueg
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.YghFlywayMigrationStrategy(com.yuegang.zhihui.common.mybatis.FlywayMigrationPolicy,com.yuegang.zhihui.common.mybatis.FlywayConfigurationGuard,com.yuegang.zhihui.common.mybatis.FlywayHistoryValidator)
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.YghFlywaySafetyCustomizer()
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.YghMybatisAutoConfiguration()
+CONSTRUCTOR public com.yuegang.zhihui.common.redis.ReactiveRedisSessionValidator(org.springframework.data.redis.core.ReactiveStringRedisTemplate,com.yuegang.zhihui.common.redis.SessionRedisKeys)
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.RedisDistributedLock(com.yuegang.zhihui.common.redis.RedisLockCommands,com.yuegang.zhihui.common.redis.RedisKeyBuilder,com.yuegang.zhihui.common.redis.LockOwnerTokenGenerator)
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.RedisKeyBuilder()
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.RedisLockHandle(java.lang.String,java.lang.String,java.time.Duration)
+CONSTRUCTOR public com.yuegang.zhihui.common.redis.RedisSessionStateStore(org.springframework.data.redis.core.StringRedisTemplate,com.yuegang.zhihui.common.redis.SessionRedisKeys)
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.SecureLockOwnerTokenGenerator()
+CONSTRUCTOR public com.yuegang.zhihui.common.redis.SessionRedisKeys(com.yuegang.zhihui.common.redis.RedisKeyBuilder,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.SpringDataRedisLockCommands(org.springframework.data.redis.core.StringRedisTemplate)
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.TtlJitterPolicy()
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.TtlJitterPolicy(double)
@@ -125,8 +128,13 @@ METHOD public abstract java.lang.String com.yuegang.zhihui.common.mq.MessageClai
 METHOD public abstract java.lang.String com.yuegang.zhihui.common.mybatis.AuditorProvider.currentAuditor()
 METHOD public abstract java.lang.String com.yuegang.zhihui.common.redis.LockOwnerTokenGenerator.generate()
 METHOD public abstract java.lang.String com.yuegang.zhihui.common.security.RequiresPermission.value()
+METHOD public abstract reactor.core.publisher.Mono<java.lang.Boolean> com.yuegang.zhihui.common.redis.ReactiveSessionValidator.valid(long,java.lang.String)
 METHOD public abstract void com.yuegang.zhihui.common.mq.MessageBusinessOperation.execute() throws java.lang.Exception
 METHOD public abstract void com.yuegang.zhihui.common.mq.MessageHandler.handle(com.yuegang.zhihui.common.core.DomainEvent<T>) throws java.lang.Exception
+METHOD public abstract void com.yuegang.zhihui.common.redis.SessionStateStore.disableAccount(long)
+METHOD public abstract void com.yuegang.zhihui.common.redis.SessionStateStore.enableAccount(long)
+METHOD public abstract void com.yuegang.zhihui.common.redis.SessionStateStore.register(long,java.lang.String,java.time.Instant,java.time.Instant)
+METHOD public abstract void com.yuegang.zhihui.common.redis.SessionStateStore.revoke(long,java.lang.String,java.time.Instant,java.time.Instant)
 METHOD public abstract void com.yuegang.zhihui.common.security.SecurityAuditPublisher.publish(com.yuegang.zhihui.common.security.SecurityAuditEvent)
 METHOD public abstract void com.yuegang.zhihui.common.security.SessionRevocationStore.revokeToken(java.lang.String,java.time.Instant)
 METHOD public abstract void com.yuegang.zhihui.common.security.SessionRevocationStore.revokeUserSessionsIssuedBefore(java.lang.String,java.time.Instant)
@@ -161,9 +169,12 @@ METHOD public com.yuegang.zhihui.common.mybatis.MigrationValidationReport com.yu
 METHOD public com.yuegang.zhihui.common.mybatis.MigrationViolationCode com.yuegang.zhihui.common.mybatis.MigrationPolicyException.code()
 METHOD public com.yuegang.zhihui.common.mybatis.MigrationViolationCode com.yuegang.zhihui.common.mybatis.MigrationViolation.code()
 METHOD public com.yuegang.zhihui.common.redis.LockOwnerTokenGenerator com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.lockOwnerTokenGenerator()
+METHOD public com.yuegang.zhihui.common.redis.ReactiveRedisSessionValidator com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.reactiveRedisSessionValidator(org.springframework.data.redis.core.ReactiveStringRedisTemplate,com.yuegang.zhihui.common.redis.SessionRedisKeys)
 METHOD public com.yuegang.zhihui.common.redis.RedisDistributedLock com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.redisDistributedLock(com.yuegang.zhihui.common.redis.RedisLockCommands,com.yuegang.zhihui.common.redis.RedisKeyBuilder,com.yuegang.zhihui.common.redis.LockOwnerTokenGenerator)
 METHOD public com.yuegang.zhihui.common.redis.RedisKeyBuilder com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.redisKeyBuilder()
 METHOD public com.yuegang.zhihui.common.redis.RedisLockCommands com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.redisLockCommands(org.springframework.data.redis.core.StringRedisTemplate)
+METHOD public com.yuegang.zhihui.common.redis.RedisSessionStateStore com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.redisSessionStateStore(org.springframework.data.redis.core.StringRedisTemplate,com.yuegang.zhihui.common.redis.SessionRedisKeys)
+METHOD public com.yuegang.zhihui.common.redis.SessionRedisKeys com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.sessionRedisKeys(com.yuegang.zhihui.common.redis.RedisKeyBuilder,java.lang.String)
 METHOD public com.yuegang.zhihui.common.redis.TtlJitterPolicy com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration.ttlJitterPolicy()
 METHOD public com.yuegang.zhihui.common.security.SecurityDecision com.yuegang.zhihui.common.security.SecurityAuditEvent.decision()
 METHOD public com.yuegang.zhihui.common.test.JdbcContainerFixture com.yuegang.zhihui.common.test.JdbcContainerFixture.start()
@@ -284,6 +295,9 @@ METHOD public java.lang.String com.yuegang.zhihui.common.redis.RedisLockHandle.k
 METHOD public java.lang.String com.yuegang.zhihui.common.redis.RedisLockHandle.owner()
 METHOD public java.lang.String com.yuegang.zhihui.common.redis.RedisLockHandle.toString()
 METHOD public java.lang.String com.yuegang.zhihui.common.redis.SecureLockOwnerTokenGenerator.generate()
+METHOD public java.lang.String com.yuegang.zhihui.common.redis.SessionRedisKeys.accountState(long)
+METHOD public java.lang.String com.yuegang.zhihui.common.redis.SessionRedisKeys.revoked(long,java.lang.String)
+METHOD public java.lang.String com.yuegang.zhihui.common.redis.SessionRedisKeys.session(long,java.lang.String)
 METHOD public java.lang.String com.yuegang.zhihui.common.security.CurrentUserPrincipal.userId()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.action()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.reason()
@@ -345,6 +359,7 @@ METHOD public org.springframework.http.ResponseEntity<com.yuegang.zhihui.common.
 METHOD public org.springframework.http.ResponseEntity<com.yuegang.zhihui.common.core.ApiResponse<java.util.List<com.yuegang.zhihui.common.web.FieldValidationError>>> com.yuegang.zhihui.common.web.GlobalExceptionHandler.handleHandlerMethodValidation(org.springframework.web.method.annotation.HandlerMethodValidationException,jakarta.servlet.http.HttpServletRequest)
 METHOD public org.springframework.http.ResponseEntity<com.yuegang.zhihui.common.core.ApiResponse<java.util.List<com.yuegang.zhihui.common.web.FieldValidationError>>> com.yuegang.zhihui.common.web.GlobalExceptionHandler.handleMethodArgumentNotValid(org.springframework.web.bind.MethodArgumentNotValidException,jakarta.servlet.http.HttpServletRequest)
 METHOD public org.testcontainers.containers.GenericContainer<?> com.yuegang.zhihui.common.test.JdbcContainerFixture.container()
+METHOD public reactor.core.publisher.Mono<java.lang.Boolean> com.yuegang.zhihui.common.redis.ReactiveRedisSessionValidator.valid(long,java.lang.String)
 METHOD public static <S,T> com.yuegang.zhihui.common.core.PageResponse<T> com.yuegang.zhihui.common.mybatis.MybatisPageAdapter.toPageResponse(com.baomidou.mybatisplus.core.metadata.IPage<S>,java.util.function.Function<? super S, T>)
 METHOD public static <T extends com.yuegang.zhihui.common.core.ImmutableEventPayload> com.yuegang.zhihui.common.core.VersionedDomainEvent<T> com.yuegang.zhihui.common.core.VersionedDomainEvent.of(com.yuegang.zhihui.common.core.EventMetadata,T)
 METHOD public static <T> com.baomidou.mybatisplus.extension.plugins.pagination.Page<T> com.yuegang.zhihui.common.mybatis.MybatisPageAdapter.toMybatisPage(com.yuegang.zhihui.common.core.PageRequest)
@@ -399,6 +414,10 @@ METHOD public void com.yuegang.zhihui.common.mybatis.FlywayHistoryValidator.vali
 METHOD public void com.yuegang.zhihui.common.mybatis.MigrationValidationReport.throwIfInvalid()
 METHOD public void com.yuegang.zhihui.common.mybatis.YghFlywayMigrationStrategy.migrate(org.flywaydb.core.Flyway)
 METHOD public void com.yuegang.zhihui.common.mybatis.YghFlywaySafetyCustomizer.customize(org.flywaydb.core.api.configuration.FluentConfiguration)
+METHOD public void com.yuegang.zhihui.common.redis.RedisSessionStateStore.disableAccount(long)
+METHOD public void com.yuegang.zhihui.common.redis.RedisSessionStateStore.enableAccount(long)
+METHOD public void com.yuegang.zhihui.common.redis.RedisSessionStateStore.register(long,java.lang.String,java.time.Instant,java.time.Instant)
+METHOD public void com.yuegang.zhihui.common.redis.RedisSessionStateStore.revoke(long,java.lang.String,java.time.Instant,java.time.Instant)
 METHOD public void com.yuegang.zhihui.common.security.ResourceAccessGuard.requireOwnerOrPermission(com.yuegang.zhihui.common.security.CurrentUserPrincipal,java.lang.String,java.lang.String)
 METHOD public void com.yuegang.zhihui.common.test.JdbcContainerFixture.close()
 METHOD public void com.yuegang.zhihui.common.test.MutableTestClock.advance(java.time.Duration)
@@ -417,7 +436,9 @@ TYPE public abstract interface com.yuegang.zhihui.common.mq.MessageConsumptionSt
 TYPE public abstract interface com.yuegang.zhihui.common.mq.MessageHandler<T>
 TYPE public abstract interface com.yuegang.zhihui.common.mybatis.AuditorProvider
 TYPE public abstract interface com.yuegang.zhihui.common.redis.LockOwnerTokenGenerator
+TYPE public abstract interface com.yuegang.zhihui.common.redis.ReactiveSessionValidator
 TYPE public abstract interface com.yuegang.zhihui.common.redis.RedisLockCommands
+TYPE public abstract interface com.yuegang.zhihui.common.redis.SessionStateStore
 TYPE public abstract interface com.yuegang.zhihui.common.security.AccountStatusProvider
 TYPE public abstract interface com.yuegang.zhihui.common.security.ResourceOwnershipChecker<I>
 TYPE public abstract interface com.yuegang.zhihui.common.security.SecurityAuditPublisher
@@ -447,10 +468,13 @@ TYPE public final class com.yuegang.zhihui.common.mybatis.MigrationPolicyExcepti
 TYPE public final class com.yuegang.zhihui.common.mybatis.MybatisPageAdapter
 TYPE public final class com.yuegang.zhihui.common.mybatis.YghFlywayMigrationStrategy
 TYPE public final class com.yuegang.zhihui.common.mybatis.YghFlywaySafetyCustomizer
+TYPE public final class com.yuegang.zhihui.common.redis.ReactiveRedisSessionValidator
 TYPE public final class com.yuegang.zhihui.common.redis.RedisDistributedLock
 TYPE public final class com.yuegang.zhihui.common.redis.RedisKeyBuilder
 TYPE public final class com.yuegang.zhihui.common.redis.RedisKeyIdentifier
+TYPE public final class com.yuegang.zhihui.common.redis.RedisSessionStateStore
 TYPE public final class com.yuegang.zhihui.common.redis.SecureLockOwnerTokenGenerator
+TYPE public final class com.yuegang.zhihui.common.redis.SessionRedisKeys
 TYPE public final class com.yuegang.zhihui.common.redis.SpringDataRedisLockCommands
 TYPE public final class com.yuegang.zhihui.common.redis.TtlJitterPolicy
 TYPE public final class com.yuegang.zhihui.common.security.PermissionDeniedException

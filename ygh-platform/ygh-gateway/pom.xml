@@ -28,6 +28,10 @@
             <artifactId>ygh-common-security</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.yuegang.zhihui</groupId>
+            <artifactId>ygh-common-redis</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
@@ -67,6 +71,11 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.yuegang.zhihui</groupId>
+            <artifactId>ygh-common-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

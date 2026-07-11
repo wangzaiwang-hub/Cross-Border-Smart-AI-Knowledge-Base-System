@@ -40,9 +40,10 @@ public final class NimbusAccessTokenIssuer implements AccessTokenIssuer {
         Objects.requireNonNull(principal, "principal must not be null");
         Instant issuedAt = clock.instant();
         Instant expiresAt = issuedAt.plus(lifetime);
+        String jwtId = UUID.randomUUID().toString();
         var claims = new JWTClaimsSet.Builder()
                 .issuer(issuer).audience(audience).subject(Long.toString(principal.userId()))
-                .jwtID(UUID.randomUUID().toString()).issueTime(Date.from(issuedAt))
+                .jwtID(jwtId).issueTime(Date.from(issuedAt))
                 .notBeforeTime(Date.from(issuedAt)).expirationTime(Date.from(expiresAt))
                 .claim("account_id", Long.toString(principal.accountId()))
                 .claim("roles", principal.roles().stream().sorted().toList())
@@ -52,7 +53,7 @@ public final class NimbusAccessTokenIssuer implements AccessTokenIssuer {
                 .keyID(key.getKeyID()).type(com.nimbusds.jose.JOSEObjectType.JWT).build(), claims);
         try {
             jwt.sign(new RSASSASigner(key.toRSAPrivateKey()));
-            return new AccessToken(jwt.serialize(), expiresAt);
+            return new AccessToken(jwt.serialize(), jwtId, expiresAt);
         } catch (JOSEException signingFailure) {
             throw new IllegalStateException("access token signing failed", signingFailure);
         }

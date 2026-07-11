@@ -9,6 +9,12 @@ spring:
     web-application-type: reactive
   lifecycle:
     timeout-per-shutdown-phase: 20s
+  data:
+    redis:
+      host: ${YGH_REDIS_HOST}
+      port: ${YGH_REDIS_PORT:6379}
+      password: ${YGH_REDIS_PASSWORD}
+      timeout: 2s
   cloud:
     nacos:
       server-addr: ${YGH_NACOS_SERVER_ADDR}
@@ -54,10 +60,14 @@ ygh:
       service-qps: ${YGH_GATEWAY_SERVICE_QPS:100}
       service-burst: ${YGH_GATEWAY_SERVICE_BURST:10}
   security:
+    session-validation:
+      enabled: ${YGH_GATEWAY_SESSION_VALIDATION_ENABLED:true}
     jwt:
       issuer: ${YGH_JWT_ISSUER}
       jwk-set-uri: ${YGH_JWT_JWK_SET_URI}
       audience: ${YGH_JWT_AUDIENCE:ygh-api}
+  redis:
+    environment: ${YGH_REDIS_ENVIRONMENT}
 
 management:
   endpoints:
