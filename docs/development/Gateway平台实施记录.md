@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-gateway`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud Gateway 5.0.2  
-> 当前完成：`BE-0301`、`BE-0302`、`BE-0303`、`BE-0304`
+> 当前完成：`BE-0301`—`BE-0305`
 
 ## 1. Maven 边界
 
@@ -84,3 +84,15 @@ ygh-platform/                       # packaging=pom，平台副项目
 - Correlation ID 限制为 8—64 位安全字符；用户 ID、角色和权限拒绝 CR/LF、逗号注入、超量和超长数据。
 - 响应提交前通过 `beforeCommit` 再次用 canonical ID 覆盖同名头，保证下游不能追加或改写成冲突、多值响应。
 - Gateway 关键权限/信任边界将模块分支覆盖率门禁提高到 90%；当前两个过滤器共 22 个分支全部覆盖。
+
+## 7. JWT 与路径鉴权边界
+
+- Gateway 是 Spring Security Reactive Resource Server，只接受 Auth JWKS 中可验证的 `RS256` Access Token。
+- `issuer`、`jwk-set-uri` 和 `audience` 由 `YGH_JWT_ISSUER/JWK_SET_URI/AUDIENCE` 注入；私钥永远不进入 Gateway。
+- 校验链强制签名算法、签名、`exp/nbf`、Issuer 和 Audience；错误 Token 统一返回 401，不返回解析细节。
+- 公开端点只包含：POST register/login/refresh/两段密码重置、GET captcha、Actuator health/info；HTTP Method 不匹配仍需认证。
+- employee/department/job 路径要求 `EMPLOYEE` 或 `ADMIN` 角色；admin/system/role/permission 路径要求 `ADMIN`；其他 `/api/v1/**` 至少认证，未知非 API 路径 deny-all。
+- JWT `roles` 映射到 Spring Authority `ROLE_*`，`permissions` 映射到隔离的 `PERM_*`；Permission Claim 即使写成 `ROLE_ADMIN` 也只能得到 `PERM_ROLE_ADMIN`，不能提升角色。
+- JWT Claim 只允许安全字符串数组，角色/权限最多 128 项、编码后最多 4096 字符；用户 ID、Claim 类型和内容异常均 fail-closed。
+- JWT Bridge 只执行一次下游链；认证 JWT 被映射为 `CurrentUserPrincipal` Exchange Attribute，再由 Trusted Context Filter 生成内部头。
+- 401/403 使用公共 `ApiResponse`，并复用 Correlation WebFilter 提前建立的 canonical traceId。

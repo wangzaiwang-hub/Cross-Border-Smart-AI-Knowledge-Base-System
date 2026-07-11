@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.yuegang.zhihui.common.security.CurrentUserPrincipal;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
@@ -16,7 +18,12 @@ import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 class GatewayContextFilterTest {
@@ -34,7 +41,7 @@ class GatewayContextFilterTest {
         var exchange = MockServerWebExchange.from(request);
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
 
-        filter.filter(exchange, capturingChain(downstream)).block();
+        filter.filter(exchange, capturingWebChain(downstream)).block();
 
         HttpHeaders downstreamHeaders = downstream.get().getRequest().getHeaders();
         assertThat(downstreamHeaders.getFirst(GatewayHeaders.TRACE_ID))
@@ -63,7 +70,7 @@ class GatewayContextFilterTest {
                 .build());
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
 
-        filter.filter(exchange, capturingChain(downstream)).block();
+        filter.filter(exchange, capturingWebChain(downstream)).block();
 
         assertThat(downstream.get().getRequest().getHeaders().getFirst(GatewayHeaders.TRACE_ID))
                 .isEqualTo("generated-trace-1234");
@@ -79,7 +86,7 @@ class GatewayContextFilterTest {
         var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/auth/login").build());
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
 
-        filter.filter(exchange, capturingChain(downstream)).block();
+        filter.filter(exchange, capturingWebChain(downstream)).block();
 
         assertThat(downstream.get().getRequest().getHeaders().getFirst(GatewayHeaders.TRACE_ID))
                 .isEqualTo("generated-trace-5678");
@@ -136,7 +143,7 @@ class GatewayContextFilterTest {
                         Set.of("user:profile:read", "training:course:learn")));
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
 
-        filter.filter(exchange, capturingChain(downstream)).block();
+        filter.filter(exchange, capturingGatewayChain(downstream)).block();
 
         HttpHeaders headers = downstream.get().getRequest().getHeaders();
         assertThat(headers.getFirst(GatewayHeaders.USER_ID)).isEqualTo("user-9007199254740993");
@@ -155,7 +162,7 @@ class GatewayContextFilterTest {
                 .build());
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
 
-        filter.filter(exchange, capturingChain(downstream)).block();
+        filter.filter(exchange, capturingGatewayChain(downstream)).block();
 
         assertNoIdentityHeaders(downstream.get().getRequest().getHeaders());
     }
@@ -168,7 +175,7 @@ class GatewayContextFilterTest {
                 new CurrentUserPrincipal("user-1", Set.of(), Set.of()));
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
 
-        filter.filter(exchange, capturingChain(downstream)).block();
+        filter.filter(exchange, capturingGatewayChain(downstream)).block();
 
         HttpHeaders headers = downstream.get().getRequest().getHeaders();
         assertThat(headers.getFirst(GatewayHeaders.USER_ID)).isEqualTo("user-1");
@@ -215,15 +222,111 @@ class GatewayContextFilterTest {
     }
 
     @Test
+    void jwtBridgePublishesOnlyAuthenticatedJwtPrincipal() {
+        var filter = new JwtPrincipalBridgeFilter(new JwtPrincipalMapper());
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build());
+        AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
+        AtomicInteger calls = new AtomicInteger();
+        Jwt jwt = gatewayJwt();
+        var authentication = new JwtAuthenticationToken(jwt, List.of(), jwt.getSubject());
+
+        filter.filter(exchange, countingGatewayChain(downstream, calls))
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication))
+                .block();
+
+        assertThat(calls).hasValue(1);
+        assertThat(downstream.get().<CurrentUserPrincipal>getAttribute(
+                GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL))
+                .isEqualTo(new CurrentUserPrincipal(
+                        "user-1001", Set.of("CUSTOMER"), Set.of("user:profile:read")));
+    }
+
+    @Test
+    void jwtBridgeDoesNotTrustMissingOrNonJwtSecurityContext() {
+        var filter = new JwtPrincipalBridgeFilter(new JwtPrincipalMapper());
+        var withoutContext = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/auth/login").build());
+        AtomicReference<ServerWebExchange> firstDownstream = new AtomicReference<>();
+        AtomicInteger firstCalls = new AtomicInteger();
+
+        filter.filter(withoutContext, countingGatewayChain(firstDownstream, firstCalls)).block();
+
+        assertThat(firstCalls).hasValue(1);
+        assertThat(firstDownstream.get().<CurrentUserPrincipal>getAttribute(
+                GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL)).isNull();
+
+        var nonJwt = UsernamePasswordAuthenticationToken.authenticated(
+                "user-1001", "not-used", List.of());
+        var nonJwtExchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/users/me").build());
+        AtomicReference<ServerWebExchange> secondDownstream = new AtomicReference<>();
+        AtomicInteger secondCalls = new AtomicInteger();
+
+        filter.filter(nonJwtExchange, countingGatewayChain(secondDownstream, secondCalls))
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(nonJwt))
+                .block();
+
+        assertThat(secondCalls).hasValue(1);
+        assertThat(secondDownstream.get().<CurrentUserPrincipal>getAttribute(
+                GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL)).isNull();
+
+        var unauthenticated = new UsernamePasswordAuthenticationToken("user-1001", "not-used");
+        var unauthenticatedExchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/users/me").build());
+        AtomicReference<ServerWebExchange> thirdDownstream = new AtomicReference<>();
+        AtomicInteger thirdCalls = new AtomicInteger();
+
+        filter.filter(unauthenticatedExchange, countingGatewayChain(thirdDownstream, thirdCalls))
+                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(unauthenticated))
+                .block();
+
+        assertThat(thirdCalls).hasValue(1);
+        assertThat(thirdDownstream.get().<CurrentUserPrincipal>getAttribute(
+                GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL)).isNull();
+    }
+
+    @Test
+    void securityErrorWriterDoesNothingAfterResponseCommit() {
+        var exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/users/me").build());
+        exchange.getResponse().setComplete().block();
+        var writer = new GatewaySecurityErrorWriter(new tools.jackson.databind.ObjectMapper());
+
+        writer.unauthenticated(exchange).block();
+
+        assertThat(exchange.getResponse().isCommitted()).isTrue();
+    }
+
+    @Test
     void filtersHaveStableOrderAroundFutureAuthenticationFilter() {
         assertThat(new CorrelationIdFilter().getOrder())
                 .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 10);
+        assertThat(new JwtPrincipalBridgeFilter(new JwtPrincipalMapper()).getOrder())
+                .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 20);
         assertThat(new TrustedUserContextFilter().getOrder())
                 .isEqualTo(Ordered.HIGHEST_PRECEDENCE + 30);
     }
 
-    private static GatewayFilterChain capturingChain(AtomicReference<ServerWebExchange> captured) {
+    private static WebFilterChain capturingWebChain(AtomicReference<ServerWebExchange> captured) {
         return exchange -> {
+            captured.set(exchange);
+            return Mono.empty();
+        };
+    }
+
+    private static GatewayFilterChain capturingGatewayChain(AtomicReference<ServerWebExchange> captured) {
+        return exchange -> {
+            captured.set(exchange);
+            return Mono.empty();
+        };
+    }
+
+    private static GatewayFilterChain countingGatewayChain(
+            AtomicReference<ServerWebExchange> captured,
+            AtomicInteger calls
+    ) {
+        return exchange -> {
+            calls.incrementAndGet();
             captured.set(exchange);
             return Mono.empty();
         };
@@ -242,5 +345,19 @@ class GatewayContextFilterTest {
         var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build());
         exchange.getAttributes().put(GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL, principal);
         filter.filter(exchange, ignored -> Mono.empty()).block();
+    }
+
+    private static Jwt gatewayJwt() {
+        Instant now = Instant.now();
+        return Jwt.withTokenValue("opaque-test-value")
+                .header("alg", "RS256")
+                .subject("user-1001")
+                .issuer("https://auth.example.test")
+                .audience(List.of("ygh-api"))
+                .issuedAt(now.minusSeconds(5))
+                .expiresAt(now.plusSeconds(60))
+                .claim("roles", List.of("CUSTOMER"))
+                .claim("permissions", List.of("user:profile:read"))
+                .build();
     }
 }

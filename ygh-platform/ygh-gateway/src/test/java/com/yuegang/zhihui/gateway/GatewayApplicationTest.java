@@ -1,6 +1,8 @@
 package com.yuegang.zhihui.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,6 +20,8 @@ import org.springframework.boot.web.context.reactive.ConfigurableReactiveWebAppl
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.ClassUtils;
 
 class GatewayApplicationTest {
@@ -60,7 +64,10 @@ class GatewayApplicationTest {
                 .run(
                         "--server.port=0",
                         "--spring.cloud.nacos.discovery.enabled=false",
-                        "--spring.cloud.nacos.server-addr=127.0.0.1:1")) {
+                        "--spring.cloud.nacos.server-addr=127.0.0.1:1",
+                        "--ygh.security.jwt.issuer=https://auth.example.test",
+                        "--ygh.security.jwt.jwk-set-uri=https://auth.example.test/.well-known/jwks.json",
+                        "--ygh.security.jwt.audience=ygh-api")) {
             assertThat(context).isInstanceOf(ConfigurableReactiveWebApplicationContext.class);
             assertThat(context.containsBean("webHandler")).isTrue();
 
@@ -69,10 +76,12 @@ class GatewayApplicationTest {
             assertThat(definitions).isNotNull();
             Map<String, RouteDefinition> byId = definitions.stream()
                     .collect(Collectors.toMap(RouteDefinition::getId, Function.identity()));
-            assertThat(byId).containsOnlyKeys("auth-service", "user-service", "system-service");
+            assertThat(byId).containsOnlyKeys(
+                    "auth-service", "user-service", "system-service", "admin-service");
             assertThat(byId.get("auth-service").getUri()).isEqualTo(URI.create("lb://ygh-auth-service"));
             assertThat(byId.get("user-service").getUri()).isEqualTo(URI.create("lb://ygh-user-service"));
             assertThat(byId.get("system-service").getUri()).isEqualTo(URI.create("lb://ygh-system-service"));
+            assertThat(byId.get("admin-service").getUri()).isEqualTo(URI.create("lb://ygh-admin-service"));
             assertRoutePaths(byId.get("auth-service"), Set.of("/api/v1/auth/**"));
             assertRoutePaths(byId.get("user-service"), Set.of(
                     "/api/v1/users/**",
@@ -84,6 +93,65 @@ class GatewayApplicationTest {
                     "/api/v1/system/**",
                     "/api/v1/roles/**",
                     "/api/v1/permissions/**"));
+            assertRoutePaths(byId.get("admin-service"), Set.of("/api/v1/admin/**"));
+
+            WebTestClient client = WebTestClient.bindToApplicationContext(context)
+                    .apply(springSecurity())
+                    .build();
+            client.get().uri("/actuator/health")
+                    .exchange()
+                    .expectStatus().isOk();
+            client.post().uri("/api/v1/auth/login")
+                    .exchange()
+                    .expectStatus().value(status -> assertThat(status).isNotEqualTo(401));
+            client.get().uri("/api/v1/users/me")
+                    .header(GatewayHeaders.TRACE_ID, "trace-security-1234")
+                    .exchange()
+                    .expectStatus().isUnauthorized()
+                    .expectHeader().valueEquals(GatewayHeaders.TRACE_ID, "trace-security-1234")
+                    .expectBody()
+                    .jsonPath("$.code").isEqualTo("UNAUTHENTICATED")
+                    .jsonPath("$.traceId").isEqualTo("trace-security-1234");
+            client.post().uri("/api/v1/auth/logout")
+                    .exchange()
+                    .expectStatus().isUnauthorized();
+            client.post().uri("/api/v1/auth/captcha")
+                    .exchange()
+                    .expectStatus().isUnauthorized();
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
+                    .get().uri("/api/v1/users/me")
+                    .exchange()
+                    .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
+                    .get().uri("/api/v1/employees/me")
+                    .exchange()
+                    .expectStatus().isForbidden();
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("employee-1001"))
+                            .authorities(new SimpleGrantedAuthority("ROLE_EMPLOYEE")))
+                    .get().uri("/api/v1/employees/me")
+                    .exchange()
+                    .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("employee-1001"))
+                            .authorities(new SimpleGrantedAuthority("ROLE_EMPLOYEE")))
+                    .get().uri("/api/v1/admin/overview")
+                    .exchange()
+                    .expectStatus().isForbidden();
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001"))
+                            .authorities(new SimpleGrantedAuthority("PERM_ROLE_ADMIN")))
+                    .get().uri("/api/v1/admin/overview")
+                    .exchange()
+                    .expectStatus().isForbidden();
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("admin-1001"))
+                            .authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                    .get().uri("/api/v1/admin/overview")
+                    .exchange()
+                    .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
+                    .get().uri("/internal/operations")
+                    .exchange()
+                    .expectStatus().isForbidden()
+                    .expectBody()
+                    .jsonPath("$.code").isEqualTo("PERMISSION_DENIED");
         }
     }
 

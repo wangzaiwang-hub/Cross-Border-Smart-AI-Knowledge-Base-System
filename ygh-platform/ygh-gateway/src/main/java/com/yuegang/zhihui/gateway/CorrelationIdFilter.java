@@ -4,10 +4,10 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
  * internal identity headers before authentication executes.
  */
 @Component
-final class CorrelationIdFilter implements GlobalFilter, Ordered {
+final class CorrelationIdFilter implements WebFilter, Ordered {
 
     private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{7,63}");
     private final Supplier<String> idGenerator;
@@ -30,7 +30,7 @@ final class CorrelationIdFilter implements GlobalFilter, Ordered {
     }
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String traceId = resolveId(exchange.getRequest().getHeaders().getFirst(GatewayHeaders.TRACE_ID));
         String requestId = resolveId(exchange.getRequest().getHeaders().getFirst(GatewayHeaders.REQUEST_ID));
 

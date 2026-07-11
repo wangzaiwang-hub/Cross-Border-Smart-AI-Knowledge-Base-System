@@ -32,6 +32,17 @@ spring:
               uri: lb://ygh-system-service
               predicates:
                 - Path=/api/v1/system/**,/api/v1/roles/**,/api/v1/permissions/**
+            - id: admin-service
+              uri: lb://ygh-admin-service
+              predicates:
+                - Path=/api/v1/admin/**
+
+ygh:
+  security:
+    jwt:
+      issuer: ${YGH_JWT_ISSUER}
+      jwk-set-uri: ${YGH_JWT_JWK_SET_URI}
+      audience: ${YGH_JWT_AUDIENCE:ygh-api}
 
 management:
   endpoints:

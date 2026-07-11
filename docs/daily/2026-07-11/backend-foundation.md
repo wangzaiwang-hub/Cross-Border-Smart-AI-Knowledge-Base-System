@@ -292,3 +292,16 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - Reviewer 发现下游可能在 Filter 早设之后覆盖或追加响应关联头；现已注册 `beforeCommit` 最终规范化，并用冲突、多值响应回归测试证明只返回一个 canonical ID。
 - Gateway 将关键权限分支覆盖率门禁提高到 90%；实际 Correlation 8/8、Trusted Context 14/14 分支覆盖，两个过滤器行覆盖 100%。
 - 模块 Reactor `verify`：受影响 6 个模块、46 项测试通过，可执行 JAR 重打包成功。
+
+## 24. Gateway JWT 与路径鉴权边界
+
+- 引入 Spring Security WebFlux Resource Server 和 Nimbus JOSE，Gateway 只接受 RS256，JWKS URI、Issuer 和 Audience 均通过环境变量注入。
+- 真实 RSA 2048 测试证明：可信私钥签名且 Issuer/Audience/时间有效的 Token 通过；过期 Token、攻击者私钥签名、错误 Issuer 和错误 Audience 全部拒绝。
+- 公共端点精确到 Method 和 Path；logout、错误 Method 的 captcha、普通用户/员工/后台路径分别验证 401/403/放行边界。
+- employee/departments/jobs 要求 EMPLOYEE 或 ADMIN；admin/system/roles/permissions 要求 ADMIN；未知非 API 路径 deny-all。
+- 401/403 采用统一 `ApiResponse`，Security 之前的 Correlation WebFilter 保证响应 envelope 与响应头具有同一 canonical traceId。
+- JWT Claim Mapper 对 subject、数组类型、字符、数量和总长 fail-closed，不把角色名称隐式转换成业务权限。
+- Reviewer 阻断 permissions 伪造 `ROLE_ADMIN` 的权限提升；现已采用互斥 `ROLE_*`/`PERM_*` Authority 命名空间，并补充后台访问回归测试。
+- Reviewer 阻断 Reactive `Mono<Void>.switchIfEmpty` 导致下游链可能执行两次；现统一使用 `doOnNext(...).then(defer(chain))`，四类安全上下文均断言恰好一次。
+- Gateway 分支覆盖率门禁保持 90%，模块 Reactor `verify` 通过；真实 RSA、路径边界、Claim 和过滤器测试均通过。
+- `BE-0225` 的越权、过期和伪造 Token 测试至此具备真实密码学与路径权限证据，P02 公共能力关闭。
