@@ -154,3 +154,10 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 使用 Boot AutoConfiguration 和 `FilterRegistrationBean` 自动注册，顺序固定为 `HIGHEST_PRECEDENCE + 10`，确保早于 Spring Security 短路响应。
 - common-web 27 项日志与自动配置测试通过且无 unchecked 编译警告；Reviewer 复核允许完成 `BE-0214`。
 - 全 Reactor `mvnw.cmd clean verify` 通过：8 个模块、67 项测试、0 失败、0 错误、0 跳过。
+
+## 13. GitHub 阶段灾备
+
+- GitHub `origin` 固定为 `wangzaiwang-hub/Cross-Border-Smart-AI-Knowledge-Base-System`。
+- 远程仓库推送前为空；本地已通过全量构建、67 项测试、Secret 扫描和差异检查。
+- 已将阶段基线提交 `91e0a0b` 推送到远程 `main`，并设置本地 `main` 跟踪 `origin/main`。
+- 后续开发转入 `feature/backend-p02-foundation`，完成阶段门禁后通过 Pull Request 合并，不再直接在远程主分支持续开发。

@@ -363,7 +363,7 @@
 
 ### P12.4 GitHub 远程交付
 
-- [ ] `BE-1260` 固定 GitHub `origin` 并推送已验收阶段基线到 `main`。
+- [x] `BE-1260` 固定 GitHub `origin` 并推送已验收阶段基线到 `main`。
 - [ ] `BE-1261` 发布前执行全 Reactor、E2E、Compose、Secret 和许可证最终门禁。
 - [ ] `BE-1262` 推送 release/feature 分支并通过 Pull Request 完成最终代码审查。
 - [ ] `BE-1263` 合并到 `main`，创建版本标签和发布说明，记录远程 Commit SHA。
