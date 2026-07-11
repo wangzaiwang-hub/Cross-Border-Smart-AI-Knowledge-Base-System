@@ -18,7 +18,7 @@
 |---|---|---|
 | P00 环境与工程马具 | 已完成 | 环境、规格、验收、接口台账已建立 |
 | P01 Maven 与版本治理 | 已完成 | JDK 25、Maven Wrapper、企业 BOM、兼容性类加载测试通过 |
-| P02 公共能力 | 进行中 | core/web/security/mybatis/Flyway/redis 已完成；mq、test 与治理门禁未完成 |
+| P02 公共能力 | 进行中 | 公共实现、覆盖率与 API 兼容门禁已完成；Token 攻击测试待 Auth 阶段闭环 |
 | P03 Gateway/Auth/User | 未开始 | 下一实施阶段 |
 | P04 商城基础 | 未开始 | 商品、库存 |
 | P05 交易闭环 | 未开始 | 购物车、订单、钱包、模拟支付 |
@@ -101,7 +101,7 @@
 - [x] `BE-0232` 创建 `ygh-common-redis`，Key 规范、TTL 抖动、锁 owner 校验。
 - [x] `BE-0233` 创建 `ygh-common-mq`，事件 Envelope、幂等消费和死信记录。
 - [x] `BE-0234` 创建 `ygh-common-test`，Testcontainers、Mock 时钟和测试数据工厂。
-- [ ] `BE-0235` 公共模块覆盖率与 API 兼容测试达标。
+- [x] `BE-0235` 公共模块覆盖率与 API 兼容测试达标。
 
 退出门禁：业务服务无需复制响应、安全、数据库、Redis、MQ 和测试基础代码；公共能力均有单元测试。
 

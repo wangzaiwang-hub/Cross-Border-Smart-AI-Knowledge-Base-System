@@ -29,5 +29,6 @@
 
     <modules>
         <module>ygh-compatibility-tests</module>
+        <module>ygh-api-compatibility-tests</module>
     </modules>
 </project>

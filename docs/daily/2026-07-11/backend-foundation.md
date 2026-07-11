@@ -247,3 +247,14 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 模块 Reactor：common-core 22 项、common-mq 25 项，共 47 项测试通过。
 - 全 Reactor `clean verify`：11 个模块、166 项测试，0 失败、0 错误、0 跳过。
 - 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置再次通过 `config --quiet`。
+
+## 20. 覆盖率与公共 API 兼容门禁
+
+- 根构建引入 JaCoCo `0.8.15` 的报告与阈值检查，公共模块最低行覆盖率为 70%、分支覆盖率为 60%。
+- 增加执行数据 fail-closed 检查：模块存在生产 class 但 `jacoco.exec` 缺失或为空时，在 JaCoCo 检查前终止构建。
+- 反向执行 `mvnw.cmd -pl ygh-common/ygh-common-core clean verify -DskipTests`，构建按预期失败并输出缺少 JaCoCo 执行数据，证明不能通过跳过测试绕过门禁。
+- 新增 `ygh-api-compatibility-tests`，固化七个公共 JAR 共 490 条公开/受保护签名，同时支持类目录和 JAR 扫描。
+- API 差异会精确输出 `REMOVED/ADDED`；测试另覆盖受保护嵌套类型和成员，防止扫描盲区。
+- Reviewer 首轮提出执行数据绕过、hash-only 无差异明细和遗漏 protected API 三项 P1，均已修复并补充验证。
+- 全 Reactor `clean verify`：13 个模块、176 项测试，0 失败、0 错误、0 跳过。
+- 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置均通过 `config --quiet`，未改变容器运行状态。
