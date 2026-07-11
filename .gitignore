@@ -1,0 +1,40 @@
+# Local secrets and runtime data
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets/*
+!**/secrets/.gitkeep
+**/data/
+**/logs/
+**/backups/
+
+# Build and IDE
+target/
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iml
+*.log
+*.dump
+*.dumpstream
+hs_err_pid*
+replay_pid*
+
+# OS / temporary
+.DS_Store
+Thumbs.db
+*.bak-*
+
+# Credentials and private key material
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+
+# Original requirement files stay local; reviewed Markdown is the repository baseline
+/*.doc
+/*.docx
+/docs/*.pdf
