@@ -100,7 +100,7 @@
 - [x] `BE-0231` Flyway 迁移命名、校验和回滚规范。
 - [x] `BE-0232` 创建 `ygh-common-redis`，Key 规范、TTL 抖动、锁 owner 校验。
 - [x] `BE-0233` 创建 `ygh-common-mq`，事件 Envelope、幂等消费和死信记录。
-- [ ] `BE-0234` 创建 `ygh-common-test`，Testcontainers、Mock 时钟和测试数据工厂。
+- [x] `BE-0234` 创建 `ygh-common-test`，Testcontainers、Mock 时钟和测试数据工厂。
 - [ ] `BE-0235` 公共模块覆盖率与 API 兼容测试达标。
 
 退出门禁：业务服务无需复制响应、安全、数据库、Redis、MQ 和测试基础代码；公共能力均有单元测试。

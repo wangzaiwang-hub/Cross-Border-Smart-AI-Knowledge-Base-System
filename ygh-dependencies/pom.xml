@@ -114,6 +114,12 @@
                 <artifactId>ygh-common-mq</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>com.yuegang.zhihui</groupId>
+                <artifactId>ygh-common-test</artifactId>
+                <version>${revision}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>

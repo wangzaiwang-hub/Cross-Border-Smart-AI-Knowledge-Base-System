@@ -218,6 +218,20 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - 全 Reactor `clean verify` 通过：10 个模块、140 项测试，0 失败、0 错误、0 跳过。
 - 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置再次通过 `config --quiet`。
 
+## 19. common-test 公共测试基础设施
+
+- 新增标准 Maven 子模块 `ygh-common-test`，企业 BOM 固定 test scope，避免进入生产依赖图。
+- `MutableTestClock` 使用共享 AtomicReference，支持时区 View、正向推进和显式重置；8 线程各 250 次推进结果精确。
+- `TestDataFactory` 生成确定性 `test-*` ID、`test_user_*` 用户名、`example.test` 邮箱和“测试用户”显示名；类型构造器拒绝生产样式身份。
+- `YghTestContainerFactory` 固定 Redis 8.4.4、MySQL 8.4.10、PGVector 0.8.5-pg17-bookworm，与部署镜像一致并设置内存上限和启动超时。
+- 数据库凭据每个 Fixture 动态生成且诊断输出脱敏；`JdbcContainerFixture` 支持 start/AutoCloseable，启动前禁止读取 JDBC URL。
+- `ygh-common-redis` 改为 test scope 依赖 common-test，并通过公共工厂完成真实 Redis 容器锁集成测试和自动清理。
+- Reviewer 修复 BOM scope 泄漏风险并补 Clock 并发证据后，最终未发现 P0/P1，允许完成 `BE-0234`。
+- common-test 8 项测试与 common-redis 19 项真实容器测试通过；依赖树确认 common-test 在 Redis 中为 test scope。
+- MySQL、PGVector 的真实 JDBC/扩展连通测试明确保留到 `BE-1202`，不在本阶段伪称完成。
+- 全 Reactor `clean verify`：12 个模块、174 项测试，0 失败、0 错误、0 跳过。
+- 本机 `mall-deps`、`ai-deps` 与虚拟机 `core`、`ai-data` 四组 Compose 配置再次通过 `config --quiet`。
+
 ## 18. common-mq Envelope、幂等消费与死信内核
 
 - 新增标准 Maven 子模块 `ygh-common-mq`，纳入 `ygh-common` 聚合和企业 BOM；直接声明 common-core、Jackson Annotation 与 Spring JDBC 依赖。

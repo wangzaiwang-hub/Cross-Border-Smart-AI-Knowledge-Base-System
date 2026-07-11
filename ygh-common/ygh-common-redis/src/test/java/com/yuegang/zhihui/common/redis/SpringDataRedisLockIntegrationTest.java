@@ -2,6 +2,7 @@ package com.yuegang.zhihui.common.redis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -14,12 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.DockerImageName;
 
 class SpringDataRedisLockIntegrationTest {
 
-    private static final GenericContainer<?> REDIS = new GenericContainer<>(
-            DockerImageName.parse("redis:8.4.4")).withExposedPorts(6379);
+    private static final GenericContainer<?> REDIS = YghTestContainerFactory.redis();
 
     private static LettuceConnectionFactory connectionFactory;
     private static StringRedisTemplate template;
