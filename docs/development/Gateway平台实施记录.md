@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-gateway`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud Gateway 5.0.2  
-> 当前完成：`BE-0301`、`BE-0302`、`BE-0303`
+> 当前完成：`BE-0301`、`BE-0302`、`BE-0303`、`BE-0304`
 
 ## 1. Maven 边界
 
@@ -67,3 +67,20 @@ ygh-platform/                       # packaging=pom，平台副项目
 - 本机 Actuator health 返回 `UP`。
 - 虚拟机通过注册地址访问 Gateway health 返回 `UP`，证明 Nacos 中发布的 IP/Port 对服务侧可达。
 - 烟测进程随后停止；凭据只从未跟踪环境文件临时注入，未写入命令输出、源码或文档。
+
+## 6. 请求关联与可信用户上下文
+
+| 名称 | 来源 | 行为 |
+|---|---|---|
+| `X-Trace-Id` | 可接受格式合法的调用方值，否则生成 | 写入下游请求、响应、Exchange Attribute 和 Reactor Context |
+| `X-Request-Id` | 可接受格式合法的调用方值，否则生成 | 写入下游请求、响应、Exchange Attribute 和 Reactor Context |
+| `X-YGH-User-Id` | 只允许认证过滤器产生的 `CurrentUserPrincipal` | 客户端同名头先删除，认证后重新注入 |
+| `X-YGH-Roles` | 同上 | 排序后逗号分隔，限制字符、数量和总长 |
+| `X-YGH-Permissions` | 同上 | 排序后逗号分隔，限制字符、数量和总长 |
+
+- Correlation Filter 顺序固定为 `HIGHEST_PRECEDENCE + 10`，最早移除客户端可控的内部身份头。
+- JWT Authentication Filter 预留顺序 `+20`；只在验证签名、时间、受众、撤销和账号状态后写入可信 Principal Attribute。
+- Trusted User Context Filter 顺序固定为 `+30`；没有可信 Principal 时不会向下游发送任何身份头。
+- Correlation ID 限制为 8—64 位安全字符；用户 ID、角色和权限拒绝 CR/LF、逗号注入、超量和超长数据。
+- 响应提交前通过 `beforeCommit` 再次用 canonical ID 覆盖同名头，保证下游不能追加或改写成冲突、多值响应。
+- Gateway 关键权限/信任边界将模块分支覆盖率门禁提高到 90%；当前两个过滤器共 22 个分支全部覆盖。

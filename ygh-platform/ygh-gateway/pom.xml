@@ -14,6 +14,10 @@
     <artifactId>ygh-gateway</artifactId>
     <name>YGH Reactive API Gateway</name>
 
+    <properties>
+        <jacoco.minimum.branch.coverage>0.90</jacoco.minimum.branch.coverage>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.yuegang.zhihui</groupId>

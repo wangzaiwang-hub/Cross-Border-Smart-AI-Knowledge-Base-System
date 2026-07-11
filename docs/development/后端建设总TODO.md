@@ -112,7 +112,7 @@
 - [x] `BE-0301` 创建 `ygh-platform/ygh-gateway` 标准 Maven 模块。
 - [x] `BE-0302` Gateway 使用 WebFlux，禁止引入 MVC Starter。
 - [x] `BE-0303` 配置 `/api/v1/**` 路由和 Nacos 服务发现。
-- [ ] `BE-0304` 生成/透传 traceId、请求 ID和用户上下文。
+- [x] `BE-0304` 生成/透传 traceId、请求 ID和用户上下文。
 - [ ] `BE-0305` 公共路径、登录路径、员工路径和后台路径鉴权边界。
 - [ ] `BE-0306` Sentinel Gateway 限流和可识别降级响应。
 - [ ] `BE-0307` CORS、请求体大小、上传路径和安全 Header。

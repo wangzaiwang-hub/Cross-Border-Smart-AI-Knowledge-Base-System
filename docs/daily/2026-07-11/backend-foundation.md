@@ -280,3 +280,15 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - Reviewer 阻断了只检查 `/api/v1/` 前缀、无法发现 catch-all 或服务间路径错配的测试；现已按 Route ID 精确比较全部 Path 集合，并显式拒绝 `/api/v1/**`。
 - 模块 Reactor `verify` 通过；Gateway 3 项测试、受影响公共模块 33 项测试全部通过。
 - 真实组件烟测：可执行 JAR 注册到虚拟机 Nacos 3.1.1，实例为 `YGH_GROUP/ygh-gateway 192.168.154.1:18080`；本机 health 为 `UP`，虚拟机通过注册地址访问 health 也为 `UP`；进程随后停止。
+
+## 23. Gateway 关联 ID 与可信用户上下文
+
+- Test-Author 先建立 traceId/requestId、伪造身份头、可信 Principal、CRLF、Authority 数量/长度和 Filter Order 测试；生产过滤器缺失时测试编译按预期失败。
+- `CorrelationIdFilter` 接受 8—64 位安全调用方 ID，否则生成 UUID；同时写下游请求、响应、Exchange Attribute 和 Reactor Context。
+- Correlation Filter 在认证前清除 `X-YGH-User-Id/Roles/Permissions`，客户端不能用同名头伪装内部身份。
+- `TrustedUserContextFilter` 只读取服务端认证过滤器写入的 `CurrentUserPrincipal` Exchange Attribute；没有可信 Principal 时身份头保持缺失。
+- 用户 ID、角色和权限执行字符、Authority 数量 128 和头总长 4096 的防御性约束，异常输入 fail-closed。
+- Filter 顺序固定为关联 ID `+10`、未来 JWT `+20`、可信上下文 `+30`，保证先清除、后认证、再传播。
+- Reviewer 发现下游可能在 Filter 早设之后覆盖或追加响应关联头；现已注册 `beforeCommit` 最终规范化，并用冲突、多值响应回归测试证明只返回一个 canonical ID。
+- Gateway 将关键权限分支覆盖率门禁提高到 90%；实际 Correlation 8/8、Trusted Context 14/14 分支覆盖，两个过滤器行覆盖 100%。
+- 模块 Reactor `verify`：受影响 6 个模块、46 项测试通过，可执行 JAR 重打包成功。
