@@ -96,7 +96,7 @@
 
 ### P02.4 common-data/redis/mq/test
 
-- [ ] `BE-0230` 创建 `ygh-common-mybatis`，统一审计字段和分页。
+- [x] `BE-0230` 创建 `ygh-common-mybatis`，统一审计字段和分页。
 - [ ] `BE-0231` Flyway 迁移命名、校验和回滚规范。
 - [ ] `BE-0232` 创建 `ygh-common-redis`，Key 规范、TTL 抖动、锁 owner 校验。
 - [ ] `BE-0233` 创建 `ygh-common-mq`，事件 Envelope、幂等消费和死信记录。

@@ -172,3 +172,19 @@ ssh vm-ygh "cd /opt/ygh/constrained-dev && ./scripts/status.sh && ./scripts/heal
 - Test-Author 先补契约门禁，Reviewer 在补齐响应、Header、必填字段和正则后静态复核通过，允许完成 `BE-0215`。
 - 模块验证 `mvnw.cmd -pl ygh-common/ygh-common-web -am test` 通过：common-core 21 项、common-web 30 项，共 51 项测试，0 失败、0 错误、0 跳过且无编译告警。
 - 最终串行执行 `mvnw.cmd clean verify`：8 个 Reactor 模块全部成功，共 70 项测试，0 失败、0 错误、0 跳过。
+
+## 15. common-mybatis 审计与分页基础
+
+- 新增标准 Maven 子模块 `ygh-common-mybatis`，纳入 `ygh-common` 聚合与企业 BOM。
+- 官方 Boot 4 专用依赖固定为 MyBatis-Plus 3.5.16，并显式引入拆分后的 JSqlParser 分页模块。
+- Test-Author 先建立审计字段、MetaObjectHandler、分页适配和 Boot 自动配置测试；缺少生产类时测试编译按预期失败，再进入实现。
+- `AuditableEntity` 统一 `createdBy/createdAt/updatedBy/updatedAt`；审计人使用字符串稳定 ID，时间使用 UTC `Instant`。
+- 普通插入强制覆盖调用方提供的四个审计字段；`createdBy/createdAt` 使用 `updateStrategy=NEVER`，防止更新操作篡改创建审计。
+- 在线服务必须显式提供 `AuditorProvider`，公共模块不静默回退为 `SYSTEM`；定时任务需要显式使用系统审计人。
+- `MybatisPageAdapter` 复用 common-core 一基分页协议，将 Entity 页映射为 DTO `PageResponse`，不暴露数据库 Entity。
+- 分页 Guard 要求一个且仅一个 `PaginationInnerInterceptor`、`maxLimit` 为 1 至 100 且 `overflow=false`；缺失、零值、重复和越界配置均阻止启动。
+- 新增 H2 MySQL 模式真实 DataSource、SqlSession、BaseMapper 插入/更新/分页测试，证明 Boot 4.0.7 与 MyBatis-Plus 3.5.16 运行链可用。
+- Reviewer 首轮阻断了可伪造创建审计和默认 SYSTEM 掩盖身份接入的问题；修复并补充真实 SQL、分页冲突测试后最终复核无阻断。
+- 模块验证 `mvnw.cmd -pl ygh-common/ygh-common-mybatis -am test`：common-core 21 项、common-mybatis 23 项，共 44 项测试通过。
+- 全 Reactor `mvnw.cmd clean verify`：9 个模块、93 项测试，0 失败、0 错误、0 跳过。
+- 本机 `mall-deps`、`ai-deps` 及虚拟机 `core/ai-data` Compose 配置均通过 `docker compose config --quiet`，未启动或停止容器。
