@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-gateway`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud Gateway 5.0.2  
-> 当前完成：`BE-0301`—`BE-0306`
+> 当前完成：`BE-0301`—`BE-0307`
 
 ## 1. Maven 边界
 
@@ -113,3 +113,31 @@ ygh-platform/                       # packaging=pom，平台副项目
 - 当前只加载可重复验证的本地静态基线，不启动 Sentinel Dashboard/Transport 全局线程；Nacos 动态规则、接口级熔断和持久化归 `BE-1003`，不在本任务虚报完成。
 - 每个 Gateway 进程只运行一个 Spring ApplicationContext；Sentinel 静态 RuleManager 是 JVM 全局状态，测试保存并恢复原规则且串行锁定该资源。多上下文和动态规则生命周期统一在 `BE-1003` 收口。
 - 自动化验证覆盖四条路由规则、非法配置、正 QPS 首次放行/第二次真实阻断、阻断后不执行下游操作、429/503 Envelope 和未知异常透传；Gateway 33 项测试通过，模块分支覆盖率继续高于 90%。
+
+## 9. CORS、请求准入与安全响应头
+
+### 9.1 CORS
+
+- `YGH_GATEWAY_CORS_ALLOWED_ORIGINS` 是无默认值必填项；基础配置不包含 localhost 或任何开发机 Origin，漏配时启动 fail-fast。
+- 只接受无路径、查询、Fragment、UserInfo 的合法 HTTP(S) Origin，拒绝 `*`、空列表、非法端口和畸形 URI。
+- 允许方法固定为 GET/POST/PUT/PATCH/DELETE/OPTIONS；允许 Header 和暴露 Header 采用最小白名单，credentials 开启，预检缓存 3600 秒。
+- 独立 CORS WebFilter 顺序为 `HIGHEST_PRECEDENCE + 12`，早于请求 Guard 的 `+15`；因此 Guard 直接返回的 411/413/403 仍带可信 Origin 的 CORS Header，浏览器可以读取统一错误体。
+
+### 9.2 请求体与上传路径
+
+| 类型 | 默认上限 | 行为 |
+|---|---:|---|
+| 普通请求 | 2 MiB | Content-Length 早期拒绝；chunked 在路由前最多有界缓存 2 MiB，超限不连接下游 |
+| multipart 上传 | 50 MiB | 必须提供 Content-Length；超限返回 413，无长度返回 411 |
+
+- 两类上限均不得超过 100 MiB，且上传上限不得小于普通请求上限；非法配置启动失败。
+- multipart 只允许 POST 到三个精确端点：`/api/v1/knowledge/documents`、`/api/v1/training/documents`、`/api/v1/products/images`；其他方法、尾斜杠、子路径、矩阵参数和近似路径返回 403。
+- 普通 chunked 请求在连接业务服务前使用 Spring DataBuffer 的有界 join；缓冲体支持安全重放并在链结束释放。空/非空请求均物化为单一 Optional 后只调用一次下游链。真实 Netty 测试证明 2 MiB+ 请求返回 413、下游调用数为 0 且 `HttpClientConnect` 不产生 WARN；合法 chunked 请求只调用一次下游。
+- 文件扩展名、MIME 白名单、恶意内容扫描和业务权限仍由 Knowledge/Product/Training 服务在对应阶段完成；Gateway 只承担边缘总量和路径准入，不替代业务校验。
+
+### 9.3 安全响应头
+
+- 在响应提交前规范化 `nosniff`、`DENY` Frame、`no-referrer`、Permissions Policy 和 API CSP，并删除 `Server` 版本泄露。
+- 下游未声明缓存策略时使用 `Cache-Control: no-store`；下游明确声明的可缓存商品资源策略予以保留。
+- Gateway 直接收到 HTTPS 请求时写入一年 HSTS；企业部署若在受信反向代理终止 TLS，由代理负责外层 HSTS 和 Forwarded Header 信任边界，最终在 `BE-1223` 验证。
+- 真实 Netty 与单元测试共 43 项全部通过，Gateway 分支覆盖率 95.78%，高于 90% 阻断阈值。

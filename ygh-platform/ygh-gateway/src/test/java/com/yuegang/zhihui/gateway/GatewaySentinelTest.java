@@ -97,7 +97,7 @@ class GatewaySentinelTest {
         String routeId = "sentinel-test-route";
         GatewayRuleManager.loadRules(Set.of(new GatewayFlowRule(routeId)
                 .setCount(1)
-                .setIntervalSec(1)));
+                .setIntervalSec(10)));
         var exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/v1/test").build());
         exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,

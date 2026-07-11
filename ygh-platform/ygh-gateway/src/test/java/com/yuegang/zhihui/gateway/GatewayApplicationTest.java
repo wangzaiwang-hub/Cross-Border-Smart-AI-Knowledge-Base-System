@@ -20,9 +20,14 @@ import org.springframework.boot.web.context.reactive.ConfigurableReactiveWebAppl
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.ClassUtils;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.reactive.function.BodyInserters;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 class GatewayApplicationTest {
 
@@ -36,7 +41,9 @@ class GatewayApplicationTest {
                 .contains("name: ygh-gateway")
                 .contains("web-application-type: reactive")
                 .contains("server-addr: ${YGH_NACOS_SERVER_ADDR}")
-                .contains("password: ${YGH_NACOS_PASSWORD}");
+                .contains("password: ${YGH_NACOS_PASSWORD}")
+                .contains("allowed-origins: ${YGH_GATEWAY_CORS_ALLOWED_ORIGINS}")
+                .doesNotContain("YGH_GATEWAY_CORS_ALLOWED_ORIGINS:");
     }
 
     @Test
@@ -61,12 +68,24 @@ class GatewayApplicationTest {
 
     @Test
     void gatewayStartsAsReactiveApplicationWithoutExternalInfrastructure() {
-        try (var context = new SpringApplicationBuilder(GatewayApplication.class)
+        var backendCalls = new java.util.concurrent.atomic.AtomicInteger();
+        var backend = reactor.netty.http.server.HttpServer.create()
+                .host("127.0.0.1")
+                .port(0)
+                .handle((request, response) -> Mono.fromRunnable(backendCalls::incrementAndGet)
+                        .then(request.receive().then())
+                        .then(response.status(204).send()))
+                .bindNow();
+        try {
+            try (var context = new SpringApplicationBuilder(GatewayApplication.class)
                 .web(WebApplicationType.REACTIVE)
                 .run(
                         "--server.port=0",
                         "--spring.cloud.nacos.discovery.enabled=false",
                         "--spring.cloud.nacos.server-addr=127.0.0.1:1",
+                        "--spring.cloud.discovery.client.simple.instances.ygh-auth-service[0].uri="
+                                + "http://127.0.0.1:" + backend.port(),
+                        "--ygh.gateway.cors.allowed-origins=http://localhost:5173,http://127.0.0.1:5173",
                         "--ygh.security.jwt.issuer=https://auth.example.test",
                         "--ygh.security.jwt.jwk-set-uri=https://auth.example.test/.well-known/jwks.json",
                         "--ygh.security.jwt.audience=ygh-api")) {
@@ -97,13 +116,112 @@ class GatewayApplicationTest {
                     "/api/v1/permissions/**"));
             assertRoutePaths(byId.get("admin-service"), Set.of("/api/v1/admin/**"));
 
+            var corsExchange = org.springframework.mock.web.server.MockServerWebExchange.from(
+                    org.springframework.mock.http.server.reactive.MockServerHttpRequest
+                            .options("/api/v1/auth/login").build());
+            assertThat(context.getBean(CorsConfigurationSource.class)
+                    .getCorsConfiguration(corsExchange).getAllowedOrigins())
+                    .contains("http://localhost:5173");
+            assertThat(context.getBean(GatewayCorsWebFilter.class).getOrder())
+                    .isLessThan(context.getBean(GatewayRequestGuardFilter.class).getOrder());
+
             WebTestClient client = WebTestClient.bindToApplicationContext(context)
                     .apply(springSecurity())
                     .build();
-            client.get().uri("/actuator/health")
+            Integer port = context.getEnvironment().getProperty("local.server.port", Integer.class);
+            assertThat(port).isNotNull().isPositive();
+            WebTestClient serverClient = WebTestClient.bindToServer()
+                    .baseUrl("http://127.0.0.1:" + port)
+                    .build();
+            serverClient.get().uri("/actuator/health")
                     .exchange()
-                    .expectStatus().isOk();
-            client.post().uri("/api/v1/auth/login")
+                    .expectStatus().isOk()
+                    .expectHeader().valueEquals("X-Content-Type-Options", "nosniff")
+                    .expectHeader().valueEquals("X-Frame-Options", "DENY")
+                    .expectHeader().doesNotExist("Server");
+            serverClient.options().uri("/api/v1/auth/login")
+                    .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                    .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().valueEquals(
+                            HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                    .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+            serverClient.options().uri("/api/v1/auth/login")
+                    .header(HttpHeaders.ORIGIN, "https://attacker.example")
+                    .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                    .exchange()
+                    .expectStatus().isForbidden()
+                    .expectHeader().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN);
+            serverClient.post().uri("/api/v1/auth/login")
+                    .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                    .bodyValue(new byte[2 * 1024 * 1024 + 1])
+                    .exchange()
+                    .expectStatus().isEqualTo(413)
+                    .expectHeader().valueEquals(
+                            HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                    .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
+                    .expectBody()
+                    .jsonPath("$.code").isEqualTo("VALIDATION_ERROR");
+            var clientBuffers = org.springframework.core.io.buffer.DefaultDataBufferFactory.sharedInstance;
+            var httpClientLogger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory
+                    .getLogger("reactor.netty.http.client.HttpClientConnect");
+            var clientLogEvents = new ch.qos.logback.core.read.ListAppender<
+                    ch.qos.logback.classic.spi.ILoggingEvent>();
+            clientLogEvents.start();
+            httpClientLogger.addAppender(clientLogEvents);
+            try {
+                serverClient.post().uri("/api/v1/auth/login")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .body(BodyInserters.fromDataBuffers(Flux.just(
+                                clientBuffers.wrap(new byte[2 * 1024 * 1024 + 1]))))
+                        .exchange()
+                        .expectStatus().isEqualTo(413)
+                        .expectHeader().valueEquals(
+                                HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                        .expectBody()
+                        .jsonPath("$.code").isEqualTo("VALIDATION_ERROR");
+            } finally {
+                httpClientLogger.detachAppender(clientLogEvents);
+                clientLogEvents.stop();
+            }
+            assertThat(backendCalls).hasValue(0);
+            assertThat(clientLogEvents.list)
+                    .noneMatch(event -> event.getLevel().isGreaterOrEqual(ch.qos.logback.classic.Level.WARN));
+            serverClient.post().uri("/api/v1/auth/login")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromDataBuffers(Flux.just(
+                            clientBuffers.wrap("{}".getBytes(StandardCharsets.UTF_8)))))
+                    .exchange()
+                    .expectStatus().isNoContent();
+            assertThat(backendCalls).hasValue(1);
+            serverClient.post().uri("/api/v1/orders/import")
+                    .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                    .header(HttpHeaders.CONTENT_TYPE, "multipart/form-data; boundary=test")
+                    .exchange()
+                    .expectStatus().isForbidden()
+                    .expectHeader().valueEquals(
+                            HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                    .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")
+                    .expectBody()
+                    .jsonPath("$.code").isEqualTo("PERMISSION_DENIED");
+            for (String unsafeUploadPath : Set.of(
+                    "/api/v1/knowledge/documents/",
+                    "/api/v1/knowledge/documents;version=1",
+                    "/api/v1/knowledge/documents/extra")) {
+                serverClient.post().uri(unsafeUploadPath)
+                        .header(HttpHeaders.CONTENT_TYPE, "multipart/form-data; boundary=test")
+                        .exchange()
+                        .expectStatus().isForbidden();
+            }
+            serverClient.put().uri("/api/v1/knowledge/documents")
+                    .header(HttpHeaders.CONTENT_TYPE, "multipart/form-data; boundary=test")
+                    .exchange()
+                    .expectStatus().isForbidden();
+            client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
+                    .get().uri("/api/v1/users/me")
                     .header(GatewayHeaders.TRACE_ID, "trace-dependency-1234")
                     .exchange()
                     .expectStatus().isEqualTo(503)
@@ -159,6 +277,9 @@ class GatewayApplicationTest {
                     .expectStatus().isForbidden()
                     .expectBody()
                     .jsonPath("$.code").isEqualTo("PERMISSION_DENIED");
+            }
+        } finally {
+            backend.disposeNow();
         }
     }
 

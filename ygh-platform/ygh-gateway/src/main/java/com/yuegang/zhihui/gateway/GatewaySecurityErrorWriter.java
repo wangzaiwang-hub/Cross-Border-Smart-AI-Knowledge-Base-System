@@ -38,6 +38,18 @@ final class GatewaySecurityErrorWriter {
         return write(exchange, HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.DEPENDENCY_UNAVAILABLE);
     }
 
+    Mono<Void> payloadTooLarge(ServerWebExchange exchange) {
+        return write(exchange, HttpStatus.PAYLOAD_TOO_LARGE, ErrorCode.VALIDATION_ERROR);
+    }
+
+    Mono<Void> uploadPathRejected(ServerWebExchange exchange) {
+        return write(exchange, HttpStatus.FORBIDDEN, ErrorCode.PERMISSION_DENIED);
+    }
+
+    Mono<Void> lengthRequired(ServerWebExchange exchange) {
+        return write(exchange, HttpStatus.LENGTH_REQUIRED, ErrorCode.VALIDATION_ERROR);
+    }
+
     private Mono<Void> write(ServerWebExchange exchange, HttpStatus status, ErrorCode errorCode) {
         if (exchange.getResponse().isCommitted()) {
             return Mono.empty();
