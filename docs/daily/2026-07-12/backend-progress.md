@@ -31,3 +31,13 @@
 - 真实烟测结果：本机 live/ready `UP`；虚拟机反向访问 `192.168.154.1:18080` 为 `UP`；Nacos 精确命中 `YGH_GROUP@@ygh-gateway 192.168.154.1:18080 healthy=true`。
 - 正常结束烟测后本机 18080 listener 为 0，Nacos 不再保留目标实例；虚拟机核心组件未停止。
 - Reviewer 审查 P0/P1 为 0；在途请求 drain 留待 `BE-1225`，Nacos 纳入 readiness 的治理决策留待 `BE-1101`。
+
+## 4. BE-0309 Gateway 真实契约集成测试
+
+- 新增真实随机端口测试链：Netty Gateway、Spring Security、Nimbus 远程 JWKS、四条 LB 服务发现记录和 embedded backend。
+- RSA 2048/RS256 Token 包含 kid/use=sig、issuer、audience、nbf、exp 和角色权限；显式证明 JWKS 远程请求一次。
+- 真实 HTTP 验证 401、403、auth/user/system/admin 四类路由、可信内部用户头，以及 429/Retry-After/traceId。
+- 429 故障注入请求未进入 backend；合法 count=1 阈值仍由 Sentinel 单元集成测试覆盖。
+- 集成测试最初暴露 JWKS 测试服务使用 `request.path()` 时缺少前导斜杠，导致返回空 JWKS 选择结果；修正为 URI path 后，真实 Resource Server 链路通过。这也证明 `mockJwt` 不能替代最终 HTTP 认证证据。
+- Reviewer 复审 P0/P1 为 0；Gateway P03.1 全部任务完成。
+- Gateway 阶段执行根 Reactor `mvnw.cmd clean verify`：220 项测试、0 失败/错误/跳过；Gateway 分支覆盖率 95.78%。

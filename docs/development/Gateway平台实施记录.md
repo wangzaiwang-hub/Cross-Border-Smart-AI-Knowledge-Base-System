@@ -2,7 +2,7 @@
 
 > 模块：`ygh-platform/ygh-gateway`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud Gateway 5.0.2  
-> 当前完成：`BE-0301`—`BE-0308`
+> 当前完成：`BE-0301`—`BE-0309`（Gateway 阶段完成）
 
 ## 1. Maven 边界
 
@@ -161,3 +161,25 @@ ygh-platform/                       # packaging=pom，平台副项目
 | 正常停止 | 本机监听端口为 0；Nacos 目标实例消失 |
 
 烟测结束后 Gateway 进程已停止；虚拟机 MySQL、Redis、Nacos 保持原有健康运行状态，没有把 Java 服务常驻在低配环境。
+
+## 11. Gateway 真实契约集成测试
+
+`GatewayContractIntegrationTest` 不使用 `mockJwt`，而是通过真实随机端口执行完整链路：
+
+```text
+WebTestClient
+  -> Reactor Netty Gateway
+  -> Spring Security Resource Server
+  -> Nimbus 远程 JWKS(RSA 2048/RS256/kid/use=sig)
+  -> Gateway Route + LoadBalancer
+  -> Embedded Reactor Netty Backend
+```
+
+- 一个 embedded backend 通过四条 SimpleDiscovery 记录模拟 auth/user/system/admin 服务；Route ID 到四个不同 `lb://service-name` 的精确映射另由 `GatewayApplicationTest` 固定断言，二者组合防止错误服务映射。
+- Token 真实包含 issuer、audience、nbf、exp、roles 和 permissions；JWKS 只发布公钥，私钥仅存在测试进程内存。测试显式断言远程 JWKS 只请求一次。
+- 真实 HTTP 验证：无 Token 为 401；CUSTOMER 访问 admin 为 403；auth/user/system/admin 四类请求分别到达后端并返回 204。
+- Backend 捕获并断言可信 `X-YGH-User-Id/Roles`；客户端伪造头的清理边界继续由过滤器测试覆盖。
+- 429 集成场景在首个 auth 路由成功后注入 count=0 规则，以确定性验证真实 HTTP 429、`Retry-After: 1`、canonical traceId 且请求不穿透 Backend。合法生产规则的 count=1 首次通过/第二次阻断由 `GatewaySentinelTest` 独立覆盖。
+- 所有启动 Gateway Context 或修改 Sentinel 全局规则的测试使用相同 JUnit `ResourceLock` 并保存恢复规则，为未来并行执行保留隔离边界。
+
+阶段门禁：根 Reactor `mvnw.cmd clean verify` 通过，共 220 项测试、0 失败、0 错误、0 跳过；Gateway 分支覆盖率 95.78%。
