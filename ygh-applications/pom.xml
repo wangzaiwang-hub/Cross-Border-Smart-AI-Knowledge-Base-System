@@ -30,5 +30,7 @@
         <module>ygh-inventory</module>
         <module>ygh-order</module>
         <module>ygh-wallet</module>
+        <module>ygh-knowledge</module>
+        <module>ygh-search</module>
     </modules>
 </project>

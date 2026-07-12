@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.knowledge;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.*;@SpringBootApplication public class KnowledgeApplication{public static void main(String[]a){SpringApplication.run(KnowledgeApplication.class,a);}}

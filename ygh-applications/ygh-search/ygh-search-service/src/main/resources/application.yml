@@ -1,0 +1,17 @@
+server.port: ${YGH_SEARCH_PORT:8089}
+spring:
+  application.name: ygh-search-service
+  datasource:
+    url: ${YGH_VECTOR_DB_URL}
+    username: ${YGH_VECTOR_DB_USERNAME}
+    password: ${YGH_VECTOR_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  flyway.locations: classpath:db/migration
+  cloud.nacos.discovery:
+    server-addr: ${YGH_NACOS_SERVER_ADDR}
+    username: ${YGH_NACOS_USERNAME}
+    password: ${YGH_NACOS_PASSWORD}
+    namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
+    group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
+ygh.search.elasticsearch-base-url: ${YGH_ELASTICSEARCH_BASE_URL}
+management.endpoints.web.exposure.include: health,info
