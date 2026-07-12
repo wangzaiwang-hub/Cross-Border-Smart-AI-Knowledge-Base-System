@@ -537,6 +537,18 @@ export const listAuditLogs = async (
     );
 export const listSystemSettings = async (): Promise<SystemSetting[]> =>
     apiData(await useHttp().get("/api/v1/system/settings"));
+export const saveSystemSetting = async (
+    setting: SystemSetting,
+    value: string,
+): Promise<SystemSetting> =>
+    apiData(
+        await useHttp().put(`/api/v1/system/settings/${setting.key}`, {
+            value,
+            valueType: setting.valueType,
+            secret: setting.secret,
+            version: setting.version,
+        }),
+    );
 export const listDictionaries = async (): Promise<Dictionary[]> =>
     apiData(await useHttp().get("/api/v1/system/dictionaries"));
 export const listFeatureFlags = async (): Promise<FeatureFlag[]> =>

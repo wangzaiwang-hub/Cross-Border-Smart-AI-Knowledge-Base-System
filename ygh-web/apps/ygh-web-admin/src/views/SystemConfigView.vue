@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
     listDictionaries,
     listFeatureFlags,
     listSystemSettings,
     saveFeatureFlag,
+    saveSystemSetting,
     type Dictionary,
     type FeatureFlag,
     type SystemSetting,
@@ -23,6 +24,30 @@ async function toggleFlag(flag: FeatureFlag) {
     } catch {
         flag.enabled = !flag.enabled;
         ElMessage.error("功能开关更新失败，版本可能已变化");
+    }
+}
+async function editSetting(setting: SystemSetting) {
+    if (setting.secret) {
+        ElMessage.warning("Secret 必须通过部署环境变量或 Secret 管理器更新");
+        return;
+    }
+    try {
+        const { value } = await ElMessageBox.prompt(
+            `请输入 ${setting.key} 的新值（${setting.valueType}）`,
+            "更新业务参数",
+            {
+                inputValue: setting.value,
+                inputType: setting.valueType === "JSON" ? "textarea" : "text",
+                inputValidator: (input) =>
+                    Boolean(input?.trim()) || "参数值不能为空",
+                confirmButtonText: "保存",
+            },
+        );
+        Object.assign(setting, await saveSystemSetting(setting, value));
+        ElMessage.success("业务参数已更新");
+    } catch (error) {
+        if (error !== "cancel" && error !== "close")
+            ElMessage.error("业务参数更新失败，格式或版本可能不正确");
     }
 }
 onMounted(async () => {
@@ -70,9 +95,22 @@ onMounted(async () => {
                     }}</template></el-table-column
                 ><el-table-column
                     prop="valueType"
-                    label="类型" /><el-table-column
+                    label="类型"
+                /><el-table-column
                     prop="version"
-                    label="版本" /></el-table></el-tab-pane
+                    label="版本"
+                /><el-table-column label="操作" width="100"
+                    ><template #default="scope"
+                        ><el-button
+                            link
+                            type="primary"
+                            :disabled="scope.row.secret"
+                            @click="editSetting(scope.row)"
+                            >编辑</el-button
+                        ></template
+                    ></el-table-column
+                ></el-table
+            ></el-tab-pane
         ><el-tab-pane label="功能开关" name="switches"
             ><div v-for="flag in flags" :key="flag.key" class="switch">
                 <div>
