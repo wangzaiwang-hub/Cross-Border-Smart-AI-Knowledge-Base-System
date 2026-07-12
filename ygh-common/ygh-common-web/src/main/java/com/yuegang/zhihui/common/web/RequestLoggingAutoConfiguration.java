@@ -41,4 +41,22 @@ public class RequestLoggingAutoConfiguration {
         registration.addUrlPatterns("/*");
         return registration;
     }
+
+    @Bean
+    @ConditionalOnMissingBean(AuditLoggingFilter.class)
+    AuditLoggingFilter auditLoggingFilter() {
+        return new AuditLoggingFilter();
+    }
+
+    @Bean
+    FilterRegistrationBean<AuditLoggingFilter> auditLoggingFilterRegistration(
+            AuditLoggingFilter filter
+    ) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setName("yghAuditLoggingFilter");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
+        registration.setEnabled(true);
+        registration.addUrlPatterns("/api/*", "/internal/*");
+        return registration;
+    }
 }
