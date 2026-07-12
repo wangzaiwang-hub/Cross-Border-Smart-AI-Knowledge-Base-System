@@ -5,20 +5,53 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import {
     dispatchNotifications,
     listDeadLetters,
+    listNotificationTemplates,
     replayDeadLetter,
+    saveNotificationTemplate,
     type DeadLetter,
+    type NotificationTemplate,
 } from "@/api/operations";
 const loading = ref(true);
 const dispatching = ref(false);
 const dead = ref<DeadLetter[]>([]);
+const templates = ref<NotificationTemplate[]>([]);
+const templateDialog = ref(false);
+const editingTemplate = ref<NotificationTemplate>();
 async function load() {
     loading.value = true;
     try {
-        dead.value = await listDeadLetters();
+        [dead.value, templates.value] = await Promise.all([
+            listDeadLetters(),
+            listNotificationTemplates(),
+        ]);
     } catch {
         ElMessage.error("死信列表加载失败");
     } finally {
         loading.value = false;
+    }
+}
+function editTemplate(template?: NotificationTemplate) {
+    editingTemplate.value = template
+        ? { ...template }
+        : {
+              code: "",
+              titleTemplate: "",
+              contentTemplate: "",
+              channel: "IN_APP",
+              enabled: true,
+              version: 0,
+          };
+    templateDialog.value = true;
+}
+async function persistTemplate() {
+    if (!editingTemplate.value) return;
+    try {
+        await saveNotificationTemplate(editingTemplate.value);
+        templates.value = await listNotificationTemplates();
+        templateDialog.value = false;
+        ElMessage.success("通知模板已保存");
+    } catch {
+        ElMessage.error("模板保存失败，请检查编码和版本");
     }
 }
 async function dispatch() {
@@ -63,6 +96,33 @@ onMounted(load);
             ><small>需要人工核验</small>
         </div>
     </div>
+    <section class="panel table-panel templates">
+        <header>
+            <b class="serif">通知模板</b
+            ><el-button type="primary" @click="editTemplate()"
+                >新增模板</el-button
+            >
+        </header>
+        <el-table :data="templates"
+            ><el-table-column prop="code" label="模板编码" /><el-table-column
+                prop="titleTemplate"
+                label="标题模板"
+            /><el-table-column prop="channel" label="渠道" /><el-table-column
+                prop="enabled"
+                label="启用"
+            /><el-table-column prop="version" label="版本" /><el-table-column
+                label="操作"
+                ><template #default="scope"
+                    ><el-button
+                        link
+                        type="primary"
+                        @click="editTemplate(scope.row)"
+                        >编辑</el-button
+                    ></template
+                ></el-table-column
+            ></el-table
+        >
+    </section>
     <section v-loading="loading" class="panel table-panel dead">
         <header>
             <b class="serif">死信队列</b
@@ -97,11 +157,43 @@ onMounted(load);
             ></el-table
         >
     </section>
+    <el-dialog v-model="templateDialog" title="维护通知模板" width="620"
+        ><el-form v-if="editingTemplate" label-position="top"
+            ><el-form-item label="模板编码"
+                ><el-input
+                    v-model="editingTemplate.code"
+                    :disabled="editingTemplate.version > 0" /></el-form-item
+            ><el-form-item label="标题模板"
+                ><el-input
+                    v-model="editingTemplate.titleTemplate" /></el-form-item
+            ><el-form-item label="内容模板"
+                ><el-input
+                    v-model="editingTemplate.contentTemplate"
+                    type="textarea"
+                    :rows="6"
+                /><small
+                    >变量使用 <code v-pre>{{ variableName }}</code
+                    >，发送时必须提供对应变量。</small
+                ></el-form-item
+            ><el-form-item label="启用"
+                ><el-switch
+                    v-model="editingTemplate.enabled" /></el-form-item></el-form
+        ><template #footer
+            ><el-button @click="templateDialog = false">取消</el-button
+            ><el-button type="primary" @click="persistTemplate"
+                >保存</el-button
+            ></template
+        ></el-dialog
+    >
 </template>
 <style scoped>
 .dead {
     margin-top: 14px;
 }
+.templates {
+    margin-top: 14px;
+}
+.templates header,
 .dead header {
     display: flex;
     justify-content: space-between;

@@ -147,6 +147,14 @@ export interface DeadLetter {
     failureReason: string;
     failedAt: string;
 }
+export interface NotificationTemplate {
+    code: string;
+    titleTemplate: string;
+    contentTemplate: string;
+    channel: string;
+    enabled: boolean;
+    version: number;
+}
 export interface PromptConfig {
     id: string;
     code: string;
@@ -592,6 +600,18 @@ export const retryIndexJob = async (id: string): Promise<void> => {
 };
 export const listDeadLetters = async (): Promise<DeadLetter[]> =>
     apiData(await useHttp().get("/api/v1/admin/notifications/dead-letters"));
+export const listNotificationTemplates = async (): Promise<
+    NotificationTemplate[]
+> => apiData(await useHttp().get("/api/v1/admin/notifications/templates"));
+export const saveNotificationTemplate = async (
+    template: NotificationTemplate,
+): Promise<NotificationTemplate> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/admin/notifications/templates/${template.code}`,
+            template,
+        ),
+    );
 export const replayDeadLetter = async (id: string): Promise<void> => {
     await useHttp().post(
         `/api/v1/admin/notifications/dead-letters/${id}/replay`,
