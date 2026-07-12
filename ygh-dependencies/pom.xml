@@ -23,6 +23,7 @@
         <mybatis-plus.version>3.5.16</mybatis-plus.version>
         <bouncycastle.version>1.81.1</bouncycastle.version>
         <apache-tika.version>3.3.1</apache-tika.version>
+        <rocketmq-client.version>5.3.1</rocketmq-client.version>
     </properties>
 
     <dependencyManagement>
@@ -93,6 +94,7 @@
             </dependency>
             <dependency><groupId>org.apache.tika</groupId><artifactId>tika-core</artifactId><version>${apache-tika.version}</version></dependency>
             <dependency><groupId>org.apache.tika</groupId><artifactId>tika-parsers-standard-package</artifactId><version>${apache-tika.version}</version></dependency>
+            <dependency><groupId>org.apache.rocketmq</groupId><artifactId>rocketmq-client</artifactId><version>${rocketmq-client.version}</version></dependency>
 
             <dependency>
                 <groupId>com.yuegang.zhihui</groupId>
