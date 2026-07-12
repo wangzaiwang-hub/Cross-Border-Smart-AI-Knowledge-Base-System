@@ -15,6 +15,7 @@
         <module>ygh-dependencies</module>
         <module>ygh-common</module>
         <module>ygh-platform</module>
+        <module>ygh-applications</module>
         <module>ygh-tests</module>
     </modules>
 

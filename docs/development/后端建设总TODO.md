@@ -132,7 +132,7 @@
 
 ### P03.3 User
 
-- [ ] `BE-0340` 创建 `ygh-applications/ygh-user` API/Service 双模块。
+- [x] `BE-0340` 创建 `ygh-applications/ygh-user` API/Service 双模块。
 - [ ] `BE-0341` 用户资料、员工、部门、岗位和地址表迁移。
 - [ ] `BE-0342` 个人资料查询修改接口。
 - [ ] `BE-0343` 地址新增、修改、删除、默认地址和所有权校验。
