@@ -228,6 +228,41 @@ export const listAdminKnowledge = async (
             params: { status: status || undefined, limit: 100 },
         }),
     );
+export async function uploadKnowledge(
+    title: string,
+    category: string,
+    file: File,
+): Promise<KnowledgeDocument> {
+    const body = new FormData();
+    body.append("title", title);
+    body.append("category", category);
+    body.append("file", file);
+    return apiData(await useHttp().post("/api/v1/knowledge/documents", body));
+}
+export async function reviewKnowledge(
+    document: KnowledgeDocument,
+    decision: "APPROVE" | "REJECT",
+    comment: string,
+): Promise<KnowledgeDocument> {
+    return apiData(
+        await useHttp().post(
+            `/api/v1/knowledge/documents/${document.id}/review`,
+            { decision, comment, version: document.version },
+        ),
+    );
+}
+export async function offlineKnowledge(
+    document: KnowledgeDocument,
+    reason: string,
+): Promise<KnowledgeDocument> {
+    return apiData(
+        await useHttp().put(
+            `/api/v1/admin/knowledge/documents/${document.id}/offline`,
+            undefined,
+            { params: { version: document.version, reason } },
+        ),
+    );
+}
 export const listProcessingJobs = async (
     status?: string,
 ): Promise<KnowledgeJob[]> =>
