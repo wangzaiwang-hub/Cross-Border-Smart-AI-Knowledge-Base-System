@@ -356,8 +356,27 @@ export const dispatchNotifications = async (): Promise<number> => {
 };
 export const listPrompts = async (): Promise<PromptConfig[]> =>
     apiData(await useHttp().get("/api/v1/admin/ai/prompts"));
+export const createPrompt = async (command: {
+    code: string;
+    systemPrompt: string;
+    modelName: string;
+    temperature: number;
+    knowledgeScope: string;
+    sensitiveWords: string;
+    enabled: boolean;
+    version: number;
+}): Promise<PromptConfig> =>
+    apiData(await useHttp().post("/api/v1/admin/ai/prompts", command));
 export const listEvaluationCases = async (): Promise<EvaluationCase[]> =>
     apiData(await useHttp().get("/api/v1/admin/ai/evaluation-cases"));
+export const createEvaluationCase = async (command: {
+    category: string;
+    question: string;
+    expectedEvidence: string;
+    forbiddenAnswer?: string;
+    enabled: boolean;
+}): Promise<EvaluationCase> =>
+    apiData(await useHttp().post("/api/v1/admin/ai/evaluation-cases", command));
 export const getAiSummary = async (): Promise<AiSummary> =>
     apiData(await useHttp().get("/api/v1/admin/ai/summary"));
 export const runAiEvaluations = async (): Promise<EvaluationRun[]> =>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import {
     getAiSummary,
+    createPrompt,
+    createEvaluationCase,
     listEvaluationCases,
     listPrompts,
     runAiEvaluations,
@@ -18,6 +20,26 @@ const prompts = ref<PromptConfig[]>([]);
 const cases = ref<EvaluationCase[]>([]);
 const summary = ref<AiSummary>();
 const runs = ref<EvaluationRun[]>([]);
+const promptDialog = ref(false);
+const caseDialog = ref(false);
+const saving = ref(false);
+const promptForm = reactive({
+    code: "CUSTOMS_ASSISTANT",
+    systemPrompt: "",
+    modelName: "doubao-pro-32k",
+    temperature: 0.2,
+    knowledgeScope: "POLICY,CUSTOMS,PRODUCT",
+    sensitiveWords: "",
+    enabled: true,
+    version: 0,
+});
+const caseForm = reactive({
+    category: "POLICY",
+    question: "",
+    expectedEvidence: "",
+    forbiddenAnswer: "",
+    enabled: true,
+});
 async function load() {
     loading.value = true;
     try {
@@ -43,6 +65,32 @@ async function run() {
         running.value = false;
     }
 }
+async function savePrompt() {
+    saving.value = true;
+    try {
+        await createPrompt(promptForm);
+        promptDialog.value = false;
+        ElMessage.success("提示词新版本已保存");
+        await load();
+    } catch {
+        ElMessage.error("提示词保存失败，请检查编码与字段长度");
+    } finally {
+        saving.value = false;
+    }
+}
+async function saveCase() {
+    saving.value = true;
+    try {
+        await createEvaluationCase(caseForm);
+        caseDialog.value = false;
+        ElMessage.success("评测用例已新增");
+        await load();
+    } catch {
+        ElMessage.error("评测用例保存失败");
+    } finally {
+        saving.value = false;
+    }
+}
 onMounted(load);
 </script>
 <template>
@@ -52,9 +100,14 @@ onMounted(load);
                 <h1>AI 客服治理</h1>
                 <p>管理提示词版本、评测集与离线评测结果。</p>
             </div>
-            <el-tag :type="summary?.activePrompt ? 'success' : 'danger'">{{
-                summary?.activePrompt ? "存在启用提示词" : "无启用提示词"
-            }}</el-tag>
+            <div>
+                <el-button @click="caseDialog = true">新增评测用例</el-button
+                ><el-button type="primary" @click="promptDialog = true"
+                    >新建提示词版本</el-button
+                ><el-tag :type="summary?.activePrompt ? 'success' : 'danger'">{{
+                    summary?.activePrompt ? "存在启用提示词" : "无启用提示词"
+                }}</el-tag>
+            </div>
         </div>
         <div class="metric-grid">
             <div class="metric panel">
@@ -148,13 +201,94 @@ onMounted(load);
                         ></el-table-column
                     ><el-table-column
                         prop="failureReason"
-                        label="失败原因" /></el-table></el-tab-pane
-        ></el-tabs>
+                        label="失败原因" /></el-table></el-tab-pane></el-tabs
+        ><el-dialog v-model="promptDialog" title="新建提示词版本" width="700"
+            ><el-form label-position="top"
+                ><div class="form-grid">
+                    <el-form-item label="配置编码"
+                        ><el-input v-model="promptForm.code" /></el-form-item
+                    ><el-form-item label="模型名称"
+                        ><el-input v-model="promptForm.modelName"
+                    /></el-form-item>
+                </div>
+                <el-form-item label="系统提示词"
+                    ><el-input
+                        v-model="promptForm.systemPrompt"
+                        type="textarea"
+                        :rows="8"
+                        maxlength="12000"
+                        show-word-limit
+                /></el-form-item>
+                <div class="form-grid">
+                    <el-form-item label="温度"
+                        ><el-input-number
+                            v-model="promptForm.temperature"
+                            :min="0"
+                            :max="2"
+                            :step="0.1" /></el-form-item
+                    ><el-form-item label="启用"
+                        ><el-switch v-model="promptForm.enabled"
+                    /></el-form-item>
+                </div>
+                <el-form-item label="知识范围"
+                    ><el-input
+                        v-model="promptForm.knowledgeScope" /></el-form-item
+                ><el-form-item label="敏感词规则"
+                    ><el-input
+                        v-model="promptForm.sensitiveWords"
+                        type="textarea" /></el-form-item></el-form
+            ><template #footer
+                ><el-button @click="promptDialog = false">取消</el-button
+                ><el-button type="primary" :loading="saving" @click="savePrompt"
+                    >保存版本</el-button
+                ></template
+            ></el-dialog
+        ><el-dialog v-model="caseDialog" title="新增离线评测用例" width="620"
+            ><el-form label-position="top"
+                ><el-form-item label="分类"
+                    ><el-select v-model="caseForm.category" style="width: 100%"
+                        ><el-option
+                            v-for="value in [
+                                'POLICY',
+                                'CUSTOMS',
+                                'TRACEABILITY',
+                                'RECOMMENDATION',
+                            ]"
+                            :key="value"
+                            :label="value"
+                            :value="value" /></el-select></el-form-item
+                ><el-form-item label="问题"
+                    ><el-input
+                        v-model="caseForm.question"
+                        type="textarea" /></el-form-item
+                ><el-form-item label="预期证据"
+                    ><el-input
+                        v-model="caseForm.expectedEvidence"
+                        type="textarea" /></el-form-item
+                ><el-form-item label="禁止回答"
+                    ><el-input
+                        v-model="caseForm.forbiddenAnswer"
+                        type="textarea" /></el-form-item
+                ><el-form-item label="启用"
+                    ><el-switch
+                        v-model="caseForm.enabled" /></el-form-item></el-form
+            ><template #footer
+                ><el-button @click="caseDialog = false">取消</el-button
+                ><el-button type="primary" :loading="saving" @click="saveCase"
+                    >保存用例</el-button
+                ></template
+            ></el-dialog
+        >
     </div>
 </template>
 <style scoped>
 .ai-config {
     margin-top: 14px;
     padding: 20px;
+}
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
 }
 </style>
