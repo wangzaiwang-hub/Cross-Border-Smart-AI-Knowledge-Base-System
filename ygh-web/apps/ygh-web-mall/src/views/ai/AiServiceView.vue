@@ -13,6 +13,7 @@ import {
     listConversationMessages,
     listConversations,
     streamChat,
+    submitAiFeedback,
     type Conversation,
 } from "@/api/ai";
 const session = useSessionStore();
@@ -30,6 +31,7 @@ const welcome: ChatMessage = {
 const messages = ref<ChatMessage[]>([welcome]);
 const conversations = ref<Conversation[]>([]);
 const conversationId = ref<string>();
+const feedbackMessages = ref(new Set<string>());
 let controller: AbortController | undefined;
 async function loadConversations() {
     if (session.authenticated)
@@ -121,6 +123,15 @@ async function send() {
         controller = undefined;
     }
 }
+async function feedback(messageId: string, helpful: boolean) {
+    try {
+        await submitAiFeedback(messageId, helpful);
+        feedbackMessages.value.add(messageId);
+        ElMessage.success("感谢反馈，结果将用于离线评测与治理");
+    } catch {
+        ElMessage.error("反馈提交失败");
+    }
+}
 onMounted(loadConversations);
 </script>
 <template>
@@ -139,7 +150,11 @@ onMounted(loadConversations);
                 >新建会话</el-button
             >
             <p>最近会话</p>
-            <button v-for="c in conversations" :key="c.id" @click="openConversation(c.id)">
+            <button
+                v-for="c in conversations"
+                :key="c.id"
+                @click="openConversation(c.id)"
+            >
                 <ChatDotRound /><span
                     ><b>{{ c.title }}</b
                     ><small>{{ c.time }}</small></span
@@ -156,12 +171,7 @@ onMounted(loadConversations);
                     <span class="status-dot" /><b>专业客服在线</b
                     ><small>回答由知识库与业务工具共同支撑</small>
                 </div>
-                <el-button
-                    text
-                    :icon="Delete"
-                    @click="newChat"
-                    >清空</el-button
-                >
+                <el-button text :icon="Delete" @click="newChat">清空</el-button>
             </header>
             <div ref="scroll" class="messages">
                 <div v-if="!session.authenticated" class="login-notice">
@@ -193,6 +203,22 @@ onMounted(loadConversations);
                                 :to="`/knowledge/${c.documentId}`"
                                 ><span>{{ c.title }}</span
                                 ><small>{{ c.excerpt }}</small></RouterLink
+                            >
+                        </div>
+                        <div
+                            v-if="m.role === 'ASSISTANT' && m.id !== 'welcome'"
+                            class="feedback"
+                        >
+                            <span v-if="feedbackMessages.has(m.id)"
+                                >已反馈</span
+                            >
+                            <template v-else
+                                ><span>这个回答有帮助吗？</span
+                                ><el-button link @click="feedback(m.id, true)"
+                                    >有帮助</el-button
+                                ><el-button link @click="feedback(m.id, false)"
+                                    >需改进</el-button
+                                ></template
                             >
                         </div>
                     </div>
@@ -426,6 +452,14 @@ onMounted(loadConversations);
 .citations a span,
 .citations a small {
     display: block;
+}
+.feedback {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 11px;
 }
 .citations a span {
     font-size: 12px;
