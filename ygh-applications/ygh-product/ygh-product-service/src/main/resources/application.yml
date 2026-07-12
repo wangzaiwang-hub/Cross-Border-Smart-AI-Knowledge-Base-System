@@ -6,6 +6,12 @@ spring:
     username: ${YGH_PRODUCT_DB_APP_USERNAME:ygh_product_app}
     password: ${YGH_PRODUCT_DB_APP_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  data.redis:
+    host: ${YGH_REDIS_HOST}
+    port: ${YGH_REDIS_PORT:6379}
+    password: ${YGH_REDIS_PASSWORD}
+    database: ${YGH_PRODUCT_REDIS_DATABASE:2}
+    timeout: 2s
   flyway:
     url: ${YGH_PRODUCT_DB_URL}
     user: ${YGH_PRODUCT_DB_MIGRATION_USERNAME:ygh_product_migration}
