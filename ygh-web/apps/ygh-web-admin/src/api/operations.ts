@@ -76,6 +76,16 @@ export interface ProductBrand {
     name: string;
     enabled: boolean;
 }
+export interface ProductBatch {
+    id: string;
+    skuId: string;
+    batchNo: string;
+    origin?: string;
+    proofUrl?: string;
+    producedOn?: string;
+    expiresOn?: string;
+    traceDescription?: string;
+}
 export interface Order {
     orderId: string;
     orderNo: string;
@@ -379,6 +389,37 @@ export async function updateProduct(
         }),
     );
 }
+export const createProductBatch = async (
+    skuId: string,
+    command: {
+        batchNo: string;
+        origin?: string;
+        proofUrl?: string;
+        producedOn?: string;
+        expiresOn?: string;
+        traceDescription?: string;
+    },
+): Promise<ProductBatch> =>
+    apiData(
+        await useHttp().post(
+            `/api/v1/admin/products/${skuId}/batches`,
+            command,
+        ),
+    );
+export const createProductTraceEvent = async (
+    skuId: string,
+    command: {
+        type: string;
+        location?: string;
+        occurredAt: string;
+        details: Record<string, unknown>;
+    },
+): Promise<void> => {
+    await useHttp().post(
+        `/api/v1/admin/products/${skuId}/trace-events`,
+        command,
+    );
+};
 export const listAdminOrders = async (status?: string): Promise<Order[]> =>
     apiData(
         await useHttp().get("/api/v1/admin/orders", {

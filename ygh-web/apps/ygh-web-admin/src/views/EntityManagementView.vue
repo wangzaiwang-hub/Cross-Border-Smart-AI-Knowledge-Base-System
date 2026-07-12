@@ -7,6 +7,8 @@ import {
     changeAccountStatus,
     changeProductStatus,
     createProduct,
+    createProductBatch,
+    createProductTraceEvent,
     listAccounts,
     listAdminInventory,
     listAdminOrders,
@@ -30,6 +32,9 @@ const unsupported = ref("");
 const productDialog = ref(false);
 const savingProduct = ref(false);
 const editingProduct = ref<Product>();
+const traceDialog = ref(false);
+const traceProduct = ref<Product>();
+const traceTab = ref("batch");
 const categories = ref<ProductCategory[]>([]);
 const brands = ref<ProductBrand[]>([]);
 const productForm = reactive({
@@ -42,6 +47,20 @@ const productForm = reactive({
     imagesText: "",
     traceabilityCode: "",
     specificationsText: "{}",
+});
+const batchForm = reactive({
+    batchNo: "",
+    origin: "",
+    proofUrl: "",
+    producedOn: "",
+    expiresOn: "",
+    traceDescription: "",
+});
+const traceForm = reactive({
+    type: "CUSTOMS_CLEARED",
+    location: "",
+    occurredAt: "",
+    detailsText: "{}",
 });
 const configs: Record<
     string,
@@ -210,6 +229,59 @@ async function saveProduct() {
         savingProduct.value = false;
     }
 }
+function openTrace(product: Product) {
+    traceProduct.value = product;
+    traceDialog.value = true;
+}
+async function saveBatch() {
+    if (!traceProduct.value || !batchForm.batchNo.trim()) return;
+    savingProduct.value = true;
+    try {
+        await createProductBatch(traceProduct.value.skuId, {
+            ...batchForm,
+            producedOn: batchForm.producedOn || undefined,
+            expiresOn: batchForm.expiresOn || undefined,
+        });
+        Object.assign(batchForm, {
+            batchNo: "",
+            origin: "",
+            proofUrl: "",
+            producedOn: "",
+            expiresOn: "",
+            traceDescription: "",
+        });
+        ElMessage.success("商品批次已创建");
+    } catch {
+        ElMessage.error("批次创建失败，请核对批次号和日期");
+    } finally {
+        savingProduct.value = false;
+    }
+}
+async function saveTraceEvent() {
+    if (!traceProduct.value || !traceForm.type.trim() || !traceForm.occurredAt)
+        return;
+    let details: Record<string, unknown>;
+    try {
+        details = JSON.parse(traceForm.detailsText);
+    } catch {
+        ElMessage.warning("溯源详情必须是合法 JSON 对象");
+        return;
+    }
+    savingProduct.value = true;
+    try {
+        await createProductTraceEvent(traceProduct.value.skuId, {
+            type: traceForm.type,
+            location: traceForm.location || undefined,
+            occurredAt: new Date(traceForm.occurredAt).toISOString(),
+            details,
+        });
+        ElMessage.success("溯源事件已记录");
+    } catch {
+        ElMessage.error("溯源事件保存失败");
+    } finally {
+        savingProduct.value = false;
+    }
+}
 function format(value: unknown) {
     if (typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value))
         return new Date(value).toLocaleString("zh-CN");
@@ -323,6 +395,13 @@ watch(() => route.fullPath, load, { immediate: true });
                         >编辑</el-button
                     >
                     ><el-button
+                        v-if="entity === 'product'"
+                        link
+                        type="primary"
+                        @click="openTrace(scope.row as Product)"
+                        >批次/溯源</el-button
+                    >
+                    ><el-button
                         link
                         type="primary"
                         @click="changeState(scope.row)"
@@ -415,6 +494,66 @@ watch(() => route.fullPath, load, { immediate: true });
                 >保存</el-button
             >
         </template>
+    </el-dialog>
+    <el-dialog
+        v-model="traceDialog"
+        :title="`${traceProduct?.name || ''} · 批次与溯源`"
+        width="660"
+    >
+        <el-tabs v-model="traceTab">
+            <el-tab-pane label="新增批次" name="batch"
+                ><el-form label-position="top" class="product-form"
+                    ><el-form-item label="批次号"
+                        ><el-input v-model="batchForm.batchNo" /></el-form-item
+                    ><el-form-item label="原产地"
+                        ><el-input v-model="batchForm.origin" /></el-form-item
+                    ><el-form-item label="证明材料 URL" class="full-row"
+                        ><el-input v-model="batchForm.proofUrl" /></el-form-item
+                    ><el-form-item label="生产日期"
+                        ><el-date-picker
+                            v-model="batchForm.producedOn"
+                            type="date"
+                            value-format="YYYY-MM-DD" /></el-form-item
+                    ><el-form-item label="有效期至"
+                        ><el-date-picker
+                            v-model="batchForm.expiresOn"
+                            type="date"
+                            value-format="YYYY-MM-DD" /></el-form-item
+                    ><el-form-item label="溯源说明" class="full-row"
+                        ><el-input
+                            v-model="batchForm.traceDescription"
+                            type="textarea" /></el-form-item></el-form
+                ><el-button
+                    type="primary"
+                    :loading="savingProduct"
+                    @click="saveBatch"
+                    >保存批次</el-button
+                ></el-tab-pane
+            >
+            <el-tab-pane label="记录溯源事件" name="event"
+                ><el-form label-position="top"
+                    ><el-form-item label="事件类型"
+                        ><el-input v-model="traceForm.type" /></el-form-item
+                    ><el-form-item label="发生地点"
+                        ><el-input v-model="traceForm.location" /></el-form-item
+                    ><el-form-item label="发生时间"
+                        ><el-date-picker
+                            v-model="traceForm.occurredAt"
+                            type="datetime"
+                            value-format="YYYY-MM-DDTHH:mm:ss" /></el-form-item
+                    ><el-form-item label="详情 JSON"
+                        ><el-input
+                            v-model="traceForm.detailsText"
+                            type="textarea"
+                            :rows="5" /></el-form-item></el-form
+                ><el-button
+                    type="primary"
+                    :loading="savingProduct"
+                    @click="saveTraceEvent"
+                    >保存事件</el-button
+                ></el-tab-pane
+            >
+        </el-tabs>
     </el-dialog>
 </template>
 
