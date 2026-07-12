@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.product.api;import java.math.BigDecimal;import java.util.List;public record ProductView(String spuId,String skuId,String categoryId,String brandId,String name,String skuCode,BigDecimal price,String currency,ProductStatus status,List<String>images,String traceabilityCode,long version){}

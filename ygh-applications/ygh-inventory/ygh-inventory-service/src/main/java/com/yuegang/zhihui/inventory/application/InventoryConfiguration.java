@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.inventory.application;import javax.sql.*;import org.springframework.context.annotation.*;@Configuration(proxyBeanMethods=false)class InventoryConfiguration{@Bean InventoryService inventoryService(DataSource d){return new InventoryService(d);}}

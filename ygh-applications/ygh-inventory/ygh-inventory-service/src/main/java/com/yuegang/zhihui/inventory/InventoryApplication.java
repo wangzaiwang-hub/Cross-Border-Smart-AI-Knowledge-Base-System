@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.inventory;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.*;@SpringBootApplication public class InventoryApplication{public static void main(String[]a){SpringApplication.run(InventoryApplication.class,a);}}
