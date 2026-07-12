@@ -154,6 +154,8 @@ services:
       YGH_MQ_ENABLED: "true"
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
     volumes: [knowledge-files:/data/knowledge]
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c", "install -d -o 10001 -g 10001 -m 750 /data/knowledge && exec setpriv --reuid=10001 --regid=10001 --init-groups java -jar /app/app.jar"]
   search:
     <<: *app
     profiles: [ai-apps]
@@ -163,7 +165,9 @@ services:
       YGH_VECTOR_DB_URL: jdbc:postgresql://${YGH_VM_HOST:-192.168.154.10}:5432/ygh_vector
       YGH_VECTOR_DB_USERNAME: ygh_vector
       YGH_VECTOR_DB_PASSWORD: ${POSTGRES_PASSWORD:?required}
-      YGH_ELASTICSEARCH_BASE_URL: http://host.docker.internal:9200
+      YGH_ELASTICSEARCH_BASE_URL: http://host.docker.internal:19200
+      YGH_ELASTICSEARCH_USERNAME: elastic
+      YGH_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:?required}
       YGH_DOUBAO_API_KEY: ${YGH_DOUBAO_API_KEY:-}
       YGH_DOUBAO_EMBEDDING_MODEL: ${YGH_DOUBAO_EMBEDDING_MODEL:-}
   ai:
@@ -195,6 +199,8 @@ services:
       YGH_MQ_ENABLED: "true"
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
     volumes: [training-files:/data/training]
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c", "install -d -o 10001 -g 10001 -m 750 /data/training && exec setpriv --reuid=10001 --regid=10001 --init-groups java -jar /app/app.jar"]
 
 networks: {ygh-apps: {name: ygh-apps}}
 volumes: {knowledge-files: {}, training-files: {}}

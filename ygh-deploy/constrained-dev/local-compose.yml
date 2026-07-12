@@ -116,7 +116,7 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?required}
       ES_JAVA_OPTS: -Xms768m -Xmx768m
     ports:
-      - "9200:9200"
+      - "19200:9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     networks: [ygh-local]
