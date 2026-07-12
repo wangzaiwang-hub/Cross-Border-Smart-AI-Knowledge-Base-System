@@ -28,5 +28,7 @@
         <module>ygh-system</module>
         <module>ygh-product</module>
         <module>ygh-inventory</module>
+        <module>ygh-order</module>
+        <module>ygh-wallet</module>
     </modules>
 </project>

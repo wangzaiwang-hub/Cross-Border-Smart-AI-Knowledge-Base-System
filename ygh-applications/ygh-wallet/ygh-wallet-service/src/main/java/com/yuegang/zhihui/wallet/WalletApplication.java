@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.wallet;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.*;@SpringBootApplication public class WalletApplication{public static void main(String[]a){SpringApplication.run(WalletApplication.class,a);}}
