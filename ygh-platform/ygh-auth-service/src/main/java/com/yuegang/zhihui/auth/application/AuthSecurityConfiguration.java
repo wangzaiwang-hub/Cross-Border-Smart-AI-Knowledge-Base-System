@@ -64,6 +64,7 @@ class AuthSecurityConfiguration {
 
     @Bean AccountAdministrationRepository accountAdministrationRepository(DataSource dataSource){return new JdbcAccountAdministrationRepository(dataSource);}
     @Bean AccountAdministrationService accountAdministrationService(AccountAdministrationRepository repository,SessionStateStore sessions){return new AccountAdministrationService(repository,sessions);}
+    @Bean AuthAccountQueryService authAccountQueryService(DataSource dataSource){return new AuthAccountQueryService(dataSource);}
     @Bean AuthTrustedUserContextResolver authTrustedUserContextResolver(
             @org.springframework.beans.factory.annotation.Value("${ygh.internal-request.hmac-base64}") String encoded,Clock clock){
         byte[] secret=Base64.getDecoder().decode(encoded);try{return new AuthTrustedUserContextResolver(secret,clock);}finally{Arrays.fill(secret,(byte)0);}
