@@ -25,6 +25,7 @@ public final class ProductService {
             jdbc.update("INSERT INTO product_sku(id,spu_id,sku_code,price,currency,traceability_code,status) VALUES(?,?,?,?,?,?,'DRAFT')", sku, spu, command.skuCode(), command.price(), command.currency(), command.traceabilityCode());
             int sort = 0;
             for (String url : command.images()) jdbc.update("INSERT INTO product_image(id,spu_id,sku_id,url,sort_order) VALUES(?,?,?,?,?)", next(), spu, sku, url, sort++);
+            replaceSpecifications(sku, command.specifications());
             searchJob(sku);
             return get(Long.toString(sku), false);
         });
@@ -61,8 +62,10 @@ public final class ProductService {
             if (!result.next()) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
             long skuId = result.getLong(2);
             var images = jdbc.queryForList("SELECT url FROM product_image WHERE sku_id=? ORDER BY sort_order", String.class, skuId);
+            Map<String,String> specifications = new LinkedHashMap<>();
+            jdbc.query("SELECT spec_key,spec_value FROM product_specification WHERE sku_id=? ORDER BY sort_order,spec_key", result -> { specifications.put(result.getString(1), result.getString(2)); }, skuId);
             Object brand = result.getObject(4);
-            return new ProductView(Long.toString(result.getLong(1)), Long.toString(skuId), Long.toString(result.getLong(3)), brand == null ? null : brand.toString(), result.getString(5), result.getString(6), result.getBigDecimal(7), result.getString(8), ProductStatus.valueOf(result.getString(9)), images, result.getString(10), result.getLong(11));
+            return new ProductView(Long.toString(result.getLong(1)), Long.toString(skuId), Long.toString(result.getLong(3)), brand == null ? null : brand.toString(), result.getString(5), result.getString(6), result.getBigDecimal(7), result.getString(8), ProductStatus.valueOf(result.getString(9)), images, result.getString(10), result.getLong(11), specifications);
         }, id(sku));
     }
 
@@ -77,6 +80,7 @@ public final class ProductService {
     }
 
     void searchJob(long skuId) { jdbc.update("INSERT INTO product_search_job(id,sku_id) VALUES(?,?)", UUID.randomUUID().toString(), skuId); }
+    void replaceSpecifications(long skuId, Map<String,String> values) { jdbc.update("DELETE FROM product_specification WHERE sku_id=?", skuId); int sort=0; for(var entry:new TreeMap<>(values==null?Map.<String,String>of():values).entrySet()) jdbc.update("INSERT INTO product_specification(sku_id,spec_key,spec_value,sort_order) VALUES(?,?,?,?)",skuId,entry.getKey().strip(),entry.getValue().strip(),sort++); }
     private static long next() { return UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE; }
     private static Long blankId(String value) { return value == null || value.isBlank() ? null : id(value); }
     private static long id(String value) { try { long id = Long.parseLong(value); if (id <= 0) throw new NumberFormatException(); return id; } catch (Exception failure) { throw new BusinessException(ErrorCode.VALIDATION_ERROR); } }

@@ -39,7 +39,8 @@ public final class ProductSearchDispatcher {
             String document = "product:" + source.skuId();
             if (!"PUBLISHED".equals(source.status())) send(DELETE, new DeleteDocumentCommand(document));
             else {
-                String content = String.join(" ", source.name(), value(source.description()), source.skuCode(), value(source.brand()), source.category(), value(source.traceabilityCode()), source.price().toPlainString(), source.currency());
+                String specifications = String.join(" ", jdbc.queryForList("SELECT CONCAT(spec_key,':',spec_value) FROM product_specification WHERE sku_id=? ORDER BY sort_order",String.class,source.skuId()));
+                String content = String.join(" ", source.name(), value(source.description()), source.skuCode(), value(source.brand()), source.category(), value(source.traceabilityCode()), specifications, source.price().toPlainString(), source.currency());
                 send(INDEX, new IndexChunkCommand(document, Long.toString(source.skuId()), source.name(), content, "PRODUCT", "PUBLIC", "product-active", source.version(), source.updatedAt(), true));
             }
             jdbc.update("UPDATE product_search_job SET status='SUCCEEDED',last_error=NULL WHERE id=?", job);

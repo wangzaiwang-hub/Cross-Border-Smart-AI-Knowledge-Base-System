@@ -30,6 +30,7 @@ public final class ProductAdministrationService {
         jdbc.update("DELETE FROM product_image WHERE sku_id=?", skuId);
         int sort = 0;
         for (String url : command.images()) jdbc.update("INSERT INTO product_image(id,spu_id,sku_id,url,sort_order) VALUES(?,?,?,?,?)", next(), before[1], skuId, url, sort++);
+        products.replaceSpecifications(skuId, command.specifications());
         if (((java.math.BigDecimal) before[0]).compareTo(command.price()) != 0) jdbc.update("INSERT INTO product_price_history(id,sku_id,old_price,new_price,currency) VALUES(?,?,?,?,?)", next(), skuId, before[0], command.price(), command.currency());
         event(skuId, "PRODUCT_UPDATED", Map.of("skuId", sku, "price", command.price(), "currency", command.currency()));
         products.searchJob(skuId);
