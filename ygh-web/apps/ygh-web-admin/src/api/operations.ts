@@ -159,6 +159,21 @@ export interface TrainingCourse {
     estimatedMinutes: number;
     version: number;
 }
+export interface TrainingChapter {
+    id: string;
+    courseId: string;
+    title: string;
+    sequenceNo: number;
+    minimumActiveSeconds: number;
+    version: number;
+}
+export interface TrainingGate {
+    id: string;
+    chapterId: string;
+    title: string;
+    passScore: number;
+    maximumAttempts: number;
+}
 export interface AuditLog {
     timestamp: string;
     userId?: string;
@@ -438,6 +453,18 @@ export const getTrainingAnalytics = async (): Promise<TrainingAnalytics> =>
     apiData(await useHttp().get("/api/v1/training/learning/admin/analytics"));
 export const listTrainingCourses = async (): Promise<TrainingCourse[]> =>
     apiData(await useHttp().get("/api/v1/training/courses"));
+export const listTrainingChapters = async (
+    courseId: string,
+): Promise<TrainingChapter[]> =>
+    apiData(
+        await useHttp().get(`/api/v1/training/courses/${courseId}/chapters`),
+    );
+export const listTrainingGates = async (
+    chapterId: string,
+): Promise<TrainingGate[]> =>
+    apiData(
+        await useHttp().get(`/api/v1/training/chapters/${chapterId}/gates`),
+    );
 export const createTrainingCourse = async (command: {
     title: string;
     description: string;
@@ -445,6 +472,42 @@ export const createTrainingCourse = async (command: {
     passScore: number;
 }): Promise<TrainingCourse> =>
     apiData(await useHttp().post("/api/v1/training/admin/courses", command));
+export const createTrainingChapter = async (command: {
+    courseId: string;
+    title: string;
+    sequenceNo: number;
+    minimumActiveSeconds: number;
+}): Promise<TrainingChapter> =>
+    apiData(await useHttp().post("/api/v1/training/admin/chapters", command));
+export const createTrainingGate = async (command: {
+    chapterId: string;
+    title: string;
+    passScore: number;
+    maximumAttempts: number;
+}): Promise<TrainingGate> =>
+    apiData(await useHttp().post("/api/v1/training/admin/gates", command));
+export const createTrainingQuestion = async (command: {
+    gateId: string;
+    type: string;
+    stem: string;
+    options: string[];
+    correctAnswer: string;
+    explanation: string;
+    score: number;
+}): Promise<void> => {
+    await useHttp().post("/api/v1/training/admin/questions", command);
+};
+export const uploadTrainingDocument = async (
+    chapterId: string,
+    file: File,
+): Promise<void> => {
+    const body = new FormData();
+    body.append("file", file);
+    await useHttp().post(
+        `/api/v1/training/admin/chapters/${chapterId}/documents`,
+        body,
+    );
+};
 export const publishTrainingCourse = async (
     course: TrainingCourse,
 ): Promise<TrainingCourse> =>
