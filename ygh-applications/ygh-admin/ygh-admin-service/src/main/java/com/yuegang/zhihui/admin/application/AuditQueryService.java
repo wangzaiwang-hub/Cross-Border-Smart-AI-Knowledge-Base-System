@@ -11,8 +11,11 @@ import java.time.*;
 import java.util.*;
 import java.util.regex.*;
 import org.springframework.web.client.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class AuditQueryService {
+    private static final Logger LOG = LoggerFactory.getLogger(AuditQueryService.class);
     private static final Pattern FIELD = Pattern.compile("([A-Za-z][A-Za-z0-9]*)=([^ ]+)");
     private final RestClient loki;
     private final ObjectMapper json;
@@ -31,7 +34,8 @@ public final class AuditQueryService {
         append(query, "userId", user); append(query, "method", action);
         String uri = "/loki/api/v1/query_range?query=" + encode(query.toString()) + "&start=" + start.toInstant().toEpochMilli() * 1_000_000L + "&end=" + end.toInstant().toEpochMilli() * 1_000_000L + "&limit=" + Math.max(1, Math.min(limit, 500)) + "&direction=backward";
         try {
-            JsonNode root = loki.get().uri(uri).retrieve().body(JsonNode.class);
+            String body = loki.get().uri(uri).retrieve().body(String.class);
+            JsonNode root = body == null || body.isBlank() ? null : json.readTree(body);
             List<AuditLogView> records = new ArrayList<>();
             if (root == null) return records;
             for (JsonNode stream : root.path("data").path("result")) {
@@ -44,7 +48,10 @@ public final class AuditQueryService {
                     .filter(record -> result == null || result.isBlank() || record.result().equalsIgnoreCase(result))
                     .limit(Math.max(1, Math.min(limit, 500))).toList();
         } catch (BusinessException failure) { throw failure; }
-        catch (RuntimeException failure) { throw new BusinessException(ErrorCode.DEPENDENCY_UNAVAILABLE); }
+        catch (Exception failure) {
+            LOG.warn("Loki audit query failed", failure);
+            throw new BusinessException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
     }
 
     private static AuditLogView map(String service, String nanos, String line) {
