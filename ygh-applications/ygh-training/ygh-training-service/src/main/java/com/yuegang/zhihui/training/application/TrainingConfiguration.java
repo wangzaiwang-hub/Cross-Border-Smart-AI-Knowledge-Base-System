@@ -9,5 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;import com.yuegang.zhihui.tra
  @Bean OrganizationTargetClient organizationTargetClient(@Value("${ygh.training.user-base-url}")String base,@Value("${ygh.internal-request.hmac-base64}")String encoded,ObjectMapper json){byte[]key=Base64.getDecoder().decode(encoded);try{return new OrganizationTargetClient(base,key,json);}finally{Arrays.fill(key,(byte)0);}}
  @Bean LearningPathService learningPathService(DataSource dataSource){return new LearningPathService(dataSource);}
  @Bean TrainingContentService trainingContentService(DataSource dataSource,ObjectMapper json,@Value("${ygh.training.storage-root}")String root){return new TrainingContentService(dataSource,json,root);}
+ @Bean TrainingCatalogQueryService trainingCatalogQueryService(DataSource dataSource){return new TrainingCatalogQueryService(dataSource);}
  @Bean TrainingUserResolver trainingUserResolver(@Value("${ygh.internal-request.hmac-base64}")String encoded){byte[]key=Base64.getDecoder().decode(encoded);try{return new TrainingUserResolver(key);}finally{Arrays.fill(key,(byte)0);}}
 }

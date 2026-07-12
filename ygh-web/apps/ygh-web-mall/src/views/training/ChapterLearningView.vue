@@ -1,3 +1,249 @@
-<script setup lang="ts">import { onBeforeUnmount,onMounted,ref } from 'vue';import { ElMessage } from 'element-plus';import { ArrowLeft,ArrowRight,Clock } from '@element-plus/icons-vue';const seconds=ref(1260);const position=ref('第 3 节 / 62%');let timer=0;onMounted(()=>timer=window.setInterval(()=>seconds.value++,1000));onBeforeUnmount(()=>clearInterval(timer));function heartbeat(){ElMessage.success('学习位置与有效时长已记录')};</script>
-<template><div class="learning"><header><el-button text :icon="ArrowLeft" @click="$router.back()">返回课程</el-button><b class="serif">清单申报与海关审核</b><div><el-icon><Clock/></el-icon>{{Math.floor(seconds/60)}}:{{String(seconds%60).padStart(2,'0')}} 有效学习</div></header><div class="learning-body"><aside><h3>本章目录</h3><a class="done">1. 申报前置条件</a><a class="done">2. 申报数据准备</a><a class="active">3. 海关审核节点</a><a>4. 常见退单原因</a><a>5. 本章总结</a><div class="position"><span>阅读进度</span><el-progress :percentage="62"/><small>{{position}}</small></div></aside><main><article><div class="document-head"><span>企业培训文档</span><b>V2.4 · 2026-07-01 发布</b></div><h1 class="serif">清单申报与海关审核</h1><p class="lead">本章说明跨境电商零售进口清单的申报字段、审核节点和异常处理原则。</p><h2>3.1 海关自动审核</h2><p>系统接收申报清单后，会基于订单、支付、物流等数据进行一致性校验。企业系统应保存业务快照与申报回执，避免后续主数据变化影响历史事实。</p><div class="note"><b>学习要点</b><p>交易数据应由各业务服务持有。缓存、搜索索引和 AI 回答均不能替代订单、钱包、库存数据库中的交易事实。</p></div><h2>3.2 人工审核与补充材料</h2><p>命中风险规则的清单可能进入人工审核。关务人员应按回执要求补充材料，所有操作必须留痕并关联业务单号。</p><table><thead><tr><th>审核结果</th><th>业务处理</th><th>留痕要求</th></tr></thead><tbody><tr><td>审核通过</td><td>进入税款核算与放行</td><td>保存回执时间与编号</td></tr><tr><td>补充材料</td><td>按要求补交证明</td><td>记录材料版本与提交人</td></tr><tr><td>退单</td><td>修正后重新申报</td><td>记录错误码与修正说明</td></tr></tbody></table><h2>3.3 异常边界</h2><p>平台教学项目不会向真实海关系统发送申报数据。所有通关状态仅用于培训与业务流程演示。</p></article></main></div><footer><div><span>章节有效时长 21 / 30 分钟</span><el-progress :percentage="70" :show-text="false"/></div><el-button @click="heartbeat">保存进度</el-button><el-button type="primary" :icon="ArrowRight" @click="$router.push('/workspace/training/quiz/g1')">完成阅读并进入闯关</el-button></footer></div></template>
-<style scoped>.learning{height:100vh;display:grid;grid-template-rows:62px 1fr 70px;background:#eceee9}.learning>header{display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:#0a403c;color:#fff}.learning>header .el-button{color:#d0dfdb}.learning>header>div{display:flex;align-items:center;gap:7px;color:#a9c1bb;font-size:12px}.learning-body{min-height:0;display:grid;grid-template-columns:230px 1fr}.learning-body>aside{padding:24px 17px;background:#f5f3ec;border-right:1px solid var(--line)}.learning-body>aside h3{margin:0 8px 15px;font:700 15px 'Noto Serif SC',serif}.learning-body>aside a{display:block;padding:9px 10px;color:var(--muted);font-size:12px}.learning-body>aside a.done:before{content:'✓';margin-right:7px;color:#2b8d68}.learning-body>aside a.active{background:var(--jade-soft);color:var(--jade);font-weight:700}.position{margin-top:25px;padding:14px;border-top:1px solid var(--line);font-size:11px}.position small{color:var(--muted)}.learning-body>main{overflow:auto;padding:30px}.learning article{max-width:820px;margin:0 auto;padding:48px 60px;background:#fff;box-shadow:0 8px 40px rgba(30,50,45,.08)}.document-head{display:flex;justify-content:space-between;color:var(--muted);font-size:10px}.learning article h1{margin:28px 0 10px;font-size:37px}.lead{font-size:17px;color:var(--muted)}.learning article h2{margin-top:38px;font:700 22px 'Noto Serif SC',serif}.learning article p{line-height:2}.note{margin:25px 0;padding:18px 22px;background:#edf4ef;border-left:4px solid var(--jade)}.note p{margin-bottom:0}.learning table{width:100%;border-collapse:collapse;font-size:13px}.learning th,.learning td{padding:12px;border:1px solid var(--line);text-align:left}.learning th{background:#f1f2ed}.learning>footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 24px;background:#fff;border-top:1px solid var(--line)}.learning>footer>div{width:260px;margin-right:auto;font-size:11px}.learning>footer .el-progress{margin-top:5px}@media(max-width:700px){.learning-body{grid-template-columns:1fr}.learning-body>aside{display:none}.learning-body>main{padding:10px}.learning article{padding:30px 22px}.learning>footer>div{display:none}.learning>header>b{display:none}}</style>
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
+import {
+    ArrowLeft,
+    ArrowRight,
+    Clock,
+    Document,
+} from "@element-plus/icons-vue";
+import {
+    heartbeat,
+    listChapterDocuments,
+    recordPosition,
+    type Progress,
+    type TrainingDocument,
+} from "@/api/training";
+const route = useRoute();
+const router = useRouter();
+const chapterId = String(route.params.id);
+const assignmentId = String(route.query.assignment || "");
+const gateId = String(route.query.gate || "");
+const seconds = ref(0);
+const unsaved = ref(0);
+const documents = ref<TrainingDocument[]>([]);
+const progress = ref<Progress>();
+const saving = ref(false);
+let timer = 0;
+async function save() {
+    if (!assignmentId || unsaved.value <= 0) return;
+    saving.value = true;
+    const active = Math.min(unsaved.value, 300);
+    try {
+        progress.value = await heartbeat(assignmentId, chapterId, active);
+        await recordPosition(
+            assignmentId,
+            chapterId,
+            `active-seconds:${seconds.value}`,
+        );
+        unsaved.value -= active;
+    } catch {
+        ElMessage.error("学习进度保存失败，请保持页面打开后重试");
+    } finally {
+        saving.value = false;
+    }
+}
+async function finish() {
+    await save();
+    if (gateId)
+        await router.push({
+            path: `/workspace/training/quiz/${gateId}`,
+            query: { assignment: assignmentId },
+        });
+    else {
+        ElMessage.success("本章没有闯关，进度已由服务端计算");
+        router.back();
+    }
+}
+onMounted(async () => {
+    if (!assignmentId) {
+        ElMessage.error("缺少学习任务参数");
+        return;
+    }
+    try {
+        documents.value = await listChapterDocuments(chapterId);
+    } catch {
+        ElMessage.error("培训文档加载失败");
+    }
+    timer = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+            seconds.value++;
+            unsaved.value++;
+            if (unsaved.value >= 60) void save();
+        }
+    }, 1000);
+});
+onBeforeUnmount(() => {
+    clearInterval(timer);
+    void save();
+});
+</script>
+<template>
+    <div class="learning">
+        <header>
+            <el-button text :icon="ArrowLeft" @click="$router.back()"
+                >返回课程</el-button
+            ><b class="serif">章节学习</b>
+            <div>
+                <el-icon><Clock /></el-icon>{{ Math.floor(seconds / 60) }}:{{
+                    String(seconds % 60).padStart(2, "0")
+                }}
+                本次有效学习
+            </div>
+        </header>
+        <main>
+            <section class="paper">
+                <span class="label">企业培训文档</span>
+                <h1 class="serif">受控课程资料</h1>
+                <p class="lead">
+                    系统仅在页面可见期间累计学习时间，每 60
+                    秒向服务端发送一次带唯一 nonce
+                    的心跳。关闭页面前会尝试保存剩余时长。
+                </p>
+                <el-alert
+                    title="完成状态由服务端计算"
+                    description="前端不能直接将章节标记为已完成；有效时长达到课程配置后，服务端才允许进入并通过关卡。"
+                    type="warning"
+                    :closable="false"
+                />
+                <div class="documents">
+                    <article v-for="item in documents" :key="item.id">
+                        <el-icon><Document /></el-icon>
+                        <div>
+                            <b>{{ item.fileName }}</b
+                            ><small
+                                >{{ item.mediaType }} ·
+                                {{
+                                    (item.sizeBytes / 1024).toFixed(1)
+                                }}
+                                KB</small
+                            >
+                        </div>
+                        <el-tag>{{ item.status }}</el-tag>
+                    </article>
+                    <el-empty
+                        v-if="!documents.length"
+                        description="本章暂未上传培训文档"
+                    />
+                </div>
+            </section>
+        </main>
+        <footer>
+            <div>
+                <span
+                    >本次已记录 {{ seconds - unsaved }} 秒，待保存
+                    {{ unsaved }} 秒</span
+                ><el-progress
+                    :percentage="
+                        Math.min(100, Number(progress?.progressPercent || 0))
+                    "
+                    :show-text="false"
+                />
+            </div>
+            <el-button :loading="saving" @click="save">保存进度</el-button
+            ><el-button
+                type="primary"
+                :icon="ArrowRight"
+                :disabled="!assignmentId"
+                @click="finish"
+                >保存并进入闯关</el-button
+            >
+        </footer>
+    </div>
+</template>
+<style scoped>
+.learning {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 62px 1fr 70px;
+    background: #eceee9;
+}
+.learning > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: #0a403c;
+    color: #fff;
+}
+.learning > header .el-button {
+    color: #d0dfdb;
+}
+.learning > header > div {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #a9c1bb;
+    font-size: 12px;
+}
+.learning > main {
+    overflow: auto;
+    padding: 35px;
+}
+.paper {
+    max-width: 850px;
+    min-height: 600px;
+    margin: 0 auto;
+    padding: 48px 60px;
+    background: #fff;
+    box-shadow: 0 8px 40px rgba(30, 50, 45, 0.08);
+}
+.label {
+    color: var(--cinnabar);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+}
+.paper h1 {
+    font-size: 36px;
+}
+.lead {
+    color: var(--muted);
+    line-height: 1.9;
+}
+.documents {
+    display: grid;
+    gap: 10px;
+    margin-top: 30px;
+}
+.documents article {
+    display: grid;
+    grid-template-columns: 35px 1fr auto;
+    align-items: center;
+    padding: 16px;
+    border: 1px solid var(--line);
+}
+.documents b,
+.documents small {
+    display: block;
+}
+.documents small {
+    margin-top: 4px;
+    color: var(--muted);
+}
+.learning > footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 10px 24px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+}
+.learning > footer > div {
+    width: 300px;
+    margin-right: auto;
+    font-size: 11px;
+}
+@media (max-width: 700px) {
+    .learning > main {
+        padding: 10px;
+    }
+    .paper {
+        padding: 30px 22px;
+    }
+    .learning > footer > div {
+        display: none;
+    }
+}
+</style>

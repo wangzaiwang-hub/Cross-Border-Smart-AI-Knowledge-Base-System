@@ -1,3 +1,187 @@
-<script setup lang="ts">import PageHeader from '@/components/PageHeader.vue';const tasks=[{id:'c1',title:'跨境电商通关基础',path:'关务岗位必修',progress:65,status:'进行中',due:'2026-07-20',chapters:6},{id:'c2',title:'进口商品合规与溯源',path:'关务岗位必修',progress:0,status:'未开始',due:'2026-07-28',chapters:5},{id:'c3',title:'消费者权益与售后规范',path:'全员通识',progress:100,status:'已完成',due:'2026-07-05',chapters:4}];</script>
-<template><PageHeader title="我的学习任务" description="学习进度与章节解锁由服务端根据有效阅读时长和闯关结果计算。"><el-button @click="$router.push('/workspace/training/courses')">浏览课程中心</el-button></PageHeader><div class="metric-grid"><div class="metric paper-card"><span>待完成任务</span><b>2</b><small>1 项将在 7 天内到期</small></div><div class="metric paper-card"><span>本月学习时长</span><b>6.8h</b><small>较上月 +1.2h</small></div><div class="metric paper-card"><span>课程完成率</span><b>72%</b><small>岗位平均 68%</small></div><div class="metric paper-card"><span>闯关平均分</span><b>91</b><small>已完成 8 次测验</small></div></div><section class="task-list"><article v-for="task in tasks" :key="task.id" class="paper-card"><div class="course-index">{{task.title.slice(0,1)}}</div><div class="task-copy"><div><el-tag size="small" effect="plain">{{task.path}}</el-tag><el-tag size="small" :type="task.status==='已完成'?'success':task.status==='进行中'?'warning':'info'">{{task.status}}</el-tag></div><h2 class="serif">{{task.title}}</h2><p>{{task.chapters}} 个章节 · 截止 {{task.due}}</p><el-progress :percentage="task.progress" :stroke-width="9" :color="task.progress===100?'#2b8d68':'#b5482d'"/></div><el-button :type="task.progress>0&&task.progress<100?'primary':'default'" @click="$router.push(`/workspace/training/courses/${task.id}`)">{{task.progress===100?'查看档案':task.progress?'继续学习':'开始学习'}}</el-button></article></section></template>
-<style scoped>.metric small{display:block;margin-top:8px;color:var(--muted)}.task-list{display:grid;gap:14px;margin-top:22px}.task-list article{display:grid;grid-template-columns:80px 1fr 110px;align-items:center;gap:20px;padding:20px}.course-index{height:80px;display:grid;place-items:center;background:linear-gradient(135deg,var(--jade),var(--jade-dark));color:#e9ce8c;font:900 32px 'Noto Serif SC',serif}.task-copy h2{margin:10px 0 5px;font-size:20px}.task-copy p{margin:0 0 12px;color:var(--muted);font-size:12px}.task-copy .el-tag{margin-right:7px}@media(max-width:600px){.task-list article{grid-template-columns:55px 1fr}.course-index{height:55px}.task-list article>.el-button{grid-column:2;width:max-content}}</style>
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+import { ElMessage } from "element-plus";
+import PageHeader from "@/components/PageHeader.vue";
+import {
+    getProgress,
+    listCourses,
+    listMyAssignments,
+    type Assignment,
+    type Course,
+    type Progress,
+} from "@/api/training";
+type Task = { assignment: Assignment; course?: Course; progress?: Progress };
+const loading = ref(true);
+const tasks = ref<Task[]>([]);
+const pending = computed(
+    () => tasks.value.filter((x) => x.assignment.status !== "COMPLETED").length,
+);
+const completion = computed(() =>
+    tasks.value.length
+        ? Math.round(
+              ((tasks.value.length - pending.value) / tasks.value.length) * 100,
+          )
+        : 0,
+);
+onMounted(async () => {
+    try {
+        const [assignments, courses] = await Promise.all([
+            listMyAssignments(),
+            listCourses(),
+        ]);
+        const progress = await Promise.all(
+            assignments.map((x) => getProgress(x.assignmentId)),
+        );
+        tasks.value = assignments.map((assignment, index) => ({
+            assignment,
+            course: courses.find((x) => x.id === assignment.courseId),
+            progress: progress[index],
+        }));
+    } catch {
+        ElMessage.error("学习任务加载失败");
+    } finally {
+        loading.value = false;
+    }
+});
+</script>
+<template>
+    <PageHeader
+        title="我的学习任务"
+        description="学习进度与章节解锁由服务端根据有效阅读时长和闯关结果计算。"
+        ><el-button @click="$router.push('/workspace/training/courses')"
+            >浏览课程中心</el-button
+        ></PageHeader
+    >
+    <div class="metric-grid">
+        <div class="metric paper-card">
+            <span>待完成任务</span><b>{{ pending }}</b>
+        </div>
+        <div class="metric paper-card">
+            <span>课程完成率</span><b>{{ completion }}%</b>
+        </div>
+        <div class="metric paper-card">
+            <span>最好成绩</span
+            ><b>{{
+                Math.max(0, ...tasks.map((x) => x.progress?.bestScore || 0))
+            }}</b>
+        </div>
+        <div class="metric paper-card">
+            <span>任务总数</span><b>{{ tasks.length }}</b>
+        </div>
+    </div>
+    <section v-loading="loading" class="task-list">
+        <article
+            v-for="task in tasks"
+            :key="task.assignment.assignmentId"
+            class="paper-card"
+        >
+            <div class="course-index">
+                {{ task.course?.title.slice(0, 1) || "课" }}
+            </div>
+            <div class="task-copy">
+                <div>
+                    <el-tag size="small" effect="plain">{{
+                        task.course?.status || "课程"
+                    }}</el-tag
+                    ><el-tag
+                        size="small"
+                        :type="
+                            task.assignment.status === 'COMPLETED'
+                                ? 'success'
+                                : task.assignment.status === 'IN_PROGRESS'
+                                  ? 'warning'
+                                  : 'info'
+                        "
+                        >{{ task.assignment.status }}</el-tag
+                    >
+                </div>
+                <h2 class="serif">
+                    {{
+                        task.course?.title || `课程 ${task.assignment.courseId}`
+                    }}
+                </h2>
+                <p>
+                    截止
+                    {{
+                        task.assignment.dueAt
+                            ? new Date(task.assignment.dueAt).toLocaleString(
+                                  "zh-CN",
+                              )
+                            : "未设置"
+                    }}
+                </p>
+                <el-progress
+                    :percentage="Number(task.progress?.progressPercent || 0)"
+                    :stroke-width="9"
+                />
+            </div>
+            <el-button
+                :type="
+                    task.assignment.status === 'IN_PROGRESS'
+                        ? 'primary'
+                        : 'default'
+                "
+                @click="
+                    $router.push({
+                        path: `/workspace/training/courses/${task.assignment.courseId}`,
+                        query: { assignment: task.assignment.assignmentId },
+                    })
+                "
+                >{{
+                    task.assignment.status === "COMPLETED"
+                        ? "查看档案"
+                        : task.assignment.status === "IN_PROGRESS"
+                          ? "继续学习"
+                          : "开始学习"
+                }}</el-button
+            >
+        </article>
+        <el-empty
+            v-if="!loading && !tasks.length"
+            description="暂无岗位学习任务"
+        />
+    </section>
+</template>
+<style scoped>
+.task-list {
+    display: grid;
+    gap: 14px;
+    margin-top: 22px;
+    min-height: 180px;
+}
+.task-list article {
+    display: grid;
+    grid-template-columns: 80px 1fr 110px;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+}
+.course-index {
+    height: 80px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--jade), var(--jade-dark));
+    color: #e9ce8c;
+    font: 900 32px serif;
+}
+.task-copy h2 {
+    margin: 10px 0 5px;
+    font-size: 20px;
+}
+.task-copy p {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: 12px;
+}
+.task-copy .el-tag {
+    margin-right: 7px;
+}
+@media (max-width: 600px) {
+    .task-list article {
+        grid-template-columns: 55px 1fr;
+    }
+    .course-index {
+        height: 55px;
+    }
+}
+</style>
