@@ -1,6 +1,11 @@
 package com.yuegang.zhihui.gateway;
 
 import com.yuegang.zhihui.common.security.CurrentUserPrincipal;
+import com.yuegang.zhihui.common.security.InternalUserContextSignature;
+import java.time.*;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -19,19 +24,44 @@ final class TrustedUserContextFilter implements GlobalFilter, Ordered {
     private static final int MAX_AUTHORITY_HEADER_LENGTH = 4096;
     private static final Pattern SAFE_USER_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}");
     private static final Pattern SAFE_AUTHORITY = Pattern.compile("[A-Za-z][A-Za-z0-9:_-]{0,127}");
+    private final InternalUserContextSignature signatures;
+    private final Clock clock;
+
+    TrustedUserContextFilter() { this(Base64.getEncoder().encodeToString(new byte[32]), Clock.systemUTC()); }
+    @Autowired
+    TrustedUserContextFilter(@Value("${ygh.internal-request.hmac-base64}") String encodedSecret) {
+        this(encodedSecret, Clock.systemUTC());
+    }
+    TrustedUserContextFilter(String encodedSecret, Clock clock) {
+        byte[] secret;
+        try { secret = Base64.getDecoder().decode(encodedSecret); }
+        catch (IllegalArgumentException malformed) { throw new IllegalStateException("internal HMAC secret is malformed", malformed); }
+        try { this.signatures = new InternalUserContextSignature(secret, clock, Duration.ofSeconds(30)); }
+        finally { Arrays.fill(secret, (byte) 0); }
+        this.clock = clock;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         CurrentUserPrincipal principal = exchange.getAttribute(
                 GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL);
+        String userId = principal == null ? null : validatedUserId(principal.userId());
+        String roles = principal == null ? "" : encodedAuthorities(principal.roles(), "roles");
+        String permissions = principal == null ? "" : encodedAuthorities(principal.permissions(), "permissions");
+        Instant timestamp = clock.instant();
+        String signature = principal == null ? null : signatures.sign(new InternalUserContextSignature.Metadata(
+                userId, split(roles), split(permissions),
+                exchange.getRequest().getHeaders().getFirst(GatewayHeaders.TRACE_ID),
+                exchange.getRequest().getHeaders().getFirst(GatewayHeaders.REQUEST_ID),
+                exchange.getRequest().getMethod().name(),
+                exchange.getRequest().getPath().pathWithinApplication().value(), timestamp));
         var request = exchange.getRequest().mutate().headers(headers -> {
             headers.remove(GatewayHeaders.USER_ID);
             headers.remove(GatewayHeaders.ROLES);
             headers.remove(GatewayHeaders.PERMISSIONS);
+            headers.remove(GatewayHeaders.USER_CONTEXT_TIMESTAMP);
+            headers.remove(GatewayHeaders.USER_CONTEXT_SIGNATURE);
             if (principal != null) {
-                String userId = validatedUserId(principal.userId());
-                String roles = encodedAuthorities(principal.roles(), "roles");
-                String permissions = encodedAuthorities(principal.permissions(), "permissions");
                 headers.set(GatewayHeaders.USER_ID, userId);
                 if (!roles.isEmpty()) {
                     headers.set(GatewayHeaders.ROLES, roles);
@@ -39,9 +69,15 @@ final class TrustedUserContextFilter implements GlobalFilter, Ordered {
                 if (!permissions.isEmpty()) {
                     headers.set(GatewayHeaders.PERMISSIONS, permissions);
                 }
+                headers.set(GatewayHeaders.USER_CONTEXT_TIMESTAMP, Long.toString(timestamp.toEpochMilli()));
+                headers.set(GatewayHeaders.USER_CONTEXT_SIGNATURE, signature);
             }
         }).build();
         return chain.filter(exchange.mutate().request(request).build());
+    }
+
+    private static List<String> split(String encoded) {
+        return encoded.isEmpty() ? List.of() : List.of(encoded.split(",", -1));
     }
 
     @Override

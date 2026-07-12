@@ -42,3 +42,6 @@ management:
     web:
       exposure:
         include: health,info
+ygh:
+  internal-request:
+    hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}

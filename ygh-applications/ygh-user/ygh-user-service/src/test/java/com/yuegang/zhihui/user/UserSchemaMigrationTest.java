@@ -8,6 +8,9 @@ import java.sql.DriverManager;
 import java.util.LinkedHashSet;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import com.yuegang.zhihui.user.infrastructure.JdbcUserProfileRepository;
+import com.yuegang.zhihui.user.api.UpdateUserProfileRequest;
 
 class UserSchemaMigrationTest {
     @Test void emptyMysql84MigratesOnceWithOwnershipAndPiiConstraints() throws Exception {
@@ -32,6 +35,14 @@ class UserSchemaMigrationTest {
                         .contains("user_employee", "user_position");
                 insertConstraintFixtures(connection);
             }
+            var repository = new JdbcUserProfileRepository(new DriverManagerDataSource(
+                    mysql.jdbcUrl(), mysql.username(), mysql.credential()));
+            var initial = new UpdateUserProfileRequest("Bob", null, "zh-CN", "Asia/Shanghai", 0);
+            assertThat(repository.save(2, initial)).get().extracting(profile -> profile.version()).isEqualTo(0L);
+            var changed = new UpdateUserProfileRequest("Bob Chen", "https://cdn.example/bob.png", "en-US", "UTC", 0);
+            assertThat(repository.save(2, changed)).get().extracting(profile -> profile.version()).isEqualTo(1L);
+            assertThat(repository.save(2, initial)).isEmpty();
+            assertThat(repository.findByUserId(2)).get().extracting(profile -> profile.displayName()).isEqualTo("Bob Chen");
         }
     }
 

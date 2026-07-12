@@ -133,6 +133,8 @@ class GatewayContextFilterTest {
     void trustedContextFilterInjectsOnlyServerAuthenticatedPrincipal() {
         var filter = new TrustedUserContextFilter();
         var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me")
+                .header(GatewayHeaders.TRACE_ID, "trace-123456")
+                .header(GatewayHeaders.REQUEST_ID, "request-123456")
                 .header(GatewayHeaders.USER_ID, "forged-user")
                 .header(GatewayHeaders.ROLES, "SUPER_ADMIN")
                 .build());
@@ -150,6 +152,8 @@ class GatewayContextFilterTest {
         assertThat(headers.getFirst(GatewayHeaders.ROLES)).isEqualTo("CUSTOMER,EMPLOYEE");
         assertThat(headers.getFirst(GatewayHeaders.PERMISSIONS))
                 .isEqualTo("training:course:learn,user:profile:read");
+        assertThat(headers.getFirst(GatewayHeaders.USER_CONTEXT_TIMESTAMP)).isNotBlank();
+        assertThat(headers.getFirst(GatewayHeaders.USER_CONTEXT_SIGNATURE)).matches("[0-9a-f]{64}");
     }
 
     @Test
@@ -170,7 +174,9 @@ class GatewayContextFilterTest {
     @Test
     void trustedContextFilterOmitsEmptyAuthorityHeaders() {
         var filter = new TrustedUserContextFilter();
-        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me").build());
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/users/me")
+                .header(GatewayHeaders.TRACE_ID, "trace-123456")
+                .header(GatewayHeaders.REQUEST_ID, "request-123456").build());
         exchange.getAttributes().put(GatewaySecurityAttributes.AUTHENTICATED_PRINCIPAL,
                 new CurrentUserPrincipal("user-1", Set.of(), Set.of()));
         AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();

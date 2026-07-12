@@ -11,4 +11,6 @@ interface GatewayHeaders {
     String CLIENT_IP = "X-YGH-Client-IP";
     String CLIENT_IP_TIMESTAMP = "X-YGH-Client-IP-Timestamp";
     String CLIENT_IP_SIGNATURE = "X-YGH-Client-IP-Signature";
+    String USER_CONTEXT_TIMESTAMP = "X-YGH-User-Context-Timestamp";
+    String USER_CONTEXT_SIGNATURE = "X-YGH-User-Context-Signature";
 }

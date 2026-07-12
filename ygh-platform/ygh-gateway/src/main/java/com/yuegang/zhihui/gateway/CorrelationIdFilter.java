@@ -40,6 +40,8 @@ final class CorrelationIdFilter implements WebFilter, Ordered {
             headers.remove(GatewayHeaders.USER_ID);
             headers.remove(GatewayHeaders.ROLES);
             headers.remove(GatewayHeaders.PERMISSIONS);
+            headers.remove(GatewayHeaders.USER_CONTEXT_TIMESTAMP);
+            headers.remove(GatewayHeaders.USER_CONTEXT_SIGNATURE);
         }).build();
         var correlated = exchange.mutate().request(request).build();
         correlated.getAttributes().put(GatewaySecurityAttributes.TRACE_ID, traceId);

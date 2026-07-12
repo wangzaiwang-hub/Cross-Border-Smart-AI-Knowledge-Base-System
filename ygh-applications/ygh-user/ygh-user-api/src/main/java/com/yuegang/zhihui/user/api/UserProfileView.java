@@ -7,11 +7,13 @@ import jakarta.validation.constraints.Size;
 public record UserProfileView(
         @NotBlank String userId,
         @NotBlank @Size(max = 80) String displayName,
-        @Size(max = 512) String avatarUrl
+        @Size(max = 512) String avatarUrl,
+        long version
 ) {
     public UserProfileView {
         if (userId == null || !userId.matches("[1-9][0-9]{0,18}")) {
             throw new IllegalArgumentException("userId must be a positive decimal identifier");
         }
+        if (version < 0) throw new IllegalArgumentException("version must not be negative");
     }
 }

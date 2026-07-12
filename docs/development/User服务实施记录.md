@@ -51,3 +51,12 @@ V1 在 User 私有 MySQL Schema 建立六张业务表：
 - Flyway 成功迁移到 V1，`verify-user-db.sh` 验证七张含历史表、应用账号 DDL 被拒绝；
 - User 服务使用独立 runtime JAR 启动，readiness 为 `UP`；
 - Nacos 中唯一健康实例为 `YGH_GROUP@@ygh-user-service 192.168.154.1:18082`，已排除 Link-local 地址误注册。
+
+## 3. BE-0342 本人资料查询与修改
+
+- 提供 `GET /api/v1/users/me` 与 `PUT /api/v1/users/me`，路径不接受外部 userId，所有权只能来自 Gateway 验证过的 JWT。
+- Gateway 对 `userId/roles/permissions/traceId/requestId/method/path/timestamp` 生成独立 HMAC-SHA256 身份签名；User 校验 30 秒时窗和整组请求绑定信息。客户端伪造或篡改任一内部头均返回 401。
+- 首次 PUT 以 `version=0` 创建 Profile；后续更新必须携带当前版本，通过 `SELECT ... FOR UPDATE` 与条件更新实现乐观并发控制，陈旧版本返回 409。
+- displayName 入库前去除首尾空白；timezone 必须是 JDK ZoneId；avatarUrl 只接受带 host 的 HTTP/HTTPS URL；数据库 Entity/ResultSet 不进入 API 模块。
+- 单元测试覆盖创建、读取、更新、陈旧版本、404、非法时区和 URL；真实 MySQL 测试覆盖 JDBC 创建、版本递增与陈旧写拒绝；可信身份测试覆盖有效、篡改、过期和缺失签名。
+- 真实开发链路已完成 `Gateway → Auth 注册/JWT → User PUT → User GET`：注册用户通过 Gateway 更新并读回本人资料，响应 userId 与 JWT 主体一致、version 为 0、traceId 完整。

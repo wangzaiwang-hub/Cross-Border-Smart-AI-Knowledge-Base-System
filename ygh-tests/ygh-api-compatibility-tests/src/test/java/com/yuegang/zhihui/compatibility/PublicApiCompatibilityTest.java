@@ -29,9 +29,9 @@ import org.junit.jupiter.api.Test;
 
 public class PublicApiCompatibilityTest {
 
-    private static final int EXPECTED_SIGNATURE_COUNT = 531;
+    private static final int EXPECTED_SIGNATURE_COUNT = 548;
     private static final String EXPECTED_SHA256 =
-            "310f707a48b983e382e1ca4c02d8ebb9276a6fab74a0bbea7b0caa56e22e964c";
+            "2aaaf9092feb2774e69ebdf78e2e3949410ee3c4cfc0d06e91ba87168544bb2c";
     private static final List<Class<?>> MODULE_ANCHORS = List.of(
             ApiResponse.class,
             GlobalExceptionHandler.class,
