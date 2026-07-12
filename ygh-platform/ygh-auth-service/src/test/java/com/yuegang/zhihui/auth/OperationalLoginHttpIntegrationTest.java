@@ -116,7 +116,7 @@ class OperationalLoginHttpIntegrationTest {
     private static void verifyOpenApi(int port) throws Exception {
         JsonNode api = get(port, "/v3/api-docs");
         assertThat(api.path("info").path("title").asString()).isEqualTo("YGH Authentication API");
-        assertThat(api.path("paths").size()).isEqualTo(9);
+        assertThat(api.path("paths").size()).isEqualTo(11);
         assertThat(api.path("servers").get(0).path("url").asString()).isEqualTo("/");
         assertThat(api.path("paths").path("/api/v1/auth/register").path("post")
                 .path("responses").has("201")).isTrue();

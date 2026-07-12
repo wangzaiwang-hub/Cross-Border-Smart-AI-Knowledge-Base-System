@@ -49,7 +49,7 @@ class AuthSchemaMigrationTest {
             var second = flyway.migrate();
             grantAppTablePrivileges(fixture, appUser);
 
-            assertThat(first.migrationsExecuted).isEqualTo(3);
+            assertThat(first.migrationsExecuted).isEqualTo(4);
             assertThat(second.migrationsExecuted).isZero();
             try (var connection = DriverManager.getConnection(
                     fixture.jdbcUrl(), fixture.username(), fixture.credential())) {

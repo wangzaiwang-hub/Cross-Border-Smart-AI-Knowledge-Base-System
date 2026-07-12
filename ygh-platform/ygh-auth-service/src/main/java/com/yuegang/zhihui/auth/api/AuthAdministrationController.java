@@ -2,6 +2,7 @@ package com.yuegang.zhihui.auth.api;
 
 import com.yuegang.zhihui.auth.api.dto.*;
 import com.yuegang.zhihui.auth.application.AccountAdministrationService;
+import com.yuegang.zhihui.auth.application.AuthAccountQueryService;
 import com.yuegang.zhihui.common.core.*;
 import com.yuegang.zhihui.common.security.CurrentUserPrincipal;
 import com.yuegang.zhihui.common.web.TraceIdResolver;
