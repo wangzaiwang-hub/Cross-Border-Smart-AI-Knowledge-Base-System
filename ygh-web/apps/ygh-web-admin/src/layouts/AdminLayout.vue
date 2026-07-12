@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSessionStore } from "@ygh/web-shared";
 import {
@@ -23,11 +23,14 @@ import {
     SwitchButton,
     User,
 } from "@element-plus/icons-vue";
+import { getDashboard } from "@/api/operations";
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
 const collapsed = ref(false);
 const title = computed(() => String(route.meta.title || "运营后台"));
+const serviceHealth = ref<{ healthy: number; total: number }>();
+const pendingCount = ref(0);
 const groups = [
     {
         name: "工作台",
@@ -66,6 +69,21 @@ function logout() {
     session.clear();
     router.replace("/login");
 }
+onMounted(async () => {
+    try {
+        const dashboard = await getDashboard();
+        serviceHealth.value = {
+            healthy: dashboard.summary.healthyServices,
+            total: dashboard.summary.totalServices,
+        };
+        pendingCount.value = dashboard.pending.reduce(
+            (total, item) => total + item.count,
+            0,
+        );
+    } catch {
+        serviceHealth.value = undefined;
+    }
+});
 </script>
 <template>
     <div class="admin-shell" :class="{ collapsed }">
@@ -91,7 +109,13 @@ function logout() {
                 >
             </nav>
             <div class="system-health">
-                <i /><span>核心服务可用</span><b>12 / 14</b>
+                <i :class="{ unavailable: !serviceHealth }" /><span
+                    >核心服务可用</span
+                ><b>{{
+                    serviceHealth
+                        ? `${serviceHealth.healthy} / ${serviceHealth.total}`
+                        : "-- / --"
+                }}</b>
             </div>
         </aside>
         <section>
@@ -106,8 +130,12 @@ function logout() {
                     <small>粤港甄选 /</small><b>{{ title }}</b>
                 </div>
                 <div class="header-actions">
-                    <el-badge :value="5"
-                        ><el-button text circle :icon="Bell" /></el-badge
+                    <el-badge :value="pendingCount" :hidden="pendingCount === 0"
+                        ><el-button
+                            text
+                            circle
+                            :icon="Bell"
+                            @click="router.push('/notifications')" /></el-badge
                     ><span class="operator"
                         ><el-avatar :size="32">管</el-avatar
                         ><b>{{
@@ -210,6 +238,9 @@ function logout() {
     height: 7px;
     border-radius: 50%;
     background: #50ba8b;
+}
+.system-health i.unavailable {
+    background: #d28b49;
 }
 .system-health b {
     color: #d8b86d;
