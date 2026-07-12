@@ -1,4 +1,8 @@
-FROM eclipse-temurin:25-jre-alpine
+FROM eclipse-temurin:25.0.3_9-jre-alpine-3.23
+ARG APP_VERSION=dev
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+LABEL org.opencontainers.image.version="${APP_VERSION}" org.opencontainers.image.revision="${GIT_SHA}" org.opencontainers.image.created="${BUILD_TIME}" org.opencontainers.image.source="https://github.com/wangzaiwang-hub/Cross-Border-Smart-AI-Knowledge-Base-System"
 RUN addgroup -S ygh && adduser -S -G ygh -u 10001 ygh
 WORKDIR /app
 ARG JAR_FILE=target/*.jar
