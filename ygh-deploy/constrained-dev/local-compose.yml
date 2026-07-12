@@ -19,7 +19,7 @@ services:
     environment:
       JAVA_OPT_EXT: -server -Xms128m -Xmx128m -Xmn64m
     ports:
-      - "192.168.154.1:9876:9876"
+      - "19876:9876"
     volumes:
       - ./rocketmq/ygh-entrypoint.sh:/home/rocketmq/ygh-entrypoint.sh:ro
     networks: [ygh-local]
@@ -56,9 +56,9 @@ services:
       NAMESRV_ADDR: rocketmq-namesrv:9876
       JAVA_OPT_EXT: -server -Xms384m -Xmx384m -Xmn128m
     ports:
-      - "192.168.154.1:10909:10909"
-      - "192.168.154.1:10911:10911"
-      - "192.168.154.1:10912:10912"
+      - "10909:10909"
+      - "10911:10911"
+      - "10912:10912"
     volumes:
       - ./rocketmq/ygh-entrypoint.sh:/home/rocketmq/ygh-entrypoint.sh:ro
       - ./rocketmq/broker.conf:/home/rocketmq/rocketmq-5.3.1/conf/broker.conf:ro
@@ -91,8 +91,8 @@ services:
       JVM_MaxMetaspaceSize: 160m
       JVM_MaxDirectMemorySize: 128m
     ports:
-      - "192.168.154.1:7091:7091"
-      - "192.168.154.1:8091:8091"
+      - "7091:7091"
+      - "8091:8091"
     networks: [ygh-local]
     mem_limit: 512m
     cpus: 0.50
@@ -116,7 +116,7 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?required}
       ES_JAVA_OPTS: -Xms768m -Xmx768m
     ports:
-      - "192.168.154.1:9200:9200"
+      - "9200:9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     networks: [ygh-local]

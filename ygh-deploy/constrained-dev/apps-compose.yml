@@ -86,7 +86,7 @@ services:
       YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
       YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
       YGH_MQ_ENABLED: "true"
-      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   inventory:
     <<: *app
     profiles: [mall]
@@ -109,7 +109,7 @@ services:
       YGH_INVENTORY_INTERNAL_BASE_URL: http://inventory:8085
       YGH_WALLET_INTERNAL_BASE_URL: http://wallet:8087
       YGH_MQ_ENABLED: "true"
-      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   wallet:
     <<: *app
     profiles: [mall]
@@ -120,7 +120,7 @@ services:
       YGH_WALLET_DB_APP_PASSWORD: ${YGH_WALLET_DB_APP_PASSWORD:?required}
       YGH_WALLET_DB_MIGRATION_PASSWORD: ${YGH_WALLET_DB_MIGRATION_PASSWORD:?required}
       YGH_MQ_ENABLED: "true"
-      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   notification:
     <<: *app
     profiles: [mall]
@@ -131,7 +131,7 @@ services:
       YGH_NOTIFICATION_DB_APP_PASSWORD: ${YGH_NOTIFICATION_DB_APP_PASSWORD:?required}
       YGH_NOTIFICATION_DB_MIGRATION_PASSWORD: ${YGH_NOTIFICATION_DB_MIGRATION_PASSWORD:?required}
       YGH_MQ_ENABLED: "true"
-      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   admin:
     <<: *app
     profiles: [platform]
@@ -152,7 +152,7 @@ services:
       YGH_KNOWLEDGE_STORAGE_ROOT: /data/knowledge
       YGH_SEARCH_INTERNAL_BASE_URL: http://search:8089
       YGH_MQ_ENABLED: "true"
-      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
     volumes: [knowledge-files:/data/knowledge]
   search:
     <<: *app
@@ -193,7 +193,7 @@ services:
       YGH_TRAINING_STORAGE_ROOT: /data/training
       YGH_USER_INTERNAL_BASE_URL: http://user:8082
       YGH_MQ_ENABLED: "true"
-      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
     volumes: [training-files:/data/training]
 
 networks: {ygh-apps: {name: ygh-apps}}
