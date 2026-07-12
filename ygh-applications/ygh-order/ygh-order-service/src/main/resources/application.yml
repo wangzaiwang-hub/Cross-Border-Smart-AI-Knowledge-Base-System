@@ -19,3 +19,4 @@ spring:
     group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
 management.endpoints.web.exposure.include: health,info
 ygh.internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
+ygh.product.internal-base-url: ${YGH_PRODUCT_INTERNAL_BASE_URL}
