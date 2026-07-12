@@ -27,3 +27,4 @@ ygh.mq.topic: ${YGH_ROCKETMQ_DOMAIN_TOPIC:YGH_DOMAIN_EVENTS}
 ygh.internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
 ygh.product.internal-base-url: ${YGH_PRODUCT_INTERNAL_BASE_URL}
 ygh.inventory.internal-base-url: ${YGH_INVENTORY_INTERNAL_BASE_URL}
+ygh.wallet.internal-base-url: ${YGH_WALLET_INTERNAL_BASE_URL}

@@ -80,6 +80,10 @@ services:
       YGH_PRODUCT_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/product_db?useSSL=false&serverTimezone=Asia/Shanghai
       YGH_PRODUCT_DB_APP_PASSWORD: ${YGH_PRODUCT_DB_APP_PASSWORD:?required}
       YGH_PRODUCT_DB_MIGRATION_PASSWORD: ${YGH_PRODUCT_DB_MIGRATION_PASSWORD:?required}
+      YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
+      YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
+      YGH_MQ_ENABLED: "true"
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
   inventory:
     <<: *app
     profiles: [mall]
@@ -100,6 +104,7 @@ services:
       YGH_ORDER_DB_MIGRATION_PASSWORD: ${YGH_ORDER_DB_MIGRATION_PASSWORD:?required}
       YGH_PRODUCT_INTERNAL_BASE_URL: http://product:8084
       YGH_INVENTORY_INTERNAL_BASE_URL: http://inventory:8085
+      YGH_WALLET_INTERNAL_BASE_URL: http://wallet:8087
       YGH_MQ_ENABLED: "true"
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
   wallet:
@@ -122,6 +127,8 @@ services:
       YGH_NOTIFICATION_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/notification_db?useSSL=false&serverTimezone=Asia/Shanghai
       YGH_NOTIFICATION_DB_APP_PASSWORD: ${YGH_NOTIFICATION_DB_APP_PASSWORD:?required}
       YGH_NOTIFICATION_DB_MIGRATION_PASSWORD: ${YGH_NOTIFICATION_DB_MIGRATION_PASSWORD:?required}
+      YGH_MQ_ENABLED: "true"
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
   admin:
     <<: *app
     profiles: [platform]
@@ -140,6 +147,8 @@ services:
       YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD: ${YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD:?required}
       YGH_KNOWLEDGE_STORAGE_ROOT: /data/knowledge
       YGH_SEARCH_INTERNAL_BASE_URL: http://search:8089
+      YGH_MQ_ENABLED: "true"
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
     volumes: [knowledge-files:/data/knowledge]
   search:
     <<: *app
@@ -177,6 +186,9 @@ services:
       YGH_TRAINING_DB_APP_PASSWORD: ${YGH_TRAINING_DB_APP_PASSWORD:?required}
       YGH_TRAINING_DB_MIGRATION_PASSWORD: ${YGH_TRAINING_DB_MIGRATION_PASSWORD:?required}
       YGH_TRAINING_STORAGE_ROOT: /data/training
+      YGH_USER_INTERNAL_BASE_URL: http://user:8082
+      YGH_MQ_ENABLED: "true"
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
     volumes: [training-files:/data/training]
 
 networks: {ygh-apps: {name: ygh-apps}}
