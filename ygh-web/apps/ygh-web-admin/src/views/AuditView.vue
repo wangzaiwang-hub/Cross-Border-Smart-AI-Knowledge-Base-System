@@ -1,2 +1,77 @@
-<script setup lang="ts">const logs=[{time:'2026-07-13 00:31:12',user:'admin / 1',action:'KNOWLEDGE_PUBLISH',resource:'knowledge:K20260712018',result:'成功',trace:'9a31f8d7…',ip:'192.168.154.1'},{time:'2026-07-13 00:20:44',user:'product_ops / 10002',action:'PRODUCT_UPDATE',resource:'product:10004',result:'成功',trace:'3bc219a0…',ip:'192.168.154.1'},{time:'2026-07-12 23:48:07',user:'unknown',action:'LOGIN',resource:'auth:session',result:'失败',trace:'f082ba11…',ip:'192.168.154.88'}];</script>
-<template><div class="page-head"><div><h1>审计与安全</h1><p>按用户、动作、资源、结果和 traceId 检索关键业务操作。</p></div><el-button>导出脱敏日志</el-button></div><div class="panel filter-row"><el-date-picker type="datetimerange" range-separator="至"/><el-input placeholder="用户 / 资源 / traceId"/><el-select placeholder="操作结果"><el-option label="成功" value="SUCCESS"/><el-option label="失败" value="FAILED"/></el-select><el-button type="primary">查询</el-button></div><section class="panel table-panel"><el-table :data="logs"><el-table-column prop="time" label="时间" width="170"/><el-table-column prop="user" label="操作人"/><el-table-column prop="action" label="动作" min-width="170"/><el-table-column prop="resource" label="资源" min-width="210"/><el-table-column prop="result" label="结果"><template #default="s"><el-tag :type="s.row.result==='成功'?'success':'danger'">{{s.row.result}}</el-tag></template></el-table-column><el-table-column prop="trace" label="traceId"/><el-table-column prop="ip" label="来源 IP"/><el-table-column label="操作"><template #default><el-button link type="primary">链路详情</el-button></template></el-table-column></el-table></section><el-alert style="margin-top:14px" title="安全说明" description="手机号、Token、Secret 与敏感请求体在日志中必须脱敏；审计日志不可由普通运营角色删除。" type="info" :closable="false"/></template>
+<script setup lang="ts">
+import { onMounted, reactive, ref } from "vue";
+import { ElMessage } from "element-plus";
+import { listAuditLogs, type AuditLog } from "@/api/operations";
+const loading = ref(true);
+const logs = ref<AuditLog[]>([]);
+const filter = reactive({ userId: "", module: "", action: "", result: "" });
+async function load() {
+    loading.value = true;
+    try {
+        logs.value = await listAuditLogs(filter);
+    } catch {
+        ElMessage.error("审计日志加载失败");
+    } finally {
+        loading.value = false;
+    }
+}
+onMounted(load);
+</script>
+<template>
+    <div class="page-head">
+        <div>
+            <h1>审计与安全</h1>
+            <p>按用户、模块、动作、结果和 traceId 检索关键业务操作。</p>
+        </div>
+    </div>
+    <div class="panel filter-row">
+        <el-input v-model="filter.userId" placeholder="用户 ID" /><el-input
+            v-model="filter.module"
+            placeholder="模块"
+        /><el-input v-model="filter.action" placeholder="动作" /><el-select
+            v-model="filter.result"
+            placeholder="结果"
+            clearable
+            ><el-option label="成功" value="SUCCESS" /><el-option
+                label="失败"
+                value="FAILED" /></el-select
+        ><el-button type="primary" @click="load">查询</el-button>
+    </div>
+    <section v-loading="loading" class="panel table-panel">
+        <el-table :data="logs"
+            ><el-table-column label="时间" width="180"
+                ><template #default="scope">{{
+                    new Date(scope.row.timestamp).toLocaleString("zh-CN")
+                }}</template></el-table-column
+            ><el-table-column prop="userId" label="操作人" /><el-table-column
+                prop="module"
+                label="模块" /><el-table-column
+                prop="action"
+                label="动作" /><el-table-column prop="result" label="结果"
+                ><template #default="scope"
+                    ><el-tag
+                        :type="
+                            scope.row.result === 'SUCCESS'
+                                ? 'success'
+                                : 'danger'
+                        "
+                        >{{ scope.row.result }}</el-tag
+                    ></template
+                ></el-table-column
+            ><el-table-column
+                prop="traceId"
+                label="traceId"
+                min-width="220" /><el-table-column
+                prop="message"
+                label="脱敏消息"
+                min-width="260"
+        /></el-table>
+    </section>
+    <el-alert
+        style="margin-top: 14px"
+        title="安全说明"
+        description="手机号、Token、Secret 与敏感请求体必须脱敏；审计日志不可由普通运营角色删除。"
+        type="info"
+        :closable="false"
+    />
+</template>

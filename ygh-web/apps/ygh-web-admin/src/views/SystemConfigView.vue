@@ -1,3 +1,100 @@
-<script setup lang="ts">import {ref} from 'vue';const tab=ref('dictionary');const dictionaries=[{type:'PRODUCT_STATUS',name:'商品状态',items:4,updated:'2026-07-10 14:20'},{type:'ORDER_STATUS',name:'订单状态',items:8,updated:'2026-07-09 11:08'},{type:'KNOWLEDGE_CATEGORY',name:'知识分类',items:3,updated:'2026-07-08 09:30'}];const switches=ref([{key:'ai.chat.enabled',name:'AI 客服入口',value:true,scope:'全局'},{key:'wallet.recharge.enabled',name:'虚拟充值',value:true,scope:'全局'},{key:'knowledge.upload.enabled',name:'知识上传',value:true,scope:'运营后台'},{key:'maintenance.mode',name:'维护模式',value:false,scope:'全局'}]);</script>
-<template><div class="page-head"><div><h1>系统配置</h1><p>维护数据字典、业务参数和功能开关。Secret 不在此页面保存。</p></div></div><el-tabs v-model="tab" class="panel config"><el-tab-pane label="数据字典" name="dictionary"><el-table :data="dictionaries"><el-table-column prop="type" label="字典编码"/><el-table-column prop="name" label="字典名称"/><el-table-column prop="items" label="字典项"/><el-table-column prop="updated" label="更新时间"/><el-table-column label="操作"><template #default><el-button link type="primary">维护字典项</el-button></template></el-table-column></el-table></el-tab-pane><el-tab-pane label="业务参数" name="parameters"><el-form label-width="180px" style="max-width:700px"><el-form-item label="订单自动关闭分钟数"><el-input-number :model-value="30"/></el-form-item><el-form-item label="知识上传最大 MB"><el-input-number :model-value="50"/></el-form-item><el-form-item label="AI 检索候选数"><el-input-number :model-value="20"/></el-form-item><el-button type="primary">保存参数</el-button></el-form></el-tab-pane><el-tab-pane label="功能开关" name="switches"><div v-for="s in switches" :key="s.key" class="switch"><div><b>{{s.name}}</b><small>{{s.key}} · {{s.scope}}</small></div><el-switch v-model="s.value"/></div></el-tab-pane></el-tabs></template>
-<style scoped>.config{padding:20px}.switch{display:flex;align-items:center;justify-content:space-between;padding:15px;border-bottom:1px solid var(--line)}.switch b,.switch small{display:block}.switch small{margin-top:4px;color:var(--muted)}</style>
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { ElMessage } from "element-plus";
+import {
+    listDictionaries,
+    listFeatureFlags,
+    listSystemSettings,
+    type Dictionary,
+    type FeatureFlag,
+    type SystemSetting,
+} from "@/api/operations";
+const tab = ref("dictionary");
+const loading = ref(true);
+const dictionaries = ref<Dictionary[]>([]);
+const flags = ref<FeatureFlag[]>([]);
+const settings = ref<SystemSetting[]>([]);
+onMounted(async () => {
+    try {
+        [dictionaries.value, flags.value, settings.value] = await Promise.all([
+            listDictionaries(),
+            listFeatureFlags(),
+            listSystemSettings(),
+        ]);
+    } catch {
+        ElMessage.error("系统配置加载失败");
+    } finally {
+        loading.value = false;
+    }
+});
+</script>
+<template>
+    <div class="page-head">
+        <div>
+            <h1>系统配置</h1>
+            <p>维护数据字典、业务参数和功能开关。Secret 不在此页面显示。</p>
+        </div>
+    </div>
+    <el-tabs v-model="tab" v-loading="loading" class="panel config"
+        ><el-tab-pane label="数据字典" name="dictionary"
+            ><el-table :data="dictionaries"
+                ><el-table-column
+                    prop="code"
+                    label="字典编码"
+                /><el-table-column
+                    prop="name"
+                    label="字典名称"
+                /><el-table-column label="字典项"
+                    ><template #default="scope">{{
+                        scope.row.items.length
+                    }}</template></el-table-column
+                ></el-table
+            ></el-tab-pane
+        ><el-tab-pane label="业务参数" name="parameters"
+            ><el-table :data="settings"
+                ><el-table-column prop="key" label="参数键" /><el-table-column
+                    label="参数值"
+                    ><template #default="scope">{{
+                        scope.row.secret ? "[REDACTED]" : scope.row.value
+                    }}</template></el-table-column
+                ><el-table-column
+                    prop="valueType"
+                    label="类型" /><el-table-column
+                    prop="version"
+                    label="版本" /></el-table></el-tab-pane
+        ><el-tab-pane label="功能开关" name="switches"
+            ><div v-for="flag in flags" :key="flag.key" class="switch">
+                <div>
+                    <b>{{ flag.key }}</b
+                    ><small
+                        >灰度 {{ flag.rolloutPercent }}% · 版本
+                        {{ flag.version }}</small
+                    >
+                </div>
+                <el-tag :type="flag.enabled ? 'success' : 'info'">{{
+                    flag.enabled ? "启用" : "停用"
+                }}</el-tag>
+            </div></el-tab-pane
+        ></el-tabs
+    >
+</template>
+<style scoped>
+.config {
+    padding: 20px;
+}
+.switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+    border-bottom: 1px solid var(--line);
+}
+.switch b,
+.switch small {
+    display: block;
+}
+.switch small {
+    margin-top: 4px;
+    color: var(--muted);
+}
+</style>

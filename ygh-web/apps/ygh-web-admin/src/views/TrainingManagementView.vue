@@ -1,3 +1,53 @@
-<script setup lang="ts">import {ref} from 'vue';import {Plus} from '@element-plus/icons-vue';const tab=ref('courses');const courses=[{name:'跨境电商通关基础',position:'关务专员',chapters:6,assigned:126,rate:'78%',status:'已发布'},{name:'进口商品合规与溯源',position:'商品运营',chapters:5,assigned:98,rate:'64%',status:'已发布'},{name:'知识库审核与发布治理',position:'知识审核员',chapters:4,assigned:0,rate:'—',status:'草稿'}];const assignments=[{title:'2026 Q3 关务岗位必修',target:'岗位 / 关务专员',people:42,completed:31,overdue:4,due:'2026-07-31'},{title:'全员消费者权益通识',target:'部门 / 跨境业务部',people:126,completed:102,overdue:8,due:'2026-07-20'}];</script>
-<template><div class="page-head"><div><h1>培训运营</h1><p>按部门与岗位维护学习路径、课程、关卡、题库、任务和统计。</p></div><el-button type="primary" :icon="Plus">新建课程</el-button></div><div class="metric-grid"><div class="metric panel"><span>在学员工</span><b>214</b><small>覆盖 8 个岗位</small></div><div class="metric panel"><span>本月完成率</span><b>78.4%</b><small>较上月 +6.2%</small></div><div class="metric panel"><span>逾期任务</span><b>12</b><small>已发送站内提醒</small></div><div class="metric panel"><span>平均测验成绩</span><b>86.7</b><small>薄弱知识点 23 个</small></div></div><el-tabs v-model="tab" class="panel training"><el-tab-pane label="课程管理" name="courses"><div class="filter-row"><el-input placeholder="课程名称"/><el-select placeholder="状态"><el-option label="已发布" value="PUBLISHED"/><el-option label="草稿" value="DRAFT"/></el-select><el-button type="primary">查询</el-button></div><el-table :data="courses"><el-table-column prop="name" label="课程名称" min-width="230"/><el-table-column prop="position" label="适用岗位"/><el-table-column prop="chapters" label="章节"/><el-table-column prop="assigned" label="分配人数"/><el-table-column prop="rate" label="完成率"/><el-table-column prop="status" label="状态"><template #default="s"><el-tag :type="s.row.status==='已发布'?'success':'info'">{{s.row.status}}</el-tag></template></el-table-column><el-table-column label="操作"><template #default><el-button link type="primary">编辑</el-button><el-button link>章节与题库</el-button></template></el-table-column></el-table></el-tab-pane><el-tab-pane label="学习路径" name="paths"><el-empty description="按岗位配置课程顺序与前置课程"/></el-tab-pane><el-tab-pane label="任务分配" name="assignments"><article v-for="a in assignments" :key="a.title" class="assignment"><div><b>{{a.title}}</b><small>{{a.target}} · 截止 {{a.due}}</small></div><span>分配 <b>{{a.people}}</b></span><span>完成 <b>{{a.completed}}</b></span><span>逾期 <b class="danger">{{a.overdue}}</b></span><el-button>查看明细</el-button></article></el-tab-pane><el-tab-pane label="学习分析" name="analytics"><el-empty description="完成率、成绩分布与薄弱知识点统计"/></el-tab-pane></el-tabs></template>
-<style scoped>.training{margin-top:14px;padding:18px}.assignment{display:grid;grid-template-columns:1fr repeat(3,100px) 100px;align-items:center;padding:17px;border-bottom:1px solid var(--line)}.assignment small{display:block;margin-top:5px;color:var(--muted)}.assignment>span{color:var(--muted);font-size:12px}.assignment>span b{display:block;margin-top:3px;color:#162b29;font-size:18px}.assignment .danger{color:var(--accent)}</style>
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { ElMessage } from "element-plus";
+import { getTrainingAnalytics, type TrainingAnalytics } from "@/api/operations";
+const loading = ref(true);
+const data = ref<TrainingAnalytics>();
+onMounted(async () => {
+    try {
+        data.value = await getTrainingAnalytics();
+    } catch {
+        ElMessage.error("培训分析加载失败");
+    } finally {
+        loading.value = false;
+    }
+});
+</script>
+<template>
+    <div v-loading="loading">
+        <div class="page-head">
+            <div>
+                <h1>培训运营</h1>
+                <p>服务端汇总任务完成、逾期、成绩与薄弱知识点。</p>
+            </div>
+        </div>
+        <div class="metric-grid">
+            <div class="metric panel">
+                <span>已分配</span><b>{{ data?.assigned || 0 }}</b>
+            </div>
+            <div class="metric panel">
+                <span>已完成</span><b>{{ data?.completed || 0 }}</b>
+            </div>
+            <div class="metric panel">
+                <span>逾期任务</span><b>{{ data?.overdue || 0 }}</b>
+            </div>
+            <div class="metric panel">
+                <span>平均成绩</span><b>{{ data?.averageScore || 0 }}</b>
+            </div>
+        </div>
+        <section class="panel table-panel">
+            <h3 class="serif">薄弱知识点</h3>
+            <el-table :data="data?.weakKnowledge || []"
+                ><el-table-column
+                    prop="knowledgeCode"
+                    label="知识点编码" /><el-table-column
+                    prop="wrongCount"
+                    label="错误次数" /></el-table
+            ><el-empty
+                v-if="!data?.weakKnowledge.length"
+                description="暂无薄弱知识点数据"
+            />
+        </section>
+    </div>
+</template>

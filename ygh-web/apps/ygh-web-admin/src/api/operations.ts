@@ -90,6 +90,81 @@ export interface DeadLetter {
     failureReason: string;
     failedAt: string;
 }
+export interface PromptConfig {
+    id: string;
+    code: string;
+    systemPrompt: string;
+    modelName: string;
+    temperature: number;
+    knowledgeScope: string;
+    sensitiveWords: string;
+    enabled: boolean;
+    version: number;
+    updatedAt: string;
+}
+export interface EvaluationCase {
+    id: string;
+    category: string;
+    question: string;
+    expectedEvidence: string;
+    forbiddenAnswer?: string;
+    enabled: boolean;
+}
+export interface AiSummary {
+    conversations: number;
+    messages: number;
+    refusals: number;
+    feedback: number;
+    helpfulFeedback: number;
+    enabledEvaluationCases: number;
+    activePrompt: boolean;
+}
+export interface EvaluationRun {
+    runId: string;
+    caseId: string;
+    passed: boolean;
+    score: number;
+    citationCount: number;
+    durationMs: number;
+    failureReason?: string;
+}
+export interface TrainingAnalytics {
+    assigned: number;
+    completed: number;
+    overdue: number;
+    completionRate: string;
+    averageScore: string;
+    weakKnowledge: Array<{ knowledgeCode: string; wrongCount: number }>;
+}
+export interface AuditLog {
+    timestamp: string;
+    userId?: string;
+    module: string;
+    action: string;
+    result: string;
+    status: number;
+    traceId: string;
+    message: string;
+}
+export interface SystemSetting {
+    key: string;
+    value: string;
+    valueType: string;
+    secret: boolean;
+    version: number;
+}
+export interface Dictionary {
+    code: string;
+    name: string;
+    items: Array<{ key: string; value: string; sortOrder: number }>;
+}
+export interface FeatureFlag {
+    key: string;
+    enabled: boolean;
+    rolloutPercent: number;
+    rulesJson: string;
+    version: number;
+}
 export const getDashboard = async (): Promise<Dashboard> =>
     apiData(await useHttp().get("/api/v1/admin/dashboard"));
 export const listAccounts = async (
@@ -169,3 +244,27 @@ export const dispatchNotifications = async (): Promise<number> => {
     );
     return result.sent;
 };
+export const listPrompts = async (): Promise<PromptConfig[]> =>
+    apiData(await useHttp().get("/api/v1/admin/ai/prompts"));
+export const listEvaluationCases = async (): Promise<EvaluationCase[]> =>
+    apiData(await useHttp().get("/api/v1/admin/ai/evaluation-cases"));
+export const getAiSummary = async (): Promise<AiSummary> =>
+    apiData(await useHttp().get("/api/v1/admin/ai/summary"));
+export const runAiEvaluations = async (): Promise<EvaluationRun[]> =>
+    apiData(await useHttp().post("/api/v1/admin/ai/evaluations/run"));
+export const getTrainingAnalytics = async (): Promise<TrainingAnalytics> =>
+    apiData(await useHttp().get("/api/v1/training/learning/admin/analytics"));
+export const listAuditLogs = async (
+    params: Record<string, string | number | undefined> = {},
+): Promise<AuditLog[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/audit-logs", {
+            params: { ...params, limit: 100 },
+        }),
+    );
+export const listSystemSettings = async (): Promise<SystemSetting[]> =>
+    apiData(await useHttp().get("/api/v1/system/settings"));
+export const listDictionaries = async (): Promise<Dictionary[]> =>
+    apiData(await useHttp().get("/api/v1/system/dictionaries"));
+export const listFeatureFlags = async (): Promise<FeatureFlag[]> =>
+    apiData(await useHttp().get("/api/v1/system/feature-flags"));
