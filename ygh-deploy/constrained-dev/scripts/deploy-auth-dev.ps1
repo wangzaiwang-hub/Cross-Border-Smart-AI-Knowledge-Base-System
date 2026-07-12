@@ -34,7 +34,7 @@ try {
     & ssh $VmHost "cd /opt/ygh/constrained-dev && ./scripts/provision-auth-db.sh"
     if ($LASTEXITCODE -ne 0) { throw "Auth DB bootstrap failed" }
 
-    $jar = Join-Path $repositoryRoot "ygh-platform\ygh-auth-service\target\ygh-auth-service-1.0.0-SNAPSHOT.jar"
+    $buildJar = Join-Path $repositoryRoot "ygh-platform\ygh-auth-service\target\ygh-auth-service-1.0.0-SNAPSHOT.jar"
     $dbUrl = "jdbc:mysql://${DatabaseHost}:3306/auth_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
     $env:YGH_AUTH_DB_URL = $dbUrl
     $env:YGH_AUTH_DB_APP_USERNAME = "ygh_auth_migration"
@@ -53,7 +53,7 @@ try {
     $env:YGH_INTERNAL_REQUEST_HMAC_BASE64 = $config.INTERNAL_REQUEST_HMAC_BASE64
 
     & java '-Dloader.main=com.yuegang.zhihui.auth.AuthMigrationApplication' `
-        -cp $jar org.springframework.boot.loader.launch.PropertiesLauncher
+        -cp $buildJar org.springframework.boot.loader.launch.PropertiesLauncher
     if ($LASTEXITCODE -ne 0) { throw "Auth Flyway migration job failed" }
 
     & ssh $VmHost "cd /opt/ygh/constrained-dev && ./scripts/provision-auth-db.sh && ./scripts/verify-auth-db.sh"
@@ -78,15 +78,20 @@ try {
     $env:YGH_JWT_ACTIVE_KID = $JwtKeyId
     $env:YGH_JWT_ISSUER = "https://auth.dev.ygh.internal"
     $env:YGH_JWT_AUDIENCE = "ygh-api"
-    $stdout = Join-Path (Split-Path $jar) "auth-service.log"
-    $stderr = Join-Path (Split-Path $jar) "auth-service-error.log"
-    $pidFile = Join-Path (Split-Path $jar) "auth-service.pid"
+    $runtimeDirectory = Join-Path $composeDir "runtime\auth"
+    New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
+    $runtimeJar = Join-Path $runtimeDirectory "ygh-auth-service.jar"
+    $nextJar = Join-Path $runtimeDirectory "ygh-auth-service.jar.next"
+    Copy-Item -LiteralPath $buildJar -Destination $nextJar -Force
+    $stdout = Join-Path $runtimeDirectory "auth-service.log"
+    $stderr = Join-Path $runtimeDirectory "auth-service-error.log"
+    $pidFile = Join-Path $runtimeDirectory "auth-service.pid"
     if (Test-Path $pidFile) {
         $previousPid = 0
         if ([int]::TryParse((Get-Content $pidFile -Raw).Trim(), [ref]$previousPid)) {
             $previous = Get-CimInstance Win32_Process -Filter "ProcessId=$previousPid" -ErrorAction SilentlyContinue
             if ($previous -and $previous.Name -eq "java.exe" -and
-                $previous.CommandLine -like "*$([IO.Path]::GetFileName($jar))*") {
+                $previous.CommandLine -like "*$([IO.Path]::GetFileName($runtimeJar))*") {
                 Stop-Process -Id $previousPid -ErrorAction Stop
                 Wait-Process -Id $previousPid -Timeout 20 -ErrorAction SilentlyContinue
             }
@@ -95,8 +100,9 @@ try {
     }
     $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
     if ($listener) { throw "Auth port $Port is already occupied by PID $($listener.OwningProcess)" }
+    Move-Item -LiteralPath $nextJar -Destination $runtimeJar -Force
 
-    $process = Start-Process java -ArgumentList '-Xms96m', '-Xmx192m', '-jar', $jar, `
+    $process = Start-Process java -ArgumentList '-Xms96m', '-Xmx192m', '-jar', $runtimeJar, `
         '--spring.flyway.enabled=false' `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr `
         -WindowStyle Hidden -PassThru

@@ -82,6 +82,7 @@ class OperationalLoginHttpIntegrationTest {
                     assertThat(context.getBean(com.yuegang.zhihui.auth.application.AuthCommandService.class)
                             .getClass().getSimpleName()).isEqualTo("OperationalAuthCommandService");
                     int port = ((ServletWebServerApplicationContext) context).getWebServer().getPort();
+                    verifyOpenApi(port);
                     LoginResult result = login(port);
                     SignedJWT jwt = SignedJWT.parse(result.accessToken);
                     assertThat(jwt.getJWTClaimsSet().getSubject()).isEqualTo("84");
@@ -96,6 +97,22 @@ class OperationalLoginHttpIntegrationTest {
                 redis.stop();
             }
         }
+    }
+
+    private static void verifyOpenApi(int port) throws Exception {
+        JsonNode api = get(port, "/v3/api-docs");
+        assertThat(api.path("info").path("title").asString()).isEqualTo("YGH Authentication API");
+        assertThat(api.path("paths").size()).isEqualTo(8);
+        assertThat(api.path("servers").get(0).path("url").asString()).isEqualTo("/");
+        assertThat(api.path("paths").path("/api/v1/auth/register").path("post")
+                .path("responses").has("201")).isTrue();
+        assertThat(api.path("paths").path("/api/v1/auth/password-reset/request").path("post")
+                .path("responses").has("202")).isTrue();
+        JsonNode logout = api.path("paths").path("/api/v1/auth/logout").path("post");
+        assertThat(logout.path("security").toString()).contains("bearerAuth");
+        assertThat(logout.path("responses").has("401")).isTrue();
+        assertThat(logout.path("responses").has("503")).isTrue();
+        assertThat(api.path("components").path("schemas").has("ApiResponse")).isTrue();
     }
 
     private void verifyRegistrationRefreshReplayLogoutAndLock(int port, String redisHost, int redisPort) throws Exception {

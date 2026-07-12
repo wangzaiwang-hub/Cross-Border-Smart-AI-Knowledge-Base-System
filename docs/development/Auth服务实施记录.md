@@ -136,3 +136,11 @@ JWT 功能通过 `YGH_JWT_ENABLED=true` 显式启用，并要求注入 `YGH_JWT_
 Auth Reactor 共执行 45 项测试，JaCoCo 门禁通过；真实链路未使用 Mock Controller、内存数据库或伪造 Token。
 
 开发 Auth 部署脚本已改为强制加载忽略目录中的 3072-bit RSA 密钥、收紧 Windows ACL、开启 JWT 真实模式并注入唯一 worker ID。实测部署后 readiness 为 `UP`、验证码接口返回 `SUCCESS/image/png`，证明当前运行实例不是 503 契约回退实现；虚拟机 `auth_db` V2 与最小权限复验同时通过。
+
+## 12. BE-0327 OpenAPI、错误码与前端联调冻结
+
+- Auth 显式接入 Springdoc WebMVC API，运行实例 `/v3/api-docs` 输出 OpenAPI 3.1；服务地址固定为 Gateway 相对根 `/`，冻结文件不包含 localhost、开发端口或机器 IP。
+- OpenAPI 固定八条路径，注册成功码为 201、密码重置申请为 202、退出声明 Bearer 安全要求；统一挂载 `X-Request-Id` 与 400/401/409/429/503/500 响应组件。
+- 冻结文件位于 `spec/openapi/auth-service-v1.json`，兼容性测试校验路径集合、环境中立性、成功状态码、退出安全方案、错误响应和秘密输入 `writeOnly`，防止文档静默漂移。
+- 前端接入清单已同步 Token 保存/轮换、字符串 ID、验证码、退出失败处理以及九个稳定错误码。核心注册、登录、刷新、退出和验证码标记为“可联调”；密码重置因通知域尚未建设，明确标记为契约冻结且当前返回 503，没有伪称完成。
+- 开发 Gateway 与 Auth 均通过独立 runtime JAR 目录部署，构建产物不再被 Windows 运行进程锁定；Gateway issuer 与 Auth 逻辑 issuer 已统一。真实 Gateway 调用 `/api/v1/auth/captcha` 返回 `SUCCESS/image/png` 和规范 traceId。
