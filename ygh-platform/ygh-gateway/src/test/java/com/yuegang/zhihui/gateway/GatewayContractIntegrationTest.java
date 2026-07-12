@@ -71,6 +71,14 @@ class GatewayContractIntegrationTest {
                             simpleInstance("ygh-auth-service", backendUri),
                             simpleInstance("ygh-user-service", backendUri),
                             simpleInstance("ygh-system-service", backendUri),
+                            simpleInstance("ygh-product-service", backendUri),
+                            simpleInstance("ygh-inventory-service", backendUri),
+                            simpleInstance("ygh-order-service", backendUri),
+                            simpleInstance("ygh-wallet-service", backendUri),
+                            simpleInstance("ygh-knowledge-service", backendUri),
+                            simpleInstance("ygh-ai-service", backendUri),
+                            simpleInstance("ygh-training-service", backendUri),
+                            simpleInstance("ygh-notification-service", backendUri),
                             simpleInstance("ygh-admin-service", backendUri),
                             "--ygh.gateway.cors.allowed-origins=https://mall.example.test",
                             "--ygh.security.jwt.issuer=" + ISSUER,
@@ -95,14 +103,14 @@ class GatewayContractIntegrationTest {
                         .isNotNull();
                 assertThat(jwksRequests).hasValue(1);
 
-                client.get().uri("/api/v1/users/me")
+                client.get().uri("/api/v1/user/profile")
                         .header(GatewayHeaders.TRACE_ID, "trace-contract-401")
                         .exchange()
                         .expectStatus().isUnauthorized()
                         .expectBody()
                         .jsonPath("$.code").isEqualTo("UNAUTHENTICATED")
                         .jsonPath("$.traceId").isEqualTo("trace-contract-401");
-                client.get().uri("/api/v1/admin/overview")
+                client.get().uri("/api/v1/admin/dashboard")
                         .headers(headers -> headers.setBearerAuth(customerToken))
                         .exchange()
                         .expectStatus().isForbidden()
@@ -125,7 +133,7 @@ class GatewayContractIntegrationTest {
                         .jsonPath("$.code").isEqualTo("RATE_LIMITED")
                         .jsonPath("$.traceId").isEqualTo("trace-contract-429");
 
-                client.get().uri("/api/v1/users/me")
+                client.get().uri("/api/v1/user/profile")
                         .headers(headers -> headers.setBearerAuth(customerToken))
                         .exchange()
                         .expectStatus().isNoContent();
@@ -133,7 +141,7 @@ class GatewayContractIntegrationTest {
                         .headers(headers -> headers.setBearerAuth(adminToken))
                         .exchange()
                         .expectStatus().isNoContent();
-                client.get().uri("/api/v1/admin/overview")
+                client.get().uri("/api/v1/admin/dashboard")
                         .headers(headers -> headers.setBearerAuth(adminToken))
                         .exchange()
                         .expectStatus().isNoContent();
@@ -141,10 +149,10 @@ class GatewayContractIntegrationTest {
                 assertThat(received).extracting(ReceivedRequest::path)
                         .containsExactlyInAnyOrder(
                                 "/api/v1/auth/login",
-                                "/api/v1/users/me",
+                                "/api/v1/user/profile",
                                 "/api/v1/system/config",
-                                "/api/v1/admin/overview");
-                assertThat(received).filteredOn(item -> "/api/v1/users/me".equals(item.path()))
+                                "/api/v1/admin/dashboard");
+                assertThat(received).filteredOn(item -> "/api/v1/user/profile".equals(item.path()))
                         .singleElement()
                         .satisfies(item -> {
                             assertThat(item.userId()).isEqualTo("customer-1001");

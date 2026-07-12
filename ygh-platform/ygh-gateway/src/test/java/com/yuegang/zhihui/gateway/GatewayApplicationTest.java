@@ -110,23 +110,38 @@ class GatewayApplicationTest {
             Map<String, RouteDefinition> byId = definitions.stream()
                     .collect(Collectors.toMap(RouteDefinition::getId, Function.identity()));
             assertThat(byId).containsOnlyKeys(
-                    "auth-service", "user-service", "system-service", "admin-service");
+                    "auth-service", "user-service", "system-service", "product-service",
+                    "inventory-service", "order-service", "wallet-service", "knowledge-service",
+                    "ai-service", "training-service", "notification-service", "admin-service");
             assertThat(byId.get("auth-service").getUri()).isEqualTo(URI.create("lb://ygh-auth-service"));
             assertThat(byId.get("user-service").getUri()).isEqualTo(URI.create("lb://ygh-user-service"));
             assertThat(byId.get("system-service").getUri()).isEqualTo(URI.create("lb://ygh-system-service"));
             assertThat(byId.get("admin-service").getUri()).isEqualTo(URI.create("lb://ygh-admin-service"));
+            assertThat(byId.get("product-service").getUri()).isEqualTo(URI.create("lb://ygh-product-service"));
+            assertThat(byId.get("inventory-service").getUri()).isEqualTo(URI.create("lb://ygh-inventory-service"));
+            assertThat(byId.get("order-service").getUri()).isEqualTo(URI.create("lb://ygh-order-service"));
+            assertThat(byId.get("wallet-service").getUri()).isEqualTo(URI.create("lb://ygh-wallet-service"));
+            assertThat(byId.get("knowledge-service").getUri()).isEqualTo(URI.create("lb://ygh-knowledge-service"));
+            assertThat(byId.get("ai-service").getUri()).isEqualTo(URI.create("lb://ygh-ai-service"));
+            assertThat(byId.get("training-service").getUri()).isEqualTo(URI.create("lb://ygh-training-service"));
+            assertThat(byId.get("notification-service").getUri()).isEqualTo(URI.create("lb://ygh-notification-service"));
             assertRoutePaths(byId.get("auth-service"), Set.of("/api/v1/auth/**"));
             assertRoutePaths(byId.get("user-service"), Set.of(
-                    "/api/v1/users/**",
-                    "/api/v1/employees/**",
-                    "/api/v1/departments/**",
-                    "/api/v1/jobs/**",
+                    "/api/v1/user/**",
                     "/api/v1/addresses/**"));
             assertRoutePaths(byId.get("system-service"), Set.of(
                     "/api/v1/system/**",
                     "/api/v1/roles/**",
                     "/api/v1/permissions/**"));
-            assertRoutePaths(byId.get("admin-service"), Set.of("/api/v1/admin/**"));
+            assertRoutePaths(byId.get("product-service"), Set.of("/api/v1/products/**", "/api/v1/product-categories", "/api/v1/product-brands", "/api/v1/admin/products/**", "/api/v1/admin/product-categories", "/api/v1/admin/product-brands"));
+            assertRoutePaths(byId.get("inventory-service"), Set.of("/api/v1/admin/inventory/**"));
+            assertRoutePaths(byId.get("order-service"), Set.of("/api/v1/cart/**", "/api/v1/orders/**", "/api/v1/admin/orders/**"));
+            assertRoutePaths(byId.get("wallet-service"), Set.of("/api/v1/wallet/**", "/api/v1/admin/wallet/**"));
+            assertRoutePaths(byId.get("knowledge-service"), Set.of("/api/v1/knowledge/**", "/api/v1/admin/knowledge/**"));
+            assertRoutePaths(byId.get("ai-service"), Set.of("/api/v1/ai/**", "/api/v1/admin/ai/**"));
+            assertRoutePaths(byId.get("training-service"), Set.of("/api/v1/training/**"));
+            assertRoutePaths(byId.get("notification-service"), Set.of("/api/v1/notifications/**", "/api/v1/admin/notifications/**"));
+            assertRoutePaths(byId.get("admin-service"), Set.of("/api/v1/admin/dashboard", "/api/v1/admin/audit-logs"));
 
             var corsExchange = org.springframework.mock.web.server.MockServerWebExchange.from(
                     org.springframework.mock.http.server.reactive.MockServerHttpRequest
@@ -251,7 +266,7 @@ class GatewayApplicationTest {
                     .exchange()
                     .expectStatus().isForbidden();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
-                    .get().uri("/api/v1/users/me")
+                    .get().uri("/api/v1/user/profile")
                     .header(GatewayHeaders.TRACE_ID, "trace-dependency-1234")
                     .exchange()
                     .expectStatus().isEqualTo(503)
@@ -259,7 +274,7 @@ class GatewayApplicationTest {
                     .expectBody()
                     .jsonPath("$.code").isEqualTo("DEPENDENCY_UNAVAILABLE")
                     .jsonPath("$.traceId").isEqualTo("trace-dependency-1234");
-            client.get().uri("/api/v1/users/me")
+            client.get().uri("/api/v1/user/profile")
                     .header(GatewayHeaders.TRACE_ID, "trace-security-1234")
                     .exchange()
                     .expectStatus().isUnauthorized()
@@ -274,31 +289,31 @@ class GatewayApplicationTest {
                     .exchange()
                     .expectStatus().isUnauthorized();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
-                    .get().uri("/api/v1/users/me")
+                    .get().uri("/api/v1/user/profile")
                     .exchange()
                     .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
-                    .get().uri("/api/v1/employees/me")
+                    .get().uri("/api/v1/user/organization/departments")
                     .exchange()
                     .expectStatus().isForbidden();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("employee-1001"))
                             .authorities(new SimpleGrantedAuthority("ROLE_EMPLOYEE")))
-                    .get().uri("/api/v1/employees/me")
+                    .get().uri("/api/v1/user/organization/departments")
                     .exchange()
                     .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("employee-1001"))
                             .authorities(new SimpleGrantedAuthority("ROLE_EMPLOYEE")))
-                    .get().uri("/api/v1/admin/overview")
+                    .get().uri("/api/v1/admin/dashboard")
                     .exchange()
                     .expectStatus().isForbidden();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001"))
                             .authorities(new SimpleGrantedAuthority("PERM_ROLE_ADMIN")))
-                    .get().uri("/api/v1/admin/overview")
+                    .get().uri("/api/v1/admin/dashboard")
                     .exchange()
                     .expectStatus().isForbidden();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("admin-1001"))
                             .authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
-                    .get().uri("/api/v1/admin/overview")
+                    .get().uri("/api/v1/admin/dashboard")
                     .exchange()
                     .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
