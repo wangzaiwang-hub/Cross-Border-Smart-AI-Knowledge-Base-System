@@ -22,6 +22,32 @@ x-health: &health
   start_period: 60s
 
 services:
+  mall-web:
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-web-mall:${YGH_VERSION:?required}
+    restart: unless-stopped
+    depends_on: {gateway: {condition: service_healthy}}
+    ports: ["80:8080"]
+    networks: [ygh-backend]
+    read_only: true
+    tmpfs: [/tmp, /var/cache/nginx, /var/run]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *service-logging
+
+  admin-web:
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-web-admin:${YGH_VERSION:?required}
+    restart: unless-stopped
+    depends_on: {gateway: {condition: service_healthy}}
+    ports: ["8088:8080"]
+    networks: [ygh-backend]
+    read_only: true
+    tmpfs: [/tmp, /var/cache/nginx, /var/run]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *service-logging
+
   gateway:
     <<: *java-service
     image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-gateway:${YGH_VERSION:?required}

@@ -21,4 +21,14 @@ foreach($entry in $modules.GetEnumerator()){
   if($LASTEXITCODE-ne 0){throw "Image build failed: $($entry.Key)"}
   if($Push){docker push $image;if($LASTEXITCODE-ne 0){throw "Image push failed: $($entry.Key)"}}
 }
-Write-Host "IMAGE_BUILD_OK version=$Version gitSha=$sha count=$($modules.Count)"
+$webModules=[ordered]@{
+  "ygh-web-mall"="ygh-web/apps/ygh-web-mall/Dockerfile";
+  "ygh-web-admin"="ygh-web/apps/ygh-web-admin/Dockerfile"
+}
+foreach($entry in $webModules.GetEnumerator()){
+  $image="$Registry/$($entry.Key):$Version"
+  docker build --file $entry.Value --build-arg APP_VERSION=$Version --build-arg GIT_SHA=$sha --build-arg BUILD_TIME=$built --tag $image ygh-web
+  if($LASTEXITCODE-ne 0){throw "Image build failed: $($entry.Key)"}
+  if($Push){docker push $image;if($LASTEXITCODE-ne 0){throw "Image push failed: $($entry.Key)"}}
+}
+Write-Host "IMAGE_BUILD_OK version=$Version gitSha=$sha count=$($modules.Count+$webModules.Count)"
