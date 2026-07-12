@@ -360,6 +360,19 @@ export const listProductCategories = async (): Promise<ProductCategory[]> =>
     apiData(await useHttp().get("/api/v1/product-categories"));
 export const listProductBrands = async (): Promise<ProductBrand[]> =>
     apiData(await useHttp().get("/api/v1/product-brands"));
+export const createProductCategory = async (command: {
+    parentId?: string;
+    code: string;
+    name: string;
+    sortOrder: number;
+}): Promise<ProductCategory> =>
+    apiData(await useHttp().post("/api/v1/admin/product-categories", command));
+export const createProductBrand = async (command: {
+    code: string;
+    name: string;
+    logoUrl?: string;
+}): Promise<ProductBrand> =>
+    apiData(await useHttp().post("/api/v1/admin/product-brands", command));
 export async function createProduct(command: {
     categoryId: string;
     brandId?: string;

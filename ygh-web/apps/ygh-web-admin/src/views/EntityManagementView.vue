@@ -8,6 +8,8 @@ import {
     changeProductStatus,
     createProduct,
     createProductBatch,
+    createProductBrand,
+    createProductCategory,
     createProductTraceEvent,
     listAccounts,
     listAdminInventory,
@@ -33,6 +35,7 @@ const productDialog = ref(false);
 const savingProduct = ref(false);
 const editingProduct = ref<Product>();
 const traceDialog = ref(false);
+const catalogDialog = ref<"category" | "brand" | "">("");
 const traceProduct = ref<Product>();
 const traceTab = ref("batch");
 const categories = ref<ProductCategory[]>([]);
@@ -62,6 +65,13 @@ const traceForm = reactive({
     occurredAt: "",
     detailsText: "{}",
 });
+const categoryForm = reactive({
+    parentId: "",
+    code: "",
+    name: "",
+    sortOrder: 0,
+});
+const brandForm = reactive({ code: "", name: "", logoUrl: "" });
 const configs: Record<
     string,
     { description: string; columns: Array<{ key: string; label: string }> }
@@ -282,6 +292,28 @@ async function saveTraceEvent() {
         savingProduct.value = false;
     }
 }
+async function saveCatalog() {
+    savingProduct.value = true;
+    try {
+        if (catalogDialog.value === "category")
+            await createProductCategory({
+                ...categoryForm,
+                parentId: categoryForm.parentId || undefined,
+            });
+        if (catalogDialog.value === "brand")
+            await createProductBrand({
+                ...brandForm,
+                logoUrl: brandForm.logoUrl || undefined,
+            });
+        catalogDialog.value = "";
+        ElMessage.success("商品目录已更新");
+        await load();
+    } catch {
+        ElMessage.error("目录保存失败，请检查编码唯一性");
+    } finally {
+        savingProduct.value = false;
+    }
+}
 function format(value: unknown) {
     if (typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value))
         return new Date(value).toLocaleString("zh-CN");
@@ -326,12 +358,13 @@ watch(() => route.fullPath, load, { immediate: true });
             <h1>{{ route.meta.title }}</h1>
             <p>{{ config.description }}</p>
         </div>
-        <el-button
-            v-if="entity === 'product'"
-            type="primary"
-            @click="openProduct()"
-            >新增商品</el-button
-        >
+        <div v-if="entity === 'product'">
+            <el-button @click="catalogDialog = 'category'">新增类目</el-button>
+            <el-button @click="catalogDialog = 'brand'">新增品牌</el-button>
+            <el-button type="primary" @click="openProduct()"
+                >新增商品</el-button
+            >
+        </div>
     </div>
     <div class="panel filter-row">
         <el-input
@@ -554,6 +587,48 @@ watch(() => route.fullPath, load, { immediate: true });
                 ></el-tab-pane
             >
         </el-tabs>
+    </el-dialog>
+    <el-dialog
+        v-model="catalogDialog"
+        :title="catalogDialog === 'category' ? '新增商品类目' : '新增商品品牌'"
+        width="520"
+    >
+        <el-form v-if="catalogDialog === 'category'" label-position="top"
+            ><el-form-item label="上级类目"
+                ><el-select
+                    v-model="categoryForm.parentId"
+                    clearable
+                    style="width: 100%"
+                    ><el-option
+                        v-for="x in categories"
+                        :key="x.id"
+                        :label="x.name"
+                        :value="x.id" /></el-select></el-form-item
+            ><el-form-item label="类目编码"
+                ><el-input v-model="categoryForm.code" /></el-form-item
+            ><el-form-item label="类目名称"
+                ><el-input v-model="categoryForm.name" /></el-form-item
+            ><el-form-item label="排序"
+                ><el-input-number
+                    v-model="categoryForm.sortOrder" /></el-form-item
+        ></el-form>
+        <el-form v-else label-position="top"
+            ><el-form-item label="品牌编码"
+                ><el-input v-model="brandForm.code" /></el-form-item
+            ><el-form-item label="品牌名称"
+                ><el-input v-model="brandForm.name" /></el-form-item
+            ><el-form-item label="Logo URL"
+                ><el-input v-model="brandForm.logoUrl" /></el-form-item
+        ></el-form>
+        <template #footer
+            ><el-button @click="catalogDialog = ''">取消</el-button
+            ><el-button
+                type="primary"
+                :loading="savingProduct"
+                @click="saveCatalog"
+                >保存</el-button
+            ></template
+        >
     </el-dialog>
 </template>
 
