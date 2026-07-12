@@ -18,4 +18,5 @@ class UserProfileConfiguration {
     @Bean AddressRepository addressRepository(DataSource dataSource, AddressCipher cipher) { return new JdbcAddressRepository(dataSource, cipher); }
     @Bean UserIdGenerator userIdGenerator(@Value("${ygh.user.id-worker:2}") long worker) { return new UserIdGenerator(worker, Clock.systemUTC()); }
     @Bean AddressService addressService(AddressRepository repository, UserIdGenerator ids) { return new AddressService(repository, ids); }
+    @Bean OrganizationService organizationService(DataSource dataSource, UserIdGenerator ids) { return new OrganizationService(dataSource, ids); }
 }
