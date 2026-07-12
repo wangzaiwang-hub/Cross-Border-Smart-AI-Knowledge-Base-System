@@ -26,3 +26,4 @@ ygh.mq.nameserver: ${YGH_ROCKETMQ_NAMESERVER:192.168.154.1:9876}
 ygh.mq.topic: ${YGH_ROCKETMQ_DOMAIN_TOPIC:YGH_DOMAIN_EVENTS}
 ygh.internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
 ygh.product.internal-base-url: ${YGH_PRODUCT_INTERNAL_BASE_URL}
+ygh.inventory.internal-base-url: ${YGH_INVENTORY_INTERNAL_BASE_URL}
