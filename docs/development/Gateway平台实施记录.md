@@ -33,8 +33,17 @@ ygh-platform/                       # packaging=pom，平台副项目
 | Route ID | Path | 目标服务 |
 |---|---|---|
 | `auth-service` | `/api/v1/auth/**` | `lb://ygh-auth-service` |
-| `user-service` | users/employees/departments/jobs/addresses | `lb://ygh-user-service` |
+| `user-service` | user/addresses | `lb://ygh-user-service` |
 | `system-service` | system/roles/permissions | `lb://ygh-system-service` |
+| `product-service` | products/product-categories/product-brands 及对应后台路径 | `lb://ygh-product-service` |
+| `inventory-service` | admin/inventory | `lb://ygh-inventory-service` |
+| `order-service` | cart/orders/admin/orders | `lb://ygh-order-service` |
+| `wallet-service` | wallet/admin/wallet | `lb://ygh-wallet-service` |
+| `knowledge-service` | knowledge/admin/knowledge | `lb://ygh-knowledge-service` |
+| `ai-service` | ai/admin/ai | `lb://ygh-ai-service` |
+| `training-service` | training | `lb://ygh-training-service` |
+| `notification-service` | notifications/admin/notifications | `lb://ygh-notification-service` |
+| `admin-service` | admin/dashboard、admin/audit-logs | `lb://ygh-admin-service` |
 
 - 只声明显式业务路径，不配置可吞掉未知接口的 `/api/v1/**` catch-all。
 - `spring-cloud-starter-loadbalancer` 解析 `lb://` URI；Caffeine 替换仅适合测试的默认 LoadBalancer Cache。
@@ -59,7 +68,7 @@ ygh-platform/                       # packaging=pom，平台副项目
 .\mvnw.cmd -pl ygh-platform/ygh-gateway -am verify
 ```
 
-结果：6 个 Reactor 模块、36 项测试全部通过；Gateway 真实响应式上下文解析三条路由、启动并完成优雅关闭；可执行 JAR 重打包成功。
+历史基线结果：6 个 Reactor 模块、36 项测试全部通过；Gateway 真实响应式上下文启动并完成优雅关闭。2026-07-13 已将静态路由扩展为全部领域服务的精确映射，并消除 `admin/**` 吞掉领域后台接口的问题；当前 `package -DskipTests` 已通过，新增路由断言和全量回归留待集中测试阶段执行，不能沿用历史测试数量作为新路由证据。
 
 真实组件烟测使用本机 JDK 25 启动可执行 JAR，连接虚拟机 Nacos 3.1.1：
 
@@ -112,7 +121,7 @@ ygh-platform/                       # packaging=pom，平台副项目
 - 429/503 均使用公共 `ApiResponse` 且包含 canonical traceId；未知异常保持原样交给后续异常链，避免误报依赖故障。
 - 当前只加载可重复验证的本地静态基线，不启动 Sentinel Dashboard/Transport 全局线程；Nacos 动态规则、接口级熔断和持久化归 `BE-1003`，不在本任务虚报完成。
 - 每个 Gateway 进程只运行一个 Spring ApplicationContext；Sentinel 静态 RuleManager 是 JVM 全局状态，测试保存并恢复原规则且串行锁定该资源。多上下文和动态规则生命周期统一在 `BE-1003` 收口。
-- 自动化验证覆盖四条路由规则、非法配置、正 QPS 首次放行/第二次真实阻断、阻断后不执行下游操作、429/503 Envelope 和未知异常透传；Gateway 33 项测试通过，模块分支覆盖率继续高于 90%。
+- 历史自动化验证覆盖四条基础路由规则、非法配置、正 QPS 首次放行/第二次真实阻断、阻断后不执行下游操作、429/503 Envelope 和未知异常透传。领域路由扩展后的断言将在集中测试阶段同步更新并重新统计，不提前宣称沿用旧测试结论。
 
 ## 9. CORS、请求准入与安全响应头
 
@@ -175,7 +184,7 @@ WebTestClient
   -> Embedded Reactor Netty Backend
 ```
 
-- 一个 embedded backend 通过四条 SimpleDiscovery 记录模拟 auth/user/system/admin 服务；Route ID 到四个不同 `lb://service-name` 的精确映射另由 `GatewayApplicationTest` 固定断言，二者组合防止错误服务映射。
+- 集中测试需将 embedded backend 的 SimpleDiscovery 记录扩展到当前全部外部领域服务，并逐一断言 Route ID、Path 与 `lb://service-name` 的精确映射，防止领域后台路径被 Admin 聚合路由截获。
 - Token 真实包含 issuer、audience、nbf、exp、roles 和 permissions；JWKS 只发布公钥，私钥仅存在测试进程内存。测试显式断言远程 JWKS 只请求一次。
 - 真实 HTTP 验证：无 Token 为 401；CUSTOMER 访问 admin 为 403；auth/user/system/admin 四类请求分别到达后端并返回 204。
 - Backend 捕获并断言可信 `X-YGH-User-Id/Roles`；客户端伪造头的清理边界继续由过滤器测试覆盖。
