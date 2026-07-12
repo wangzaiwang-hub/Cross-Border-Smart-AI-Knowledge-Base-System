@@ -42,6 +42,7 @@ class OrderServicesIntegrationTest {
             var inventory = mock(InventoryClient.class);
             var facade = new OrderInventoryFacade(orders, inventory, dataSource);
             var refunds = new RefundInventoryCoordinator(orders, inventory, dataSource);
+            var fulfillment = new OrderFulfillmentService(dataSource);
 
             var cartItem = cart.save(42, new CartItemRequest("1001", 2, true, 0));
             assertThat(cart.list(42)).containsExactly(cartItem);
@@ -67,8 +68,11 @@ class OrderServicesIntegrationTest {
             verify(inventory, times(2)).confirm(any(InventoryCommand.class));
             var paid = orders.get(42, first.orderId());
             assertThat(paid.status()).isEqualTo(OrderStatus.PAID);
-            var processing = orders.startProcessing(42, first.orderId(), paid.version());
-            assertThat(orders.complete(42, first.orderId(), processing.version()).status()).isEqualTo(OrderStatus.COMPLETED);
+            var processing = fulfillment.start(first.orderId(), paid.version());
+            assertThat(processing.status()).isEqualTo(OrderStatus.PROCESSING);
+            assertThat(fulfillment.complete(first.orderId(), processing.version()).status()).isEqualTo(OrderStatus.COMPLETED);
+            assertBusinessError(() -> fulfillment.start(first.orderId(), paid.version()), ErrorCode.BUSINESS_CONFLICT);
+            assertBusinessError(() -> fulfillment.start("invalid", 0), ErrorCode.VALIDATION_ERROR);
 
             var cancelledOrder = facade.create(42, request("create-cancel", "1002", 1, "9.00"));
             assertThat(facade.cancel(42, cancelledOrder.orderId(), cancelledOrder.version()).status()).isEqualTo(OrderStatus.CANCELLED);
