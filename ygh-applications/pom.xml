@@ -34,5 +34,7 @@
         <module>ygh-search</module>
         <module>ygh-ai</module>
         <module>ygh-training</module>
+        <module>ygh-notification</module>
+        <module>ygh-admin</module>
     </modules>
 </project>

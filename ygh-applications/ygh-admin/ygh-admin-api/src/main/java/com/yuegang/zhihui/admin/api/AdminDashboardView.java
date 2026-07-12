@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.admin.api;import java.time.OffsetDateTime;import java.util.List;public record AdminDashboardView(List<ServiceStatus>services,List<PendingMetric>pending,OffsetDateTime generatedAt){public record ServiceStatus(String service,String status,long latencyMs){}public record PendingMetric(String type,long count,String source) {}}

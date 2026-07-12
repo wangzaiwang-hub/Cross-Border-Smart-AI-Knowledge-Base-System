@@ -1,0 +1,13 @@
+server.port: ${YGH_ADMIN_PORT:8093}
+spring:
+  application.name: ygh-admin-service
+  cloud.nacos.discovery:
+    server-addr: ${YGH_NACOS_SERVER_ADDR}
+    username: ${YGH_NACOS_USERNAME}
+    password: ${YGH_NACOS_PASSWORD}
+    namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
+    group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
+ygh:
+  internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
+  admin.service-health-urls: ${YGH_ADMIN_SERVICE_HEALTH_URLS}
+management.endpoints.web.exposure.include: health,info
