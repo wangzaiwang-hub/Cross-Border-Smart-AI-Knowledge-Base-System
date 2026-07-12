@@ -5,6 +5,7 @@ import {
     listDictionaries,
     listFeatureFlags,
     listSystemSettings,
+    saveFeatureFlag,
     type Dictionary,
     type FeatureFlag,
     type SystemSetting,
@@ -14,6 +15,16 @@ const loading = ref(true);
 const dictionaries = ref<Dictionary[]>([]);
 const flags = ref<FeatureFlag[]>([]);
 const settings = ref<SystemSetting[]>([]);
+async function toggleFlag(flag: FeatureFlag) {
+    try {
+        const saved = await saveFeatureFlag(flag);
+        Object.assign(flag, saved);
+        ElMessage.success("功能开关已更新");
+    } catch {
+        flag.enabled = !flag.enabled;
+        ElMessage.error("功能开关更新失败，版本可能已变化");
+    }
+}
 onMounted(async () => {
     try {
         [dictionaries.value, flags.value, settings.value] = await Promise.all([
@@ -71,12 +82,19 @@ onMounted(async () => {
                         {{ flag.version }}</small
                     >
                 </div>
-                <el-tag :type="flag.enabled ? 'success' : 'info'">{{
-                    flag.enabled ? "启用" : "停用"
-                }}</el-tag>
-            </div></el-tab-pane
-        ></el-tabs
-    >
+                <div class="flag-control">
+                    <el-input-number
+                        v-model="flag.rolloutPercent"
+                        :min="0"
+                        :max="100"
+                        size="small"
+                        @change="toggleFlag(flag)"
+                    /><el-switch
+                        v-model="flag.enabled"
+                        @change="toggleFlag(flag)"
+                    />
+                </div></div></el-tab-pane
+    ></el-tabs>
 </template>
 <style scoped>
 .config {
@@ -92,6 +110,11 @@ onMounted(async () => {
 .switch b,
 .switch small {
     display: block;
+}
+.flag-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 .switch small {
     margin-top: 4px;

@@ -2,13 +2,17 @@
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
+    changeAccountStatus,
+    changeProductStatus,
     listAccounts,
     listAdminInventory,
     listAdminOrders,
     listAdminProducts,
     listWalletTransactions,
+    type AdminAccount,
+    type Product,
 } from "@/api/operations";
 type Row = Record<string, unknown>;
 const route = useRoute();
@@ -124,6 +128,37 @@ function format(value: unknown) {
         return new Date(value).toLocaleString("zh-CN");
     return value ?? "--";
 }
+async function changeState(row: Row) {
+    try {
+        if (entity.value === "user") {
+            const account = row as unknown as AdminAccount;
+            const next = account.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
+            const { value } = await ElMessageBox.prompt(
+                `确认将账号状态改为 ${next}？请输入原因`,
+                "账号状态变更",
+                {
+                    inputValidator: (value) =>
+                        Boolean(value?.trim()) || "原因不能为空",
+                },
+            );
+            await changeAccountStatus(account, next, value);
+        } else if (entity.value === "product") {
+            const product = row as unknown as Product;
+            const next =
+                product.status === "PUBLISHED" ? "OFF_SHELF" : "PUBLISHED";
+            await ElMessageBox.confirm(
+                `确认将商品状态改为 ${next}？`,
+                "商品状态变更",
+            );
+            await changeProductStatus(product, next);
+        }
+        ElMessage.success("状态已更新");
+        await load();
+    } catch (error) {
+        if (error !== "cancel" && error !== "close")
+            ElMessage.error("状态更新失败，版本可能已变化");
+    }
+}
 watch(() => route.fullPath, load, { immediate: true });
 </script>
 <template>
@@ -181,6 +216,26 @@ watch(() => route.fullPath, load, { immediate: true });
                     ><span v-else>{{
                         format(scope.row[col.key])
                     }}</span></template
+                ></el-table-column
+            ><el-table-column
+                v-if="['user', 'product'].includes(entity)"
+                label="操作"
+                width="130"
+                ><template #default="scope"
+                    ><el-button
+                        link
+                        type="primary"
+                        @click="changeState(scope.row)"
+                        >{{
+                            entity === "user"
+                                ? scope.row.status === "ACTIVE"
+                                    ? "停用"
+                                    : "启用"
+                                : scope.row.status === "PUBLISHED"
+                                  ? "下架"
+                                  : "上架"
+                        }}</el-button
+                    ></template
                 ></el-table-column
             ></el-table
         ><el-pagination

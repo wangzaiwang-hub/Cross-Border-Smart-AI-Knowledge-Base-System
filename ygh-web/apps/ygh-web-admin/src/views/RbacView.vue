@@ -4,6 +4,8 @@ import { ElMessage } from "element-plus";
 import {
     listPermissions,
     listRoles,
+    saveRole,
+    savePermission,
     type Permission,
     type Role,
 } from "@/api/operations";
@@ -11,6 +13,34 @@ const active = ref("role");
 const loading = ref(true);
 const roles = ref<Role[]>([]);
 const permissions = ref<Permission[]>([]);
+const roleDialog = ref(false);
+const editingRole = ref<Role>();
+function editRole(role: Role) {
+    editingRole.value = { ...role, permissions: [...role.permissions] };
+    roleDialog.value = true;
+}
+async function persistRole() {
+    if (!editingRole.value) return;
+    try {
+        const saved = await saveRole(editingRole.value);
+        const index = roles.value.findIndex((x) => x.code === saved.code);
+        roles.value[index] = saved;
+        roleDialog.value = false;
+        ElMessage.success("角色权限已保存");
+    } catch {
+        ElMessage.error("角色保存失败，版本可能已变化");
+    }
+}
+async function togglePermission(permission: Permission) {
+    try {
+        const saved = await savePermission(permission);
+        Object.assign(permission, saved);
+        ElMessage.success("权限状态已更新");
+    } catch {
+        permission.enabled = !permission.enabled;
+        ElMessage.error("权限状态更新失败");
+    }
+}
 onMounted(async () => {
     try {
         [roles.value, permissions.value] = await Promise.all([
@@ -52,28 +82,32 @@ onMounted(async () => {
                             >{{ scope.row.enabled ? "启用" : "停用" }}</el-tag
                         ></template
                     ></el-table-column
+                ><el-table-column label="操作"
+                    ><template #default="scope"
+                        ><el-button
+                            link
+                            type="primary"
+                            @click="editRole(scope.row)"
+                            >配置权限</el-button
+                        ></template
+                    ></el-table-column
                 ></el-table
             ></el-tab-pane
         ><el-tab-pane label="权限目录" name="permission"
             ><el-table :data="permissions"
                 ><el-table-column
                     prop="code"
-                    label="权限编码"
-                /><el-table-column
+                    label="权限编码" /><el-table-column
                     prop="name"
-                    label="权限名称"
-                /><el-table-column
+                    label="权限名称" /><el-table-column
                     prop="resourceType"
-                    label="资源类型"
-                /><el-table-column label="状态"
+                    label="资源类型" /><el-table-column label="状态"
                     ><template #default="scope"
-                        ><el-tag
-                            :type="scope.row.enabled ? 'success' : 'info'"
-                            >{{ scope.row.enabled ? "启用" : "停用" }}</el-tag
-                        ></template
-                    ></el-table-column
-                ></el-table
-            ></el-tab-pane
+                        ><el-switch
+                            v-model="scope.row.enabled"
+                            @change="
+                                togglePermission(scope.row)
+                            " /></template></el-table-column></el-table></el-tab-pane
         ><el-tab-pane label="权限设计规则" name="rule"
             ><div class="permission">
                 <ul>
@@ -84,6 +118,36 @@ onMounted(async () => {
                 </ul>
             </div></el-tab-pane
         ></el-tabs
+    ><el-dialog v-model="roleDialog" title="配置角色权限" width="600"
+        ><el-form v-if="editingRole" label-position="top"
+            ><el-form-item label="角色编码"
+                ><el-input v-model="editingRole.code" disabled /></el-form-item
+            ><el-form-item label="角色名称"
+                ><el-input
+                    v-model="editingRole.name"
+                    maxlength="100" /></el-form-item
+            ><el-form-item label="权限集合"
+                ><el-select
+                    v-model="editingRole.permissions"
+                    multiple
+                    filterable
+                    style="width: 100%"
+                    ><el-option
+                        v-for="permission in permissions.filter(
+                            (x) => x.enabled,
+                        )"
+                        :key="permission.code"
+                        :label="`${permission.name} (${permission.code})`"
+                        :value="permission.code" /></el-select></el-form-item
+            ><el-form-item label="启用状态"
+                ><el-switch
+                    v-model="editingRole.enabled" /></el-form-item></el-form
+        ><template #footer
+            ><el-button @click="roleDialog = false">取消</el-button
+            ><el-button type="primary" @click="persistRole"
+                >保存</el-button
+            ></template
+        ></el-dialog
     >
 </template>
 <style scoped>

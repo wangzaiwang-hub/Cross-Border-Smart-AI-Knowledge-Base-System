@@ -216,10 +216,59 @@ export const listAdminOrders = async (status?: string): Promise<Order[]> =>
             params: { status: status || undefined, limit: 100 },
         }),
     );
+export async function changeAccountStatus(
+    account: AdminAccount,
+    status: "ACTIVE" | "DISABLED",
+    reason: string,
+): Promise<void> {
+    await useHttp().put(`/api/v1/auth/admin/users/${account.userId}/status`, {
+        status,
+        version: account.version,
+        reason,
+    });
+}
+export async function changeProductStatus(
+    product: Product,
+    status: "DRAFT" | "PUBLISHED" | "OFF_SHELF",
+): Promise<Product> {
+    return apiData(
+        await useHttp().put(
+            `/api/v1/admin/products/${product.skuId}/status`,
+            undefined,
+            { params: { status, version: product.version } },
+        ),
+    );
+}
 export const listRoles = async (): Promise<Role[]> =>
     apiData(await useHttp().get("/api/v1/system/admin/roles"));
 export const listPermissions = async (): Promise<Permission[]> =>
     apiData(await useHttp().get("/api/v1/system/admin/permissions"));
+export async function saveRole(role: Role): Promise<Role> {
+    return apiData(
+        await useHttp().put(`/api/v1/system/admin/roles/${role.code}`, {
+            code: role.code,
+            name: role.name,
+            permissions: role.permissions,
+            enabled: role.enabled,
+            version: role.version,
+        }),
+    );
+}
+export async function savePermission(
+    permission: Permission,
+): Promise<Permission> {
+    return apiData(
+        await useHttp().put(
+            `/api/v1/system/admin/permissions/${permission.code}`,
+            {
+                code: permission.code,
+                name: permission.name,
+                resourceType: permission.resourceType,
+                enabled: permission.enabled,
+            },
+        ),
+    );
+}
 export const listAdminKnowledge = async (
     status?: string,
 ): Promise<KnowledgeDocument[]> =>
@@ -320,6 +369,16 @@ export const listDictionaries = async (): Promise<Dictionary[]> =>
     apiData(await useHttp().get("/api/v1/system/dictionaries"));
 export const listFeatureFlags = async (): Promise<FeatureFlag[]> =>
     apiData(await useHttp().get("/api/v1/system/feature-flags"));
+export async function saveFeatureFlag(flag: FeatureFlag): Promise<FeatureFlag> {
+    return apiData(
+        await useHttp().put(`/api/v1/system/feature-flags/${flag.key}`, {
+            enabled: flag.enabled,
+            rolloutPercent: flag.rolloutPercent,
+            rulesJson: flag.rulesJson,
+            version: flag.version,
+        }),
+    );
+}
 export const listAdminInventory = async (): Promise<Inventory[]> =>
     apiData(
         await useHttp().get("/api/v1/admin/inventory", {
