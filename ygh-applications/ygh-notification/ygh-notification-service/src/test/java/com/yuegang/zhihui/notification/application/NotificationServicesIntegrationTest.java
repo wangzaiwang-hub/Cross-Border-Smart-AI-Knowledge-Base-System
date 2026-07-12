@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import com.yuegang.zhihui.notification.api.NotificationCommand;
+import com.yuegang.zhihui.notification.api.SaveNotificationTemplateRequest;
 import java.util.Map;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,18 @@ class NotificationServicesIntegrationTest {
             var service = new NotificationService(dataSource);
             var query = new NotificationQueryService(dataSource);
             var jdbc = new JdbcTemplate(dataSource);
+            var templates = new NotificationTemplateService(dataSource);
+
+            assertThat(templates.list()).extracting(x -> x.code()).contains("ORDER_PAID", "AUTH_PASSWORD_RESET");
+            var templateRequest = new SaveNotificationTemplateRequest(
+                    "CUSTOM_ALERT", "提醒 {{subject}}", "内容 {{content}}", "IN_APP", true, 0);
+            var template = templates.save("CUSTOM_ALERT", templateRequest);
+            assertThat(template.code()).isEqualTo("CUSTOM_ALERT");
+            var updatedTemplate = templates.save("CUSTOM_ALERT", new SaveNotificationTemplateRequest(
+                    "CUSTOM_ALERT", "新提醒 {{subject}}", "新内容 {{content}}", "IN_APP", false, template.version()));
+            assertThat(updatedTemplate.enabled()).isFalse();
+            assertThatThrownBy(() -> templates.save("OTHER", templateRequest)).isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> templates.save("CUSTOM_ALERT", templateRequest)).isInstanceOf(BusinessException.class);
 
             var command = new NotificationCommand(
                     "event-order-1", "42", "ORDER_PAID", Map.of("referenceId", "O20260713001"));
