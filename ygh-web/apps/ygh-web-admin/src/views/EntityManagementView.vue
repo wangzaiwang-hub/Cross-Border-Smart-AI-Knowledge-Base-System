@@ -19,12 +19,16 @@ import {
     listProductBrands,
     listProductCategories,
     listWalletTransactions,
+    listWalletAccounts,
+    runCommerceReconciliation,
     updateProduct,
     type AdminAccount,
     type Product,
     type ProductBrand,
     type ProductCategory,
     type Order,
+    type CommerceReconciliation,
+    type WalletAccount,
 } from "@/api/operations";
 type Row = Record<string, unknown>;
 const route = useRoute();
@@ -33,6 +37,10 @@ const status = ref("");
 const loading = ref(true);
 const rows = ref<Row[]>([]);
 const unsupported = ref("");
+const reconciliation = ref<CommerceReconciliation>();
+const reconciliationDialog = ref(false);
+const walletAccounts = ref<WalletAccount[]>([]);
+const walletAccountsDialog = ref(false);
 const productDialog = ref(false);
 const savingProduct = ref(false);
 const editingProduct = ref<Product>();
@@ -367,6 +375,29 @@ async function fulfill(row: Row) {
         ElMessage.error("履约状态更新失败，订单状态或版本可能已变化");
     }
 }
+async function reconcileCommerce() {
+    loading.value = true;
+    try {
+        reconciliation.value = await runCommerceReconciliation();
+        reconciliationDialog.value = true;
+        ElMessage.success("交易对账已完成");
+    } catch {
+        ElMessage.error("交易对账执行失败，请检查钱包和库存服务");
+    } finally {
+        loading.value = false;
+    }
+}
+async function openWalletAccounts() {
+    loading.value = true;
+    try {
+        walletAccounts.value = await listWalletAccounts();
+        walletAccountsDialog.value = true;
+    } catch {
+        ElMessage.error("钱包账户加载失败");
+    } finally {
+        loading.value = false;
+    }
+}
 watch(() => route.fullPath, load, { immediate: true });
 </script>
 <template>
@@ -382,6 +413,18 @@ watch(() => route.fullPath, load, { immediate: true });
                 >新增商品</el-button
             >
         </div>
+        <el-button
+            v-if="entity === 'order'"
+            type="primary"
+            @click="reconcileCommerce"
+            >执行交易对账</el-button
+        >
+        <el-button
+            v-if="entity === 'wallet'"
+            type="primary"
+            @click="openWalletAccounts"
+            >查看钱包账户</el-button
+        >
     </div>
     <div class="panel filter-row">
         <el-input
@@ -662,6 +705,51 @@ watch(() => route.fullPath, load, { immediate: true });
             ></template
         >
     </el-dialog>
+    <el-dialog
+        v-model="reconciliationDialog"
+        title="订单、钱包与库存对账结果"
+        width="820"
+        ><div v-if="reconciliation" class="metric-grid">
+            <div class="metric">
+                <span>检查订单</span><b>{{ reconciliation.checkedOrders }}</b>
+            </div>
+            <div class="metric">
+                <span>一致订单</span
+                ><b>{{ reconciliation.consistentOrders }}</b>
+            </div>
+            <div class="metric">
+                <span>差异数量</span
+                ><b>{{ reconciliation.discrepancies.length }}</b>
+            </div>
+        </div>
+        <el-table :data="reconciliation?.discrepancies || []"
+            ><el-table-column prop="orderId" label="订单 ID" /><el-table-column
+                prop="orderStatus"
+                label="订单状态" /><el-table-column
+                prop="dimension"
+                label="差异维度" /><el-table-column
+                prop="expected"
+                label="预期" /><el-table-column
+                prop="actual"
+                label="实际" /></el-table
+    ></el-dialog>
+    <el-dialog v-model="walletAccountsDialog" title="虚拟钱包账户" width="820"
+        ><el-alert
+            title="全部金额均为模拟资金，不产生真实交易"
+            type="warning"
+            :closable="false" /><el-table :data="walletAccounts"
+            ><el-table-column prop="userId" label="用户 ID" /><el-table-column
+                prop="availableBalance"
+                label="可用余额" /><el-table-column
+                prop="frozenBalance"
+                label="冻结余额" /><el-table-column
+                prop="currency"
+                label="币种" /><el-table-column
+                prop="status"
+                label="状态" /><el-table-column
+                prop="version"
+                label="版本" /></el-table
+    ></el-dialog>
 </template>
 
 <style scoped>

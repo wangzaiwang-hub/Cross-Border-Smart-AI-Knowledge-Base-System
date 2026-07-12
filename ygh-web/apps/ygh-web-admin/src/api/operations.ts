@@ -284,6 +284,26 @@ export interface WalletTransaction {
     referenceId: string;
     createdAt: string;
 }
+export interface WalletAccount {
+    userId: string;
+    availableBalance: string;
+    frozenBalance: string;
+    currency: string;
+    status: string;
+    version: number;
+}
+export interface CommerceReconciliation {
+    checkedOrders: number;
+    consistentOrders: number;
+    discrepancies: Array<{
+        orderId: string;
+        orderStatus: string;
+        dimension: string;
+        expected: string;
+        actual: string;
+    }>;
+    checkedAt: string;
+}
 export const getDashboard = async (): Promise<Dashboard> =>
     apiData(await useHttp().get("/api/v1/admin/dashboard"));
 export const listAccounts = async (
@@ -466,6 +486,9 @@ export const advanceSimulatedFulfillment = async (
         ),
     );
 };
+export const runCommerceReconciliation =
+    async (): Promise<CommerceReconciliation> =>
+        apiData(await useHttp().post("/api/v1/admin/orders/reconciliation"));
 export async function changeAccountStatus(
     account: AdminAccount,
     status: "ACTIVE" | "DISABLED",
@@ -803,6 +826,12 @@ export const listAdminInventory = async (): Promise<Inventory[]> =>
 export const listWalletTransactions = async (): Promise<WalletTransaction[]> =>
     apiData(
         await useHttp().get("/api/v1/admin/wallet/transactions", {
+            params: { limit: 500 },
+        }),
+    );
+export const listWalletAccounts = async (): Promise<WalletAccount[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/wallet/accounts", {
             params: { limit: 500 },
         }),
     );
