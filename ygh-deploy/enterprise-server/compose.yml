@@ -24,65 +24,65 @@ x-health: &health
 services:
   gateway:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-gateway:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-gateway:${YGH_VERSION:?required}
     ports: ["8080:8080"]
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8080/actuator/health/readiness]}
   auth:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-auth-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-auth-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8081/actuator/health/readiness]}
   user:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-user-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-user-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8082/actuator/health/readiness]}
   system:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-system-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-system-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8083/actuator/health/readiness]}
   product:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-product-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-product-service:${YGH_VERSION:?required}
     environment:
       YGH_SEARCH_BASE_URL: http://search:8089
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8084/actuator/health/readiness]}
   inventory:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-inventory-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-inventory-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8085/actuator/health/readiness]}
   order:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-order-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-order-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8086/actuator/health/readiness]}
   wallet:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-wallet-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-wallet-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8087/actuator/health/readiness]}
   knowledge:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-knowledge-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-knowledge-service:${YGH_VERSION:?required}
     volumes: [knowledge-files:/data/knowledge]
     read_only: false
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8088/actuator/health/readiness]}
   search:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-search-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-search-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8089/actuator/health/readiness]}
   ai:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-ai-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-ai-service:${YGH_VERSION:?required}
     mem_limit: 1024m
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8090/actuator/health/readiness]}
   training:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-training-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-training-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8091/actuator/health/readiness]}
   notification:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-notification-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-notification-service:${YGH_VERSION:?required}
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8092/actuator/health/readiness]}
   admin:
     <<: *java-service
-    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-admin-service:${YGH_VERSION:-latest}
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-admin-service:${YGH_VERSION:?required}
     environment:
       YGH_LOKI_BASE_URL: http://loki:3100
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8093/actuator/health/readiness]}
