@@ -5,6 +5,7 @@ import { Search } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
     changeAccountStatus,
+    advanceSimulatedFulfillment,
     changeProductStatus,
     createProduct,
     createProductBatch,
@@ -23,6 +24,7 @@ import {
     type Product,
     type ProductBrand,
     type ProductCategory,
+    type Order,
 } from "@/api/operations";
 type Row = Record<string, unknown>;
 const route = useRoute();
@@ -350,6 +352,21 @@ async function changeState(row: Row) {
             ElMessage.error("状态更新失败，版本可能已变化");
     }
 }
+async function fulfill(row: Row) {
+    const order = row as unknown as Order;
+    const label = order.status === "PAID" ? "开始模拟处理" : "标记模拟完成";
+    await ElMessageBox.confirm(
+        `确认${label}订单 ${order.orderNo}？`,
+        "模拟履约",
+    );
+    try {
+        await advanceSimulatedFulfillment(order);
+        ElMessage.success("订单履约状态已更新");
+        await load();
+    } catch {
+        ElMessage.error("履约状态更新失败，订单状态或版本可能已变化");
+    }
+}
 watch(() => route.fullPath, load, { immediate: true });
 </script>
 <template>
@@ -416,10 +433,24 @@ watch(() => route.fullPath, load, { immediate: true });
                     }}</span></template
                 ></el-table-column
             ><el-table-column
-                v-if="['user', 'product'].includes(entity)"
+                v-if="['user', 'product', 'order'].includes(entity)"
                 label="操作"
                 width="190"
                 ><template #default="scope"
+                    ><el-button
+                        v-if="
+                            entity === 'order' &&
+                            ['PAID', 'PROCESSING'].includes(scope.row.status)
+                        "
+                        link
+                        type="primary"
+                        @click="fulfill(scope.row)"
+                        >{{
+                            scope.row.status === "PAID"
+                                ? "开始处理"
+                                : "模拟完成"
+                        }}</el-button
+                    >
                     ><el-button
                         v-if="entity === 'product'"
                         link
@@ -435,6 +466,7 @@ watch(() => route.fullPath, load, { immediate: true });
                         >批次/溯源</el-button
                     >
                     ><el-button
+                        v-if="entity !== 'order'"
                         link
                         type="primary"
                         @click="changeState(scope.row)"

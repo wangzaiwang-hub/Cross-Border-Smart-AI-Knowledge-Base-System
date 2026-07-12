@@ -445,6 +445,19 @@ export const listAdminOrders = async (status?: string): Promise<Order[]> =>
             params: { status: status || undefined, limit: 100 },
         }),
     );
+export const advanceSimulatedFulfillment = async (
+    order: Order,
+): Promise<Order> => {
+    const action =
+        order.status === "PAID" ? "simulate-processing" : "simulate-completion";
+    return apiData(
+        await useHttp().post(
+            `/api/v1/admin/orders/${order.orderId}/${action}`,
+            undefined,
+            { params: { version: order.version } },
+        ),
+    );
+};
 export async function changeAccountStatus(
     account: AdminAccount,
     status: "ACTIVE" | "DISABLED",
