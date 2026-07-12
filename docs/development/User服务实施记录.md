@@ -60,3 +60,13 @@ V1 在 User 私有 MySQL Schema 建立六张业务表：
 - displayName 入库前去除首尾空白；timezone 必须是 JDK ZoneId；avatarUrl 只接受带 host 的 HTTP/HTTPS URL；数据库 Entity/ResultSet 不进入 API 模块。
 - 单元测试覆盖创建、读取、更新、陈旧版本、404、非法时区和 URL；真实 MySQL 测试覆盖 JDBC 创建、版本递增与陈旧写拒绝；可信身份测试覆盖有效、篡改、过期和缺失签名。
 - 真实开发链路已完成 `Gateway → Auth 注册/JWT → User PUT → User GET`：注册用户通过 Gateway 更新并读回本人资料，响应 userId 与 JWT 主体一致、version 为 0、traceId 完整。
+
+## 4. BE-0343 本人地址全生命周期
+
+- 提供 `GET/POST /api/v1/users/me/addresses`、`PUT/DELETE /api/v1/users/me/addresses/{id}` 与 `PUT /api/v1/users/me/addresses/{id}/default`；接口不接受 owner 参数，所有 SQL 同时约束 `id + user_id`。
+- 接收人、手机和详细地址使用 AES-256-GCM 字段级加密，随机 96-bit IV 随密文存储；AAD 绑定 owner、字段名和密钥版本，密文被篡改、跨用户复制或使用错误版本均无法解密。
+- PII 密钥、版本和 ID worker 分别由 `YGH_USER_PII_KEY_BASE64`、`YGH_USER_PII_KEY_VERSION`、`YGH_USER_ID_WORKER` 注入；本地 `.env` 自动生成且被 Git 忽略，示例文件不含真实值。
+- 第一条地址自动成为默认地址；切换默认地址和删除默认地址均在数据库事务内完成，数据库唯一生成列继续作为并发下的最后一道单默认约束。
+- 修改、设默认和删除均携带 `version` 并使用 owner + version 乐观锁；资源不存在、越权访问和陈旧版本统一隐藏为业务冲突，不泄露他人资源是否存在。
+- 自动化验证包括 API DTO 脱敏、AES 随机 IV/AAD/篡改、真实 MySQL 加密落库、单默认、所有权隔离、陈旧版本、删除后默认晋升和应用服务冲突分支；User API 与 Service JaCoCo 门禁通过。
+- 真实链路证据（2026-07-12）：`Gateway → Auth 注册/登录 → User Profile → Address 创建/查询/修改/删除` 成功，结果为 `ADDRESS_E2E_OK`，创建地址为默认、更新版本由 0 增至 1、删除后列表为空。

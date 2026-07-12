@@ -43,5 +43,9 @@ management:
       exposure:
         include: health,info
 ygh:
+  user:
+    pii-key-base64: ${YGH_USER_PII_KEY_BASE64}
+    pii-key-version: ${YGH_USER_PII_KEY_VERSION:1}
+    id-worker: ${YGH_USER_ID_WORKER:2}
   internal-request:
     hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}

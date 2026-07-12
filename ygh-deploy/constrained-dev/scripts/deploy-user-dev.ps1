@@ -16,7 +16,7 @@ $config = @{}
 Get-Content -LiteralPath $envFile | ForEach-Object {
     if ($_ -match '^([^#=]+)=(.*)$') { $config[$matches[1]] = $matches[2] }
 }
-foreach ($required in @("USER_DB_APP_PASSWORD", "USER_DB_MIGRATION_PASSWORD", "NACOS_ADMIN_PASSWORD", "INTERNAL_REQUEST_HMAC_BASE64")) {
+foreach ($required in @("USER_DB_APP_PASSWORD", "USER_DB_MIGRATION_PASSWORD", "USER_PII_KEY_BASE64", "USER_PII_KEY_VERSION", "USER_ID_WORKER", "NACOS_ADMIN_PASSWORD", "INTERNAL_REQUEST_HMAC_BASE64")) {
     if ([string]::IsNullOrWhiteSpace($config[$required])) { throw "$required missing" }
 }
 Push-Location $repositoryRoot
@@ -36,6 +36,9 @@ try {
     $env:YGH_NACOS_PASSWORD = $config.NACOS_ADMIN_PASSWORD
     $env:YGH_USER_ADVERTISE_IP = $AdvertiseIp
     $env:YGH_INTERNAL_REQUEST_HMAC_BASE64 = $config.INTERNAL_REQUEST_HMAC_BASE64
+    $env:YGH_USER_PII_KEY_BASE64 = $config.USER_PII_KEY_BASE64
+    $env:YGH_USER_PII_KEY_VERSION = $config.USER_PII_KEY_VERSION
+    $env:YGH_USER_ID_WORKER = $config.USER_ID_WORKER
     & java '-Dloader.main=com.yuegang.zhihui.user.UserMigrationApplication' `
         -cp $buildJar org.springframework.boot.loader.launch.PropertiesLauncher
     if ($LASTEXITCODE -ne 0) { throw "User Flyway migration job failed" }
