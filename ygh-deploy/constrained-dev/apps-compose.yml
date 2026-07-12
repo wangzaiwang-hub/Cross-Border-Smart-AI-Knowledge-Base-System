@@ -81,6 +81,7 @@ services:
       YGH_PRODUCT_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/product_db?useSSL=false&serverTimezone=Asia/Shanghai
       YGH_PRODUCT_DB_APP_PASSWORD: ${YGH_PRODUCT_DB_APP_PASSWORD:?required}
       YGH_PRODUCT_DB_MIGRATION_PASSWORD: ${YGH_PRODUCT_DB_MIGRATION_PASSWORD:?required}
+      YGH_SEARCH_BASE_URL: http://search:8089
       YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
       YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
       YGH_MQ_ENABLED: "true"
@@ -137,6 +138,7 @@ services:
     environment:
       <<: *common-env
       YGH_ADMIN_SERVICE_HEALTH_URLS: auth=http://auth:8081/actuator/health,system=http://system:8083/actuator/health,product=http://product:8084/actuator/health,order=http://order:8086/actuator/health,knowledge=http://knowledge:8088/actuator/health,training=http://training:8091/actuator/health
+      YGH_LOKI_BASE_URL: ${YGH_LOKI_BASE_URL:-http://host.docker.internal:3100}
   knowledge:
     <<: *app
     profiles: [ai-apps]

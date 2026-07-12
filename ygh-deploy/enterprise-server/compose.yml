@@ -42,6 +42,8 @@ services:
   product:
     <<: *java-service
     image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-product-service:${YGH_VERSION:-latest}
+    environment:
+      YGH_SEARCH_BASE_URL: http://search:8089
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8084/actuator/health/readiness]}
   inventory:
     <<: *java-service
@@ -81,6 +83,8 @@ services:
   admin:
     <<: *java-service
     image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-admin-service:${YGH_VERSION:-latest}
+    environment:
+      YGH_LOKI_BASE_URL: http://loki:3100
     healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8093/actuator/health/readiness]}
 
   mysql:
@@ -230,6 +234,29 @@ services:
     mem_limit: 512m
     logging: *service-logging
 
+  loki:
+    image: grafana/loki:3.5.1
+    restart: unless-stopped
+    command: [-config.file=/etc/loki/local-config.yaml]
+    volumes:
+      - ../observability/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks: [ygh-backend]
+    mem_limit: 512m
+    logging: *service-logging
+
+  promtail:
+    image: grafana/promtail:3.5.1
+    restart: unless-stopped
+    command: [-config.file=/etc/promtail/config.yml]
+    volumes:
+      - ../observability/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on: [loki]
+    networks: [ygh-backend]
+    mem_limit: 256m
+    logging: *service-logging
+
   node-exporter:
     image: prom/node-exporter:v1.9.1
     restart: unless-stopped
@@ -252,3 +279,4 @@ volumes:
   prometheus-data: {}
   alertmanager-data: {}
   grafana-data: {}
+  loki-data: {}

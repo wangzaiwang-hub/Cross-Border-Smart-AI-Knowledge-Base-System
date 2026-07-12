@@ -10,6 +10,7 @@ spring:
 ygh:
   internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
   admin.service-health-urls: ${YGH_ADMIN_SERVICE_HEALTH_URLS}
+  admin.loki-base-url: ${YGH_LOKI_BASE_URL:http://127.0.0.1:3100}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 management.endpoint.health.probes.enabled: true
 management.endpoint.health.show-details: when-authorized

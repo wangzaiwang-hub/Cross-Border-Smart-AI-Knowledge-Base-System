@@ -1,3 +1,83 @@
 package com.yuegang.zhihui.product.application;
-import com.yuegang.zhihui.common.core.*;import com.yuegang.zhihui.product.api.*;import java.util.*;import javax.sql.*;import org.springframework.jdbc.core.*;import org.springframework.jdbc.datasource.*;import org.springframework.transaction.support.*;
-public final class ProductService{private final JdbcTemplate jdbc;private final TransactionTemplate tx;public ProductService(DataSource d){jdbc=new JdbcTemplate(d);tx=new TransactionTemplate(new DataSourceTransactionManager(d));}public ProductView create(SaveProductRequest c){return tx.execute(s->{long spu=next(),sku=next();jdbc.update("INSERT INTO product_spu(id,category_id,brand_id,name,status) VALUES(?,?,?,?,'DRAFT')",spu,id(c.categoryId()),blankId(c.brandId()),c.name());jdbc.update("INSERT INTO product_sku(id,spu_id,sku_code,price,currency,traceability_code,status) VALUES(?,?,?,?,?,?,'DRAFT')",sku,spu,c.skuCode(),c.price(),c.currency(),c.traceabilityCode());int sort=0;for(String url:c.images())jdbc.update("INSERT INTO product_image(id,spu_id,sku_id,url,sort_order) VALUES(?,?,?,?,?)",next(),spu,sku,url,sort++);return get(Long.toString(sku),false);});}public List<ProductView>list(String category,String keyword,int limit,boolean publicOnly){int size=Math.max(1,Math.min(limit,100));StringBuilder sql=new StringBuilder("SELECT s.id FROM product_sku s JOIN product_spu p ON p.id=s.spu_id WHERE 1=1");List<Object>args=new ArrayList<>();if(publicOnly)sql.append(" AND s.status='PUBLISHED' AND p.status='PUBLISHED'");if(category!=null&&!category.isBlank()){sql.append(" AND p.category_id=?");args.add(id(category));}if(keyword!=null&&!keyword.isBlank()){sql.append(" AND (p.name LIKE ? OR CONVERT(s.sku_code USING utf8mb4) LIKE ?)");String q="%"+keyword.strip()+"%";args.add(q);args.add(q);}sql.append(" ORDER BY p.updated_at DESC,s.id DESC LIMIT ?");args.add(size);return jdbc.queryForList(sql.toString(),Long.class,args.toArray()).stream().map(x->get(Long.toString(x),publicOnly)).toList();}public ProductView get(String sku,boolean publicOnly){String sql="SELECT s.spu_id,s.id,p.category_id,p.brand_id,p.name,s.sku_code,s.price,s.currency,s.status,s.traceability_code,s.version FROM product_sku s JOIN product_spu p ON p.id=s.spu_id WHERE s.id=?"+(publicOnly?" AND s.status='PUBLISHED' AND p.status='PUBLISHED'":"");return jdbc.query(sql,r->{if(!r.next())throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);long id=r.getLong(2);var images=jdbc.queryForList("SELECT url FROM product_image WHERE sku_id=? ORDER BY sort_order",String.class,id);Object brand=r.getObject(4);return new ProductView(Long.toString(r.getLong(1)),Long.toString(id),Long.toString(r.getLong(3)),brand==null?null:brand.toString(),r.getString(5),r.getString(6),r.getBigDecimal(7),r.getString(8),ProductStatus.valueOf(r.getString(9)),images,r.getString(10),r.getLong(11));},id(sku));}public ProductView changeStatus(String sku,ProductStatus status,long version){long id=id(sku);int n=jdbc.update("UPDATE product_sku s JOIN product_spu p ON p.id=s.spu_id SET s.status=?,p.status=?,s.version=s.version+1,p.version=p.version+1 WHERE s.id=? AND s.version=?",status.name(),status.name(),id,version);if(n<1)throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);return get(sku,false);}private static long next(){return UUID.randomUUID().getMostSignificantBits()&Long.MAX_VALUE;}private static Long blankId(String s){return s==null||s.isBlank()?null:id(s);}private static long id(String s){try{long id=Long.parseLong(s);if(id<=0)throw new NumberFormatException();return id;}catch(Exception e){throw new BusinessException(ErrorCode.VALIDATION_ERROR);}}}
+
+import com.yuegang.zhihui.common.core.*;
+import com.yuegang.zhihui.product.api.*;
+import java.util.*;
+import java.math.BigDecimal;
+import javax.sql.DataSource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+public final class ProductService {
+    private final JdbcTemplate jdbc;
+    private final TransactionTemplate transactions;
+
+    public ProductService(DataSource dataSource) {
+        jdbc = new JdbcTemplate(dataSource);
+        transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+    }
+
+    public ProductView create(SaveProductRequest command) {
+        return transactions.execute(status -> {
+            long spu = next(), sku = next();
+            jdbc.update("INSERT INTO product_spu(id,category_id,brand_id,name,status) VALUES(?,?,?,?,'DRAFT')", spu, id(command.categoryId()), blankId(command.brandId()), command.name());
+            jdbc.update("INSERT INTO product_sku(id,spu_id,sku_code,price,currency,traceability_code,status) VALUES(?,?,?,?,?,?,'DRAFT')", sku, spu, command.skuCode(), command.price(), command.currency(), command.traceabilityCode());
+            int sort = 0;
+            for (String url : command.images()) jdbc.update("INSERT INTO product_image(id,spu_id,sku_id,url,sort_order) VALUES(?,?,?,?,?)", next(), spu, sku, url, sort++);
+            searchJob(sku);
+            return get(Long.toString(sku), false);
+        });
+    }
+
+    public List<ProductView> list(String category, String keyword, int limit, boolean publicOnly) {
+        return list(category, keyword, null, null, null, null, limit, publicOnly);
+    }
+
+    public List<ProductView> list(String category, String keyword, BigDecimal minimumPrice, BigDecimal maximumPrice,
+                                  String origin, ProductStatus requestedStatus, int limit, boolean publicOnly) {
+        if ((minimumPrice != null && minimumPrice.signum() < 0) || (maximumPrice != null && maximumPrice.signum() < 0)
+                || (minimumPrice != null && maximumPrice != null && minimumPrice.compareTo(maximumPrice) > 0)) throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        int size = Math.max(1, Math.min(limit, 100));
+        StringBuilder sql = new StringBuilder("SELECT s.id FROM product_sku s JOIN product_spu p ON p.id=s.spu_id WHERE 1=1");
+        List<Object> arguments = new ArrayList<>();
+        if (publicOnly) sql.append(" AND s.status='PUBLISHED' AND p.status='PUBLISHED'");
+        if (category != null && !category.isBlank()) { sql.append(" AND p.category_id=?"); arguments.add(id(category)); }
+        if (keyword != null && !keyword.isBlank()) {
+            sql.append(" AND (p.name LIKE ? OR CONVERT(s.sku_code USING utf8mb4) LIKE ?)");
+            String query = "%" + keyword.strip() + "%"; arguments.add(query); arguments.add(query);
+        }
+        if (minimumPrice != null) { sql.append(" AND s.price>=?"); arguments.add(minimumPrice); }
+        if (maximumPrice != null) { sql.append(" AND s.price<=?"); arguments.add(maximumPrice); }
+        if (origin != null && !origin.isBlank()) { sql.append(" AND EXISTS(SELECT 1 FROM product_batch pb WHERE pb.sku_id=s.id AND pb.origin=?)"); arguments.add(origin.strip()); }
+        if (!publicOnly && requestedStatus != null) { sql.append(" AND s.status=?"); arguments.add(requestedStatus.name()); }
+        sql.append(" ORDER BY p.updated_at DESC,s.id DESC LIMIT ?"); arguments.add(size);
+        return jdbc.queryForList(sql.toString(), Long.class, arguments.toArray()).stream().map(value -> get(Long.toString(value), publicOnly)).toList();
+    }
+
+    public ProductView get(String sku, boolean publicOnly) {
+        String sql = "SELECT s.spu_id,s.id,p.category_id,p.brand_id,p.name,s.sku_code,s.price,s.currency,s.status,s.traceability_code,s.version FROM product_sku s JOIN product_spu p ON p.id=s.spu_id WHERE s.id=?" + (publicOnly ? " AND s.status='PUBLISHED' AND p.status='PUBLISHED'" : "");
+        return jdbc.query(sql, result -> {
+            if (!result.next()) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            long skuId = result.getLong(2);
+            var images = jdbc.queryForList("SELECT url FROM product_image WHERE sku_id=? ORDER BY sort_order", String.class, skuId);
+            Object brand = result.getObject(4);
+            return new ProductView(Long.toString(result.getLong(1)), Long.toString(skuId), Long.toString(result.getLong(3)), brand == null ? null : brand.toString(), result.getString(5), result.getString(6), result.getBigDecimal(7), result.getString(8), ProductStatus.valueOf(result.getString(9)), images, result.getString(10), result.getLong(11));
+        }, id(sku));
+    }
+
+    public ProductView changeStatus(String sku, ProductStatus productStatus, long version) {
+        long skuId = id(sku);
+        return transactions.execute(status -> {
+            int changed = jdbc.update("UPDATE product_sku s JOIN product_spu p ON p.id=s.spu_id SET s.status=?,p.status=?,s.version=s.version+1,p.version=p.version+1 WHERE s.id=? AND s.version=?", productStatus.name(), productStatus.name(), skuId, version);
+            if (changed < 1) throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
+            searchJob(skuId);
+            return get(sku, false);
+        });
+    }
+
+    void searchJob(long skuId) { jdbc.update("INSERT INTO product_search_job(id,sku_id) VALUES(?,?)", UUID.randomUUID().toString(), skuId); }
+    private static long next() { return UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE; }
+    private static Long blankId(String value) { return value == null || value.isBlank() ? null : id(value); }
+    private static long id(String value) { try { long id = Long.parseLong(value); if (id <= 0) throw new NumberFormatException(); return id; } catch (Exception failure) { throw new BusinessException(ErrorCode.VALIDATION_ERROR); } }
+}

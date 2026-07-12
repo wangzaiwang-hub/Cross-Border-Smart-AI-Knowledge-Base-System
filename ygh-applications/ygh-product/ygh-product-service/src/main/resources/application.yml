@@ -30,3 +30,4 @@ management.metrics.tags.application: ${spring.application.name}
 ygh.mq.enabled: ${YGH_MQ_ENABLED:false}
 ygh.mq.nameserver: ${YGH_ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
 ygh.mq.topic: ${YGH_ROCKETMQ_TOPIC:YGH_DOMAIN_EVENTS}
+ygh.product.search-base-url: ${YGH_SEARCH_BASE_URL:http://127.0.0.1:18089}

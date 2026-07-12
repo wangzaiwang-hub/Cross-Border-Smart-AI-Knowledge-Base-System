@@ -8,7 +8,7 @@ import java.time.*;
 import java.util.Set;
 
 public final class SearchInternalSecurity {
-    private static final Set<String> ALLOWED = Set.of("ygh-ai-service", "ygh-knowledge-service", "ygh-admin-service");
+    private static final Set<String> ALLOWED = Set.of("ygh-ai-service", "ygh-knowledge-service", "ygh-product-service", "ygh-admin-service");
     private final InternalServiceSignature signatures;
     public SearchInternalSecurity(byte[] secret){signatures=new InternalServiceSignature(secret,Clock.systemUTC(),Duration.ofSeconds(30));}
     public void verify(HttpServletRequest request){try{String service=header(request,"X-YGH-Service");if(!ALLOWED.contains(service))throw failure();Instant timestamp=Instant.ofEpochMilli(Long.parseLong(header(request,"X-YGH-Service-Timestamp")));var metadata=new InternalServiceSignature.Metadata(service,request.getMethod(),request.getRequestURI(),timestamp);if(!signatures.verify(metadata,header(request,"X-YGH-Service-Signature")))throw failure();}catch(BusinessException e){throw e;}catch(RuntimeException e){throw failure();}}
