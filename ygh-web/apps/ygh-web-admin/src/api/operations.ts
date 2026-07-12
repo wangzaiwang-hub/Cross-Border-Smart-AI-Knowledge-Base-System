@@ -223,6 +223,19 @@ export interface Dictionary {
     name: string;
     items: Array<{ key: string; value: string; sortOrder: number }>;
 }
+export interface DictionaryAdmin {
+    code: string;
+    name: string;
+    enabled: boolean;
+    version: number;
+    items: Array<{
+        key: string;
+        value: string;
+        sortOrder: number;
+        enabled: boolean;
+        version: number;
+    }>;
+}
 export interface FeatureFlag {
     key: string;
     enabled: boolean;
@@ -630,6 +643,36 @@ export const saveSystemSetting = async (
     );
 export const listDictionaries = async (): Promise<Dictionary[]> =>
     apiData(await useHttp().get("/api/v1/system/dictionaries"));
+export const listAdminDictionaries = async (): Promise<DictionaryAdmin[]> =>
+    apiData(await useHttp().get("/api/v1/system/dictionaries/admin"));
+export const saveDictionary = async (command: {
+    code: string;
+    name: string;
+    enabled: boolean;
+    version: number;
+}): Promise<DictionaryAdmin> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/system/dictionaries/admin/${command.code}`,
+            command,
+        ),
+    );
+export const saveDictionaryItem = async (
+    dictionaryCode: string,
+    command: {
+        key: string;
+        value: string;
+        sortOrder: number;
+        enabled: boolean;
+        version: number;
+    },
+): Promise<DictionaryAdmin> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/system/dictionaries/admin/${dictionaryCode}/items/${command.key}`,
+            command,
+        ),
+    );
 export const listFeatureFlags = async (): Promise<FeatureFlag[]> =>
     apiData(await useHttp().get("/api/v1/system/feature-flags"));
 export async function saveFeatureFlag(flag: FeatureFlag): Promise<FeatureFlag> {
