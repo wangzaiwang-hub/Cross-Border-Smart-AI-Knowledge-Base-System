@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class AuthOpenApiConfiguration {
     private static final Map<String, String> ERRORS = Map.of(
-            "400", "ValidationError", "401", "Unauthorized", "409", "Conflict",
+            "400", "ValidationError", "401", "Unauthorized", "403", "Forbidden", "409", "Conflict",
             "429", "RateLimited", "503", "DependencyUnavailable", "500", "InternalError");
 
     @Bean
@@ -29,7 +29,7 @@ class AuthOpenApiConfiguration {
                 operation.addParametersItem(new Parameter().$ref("#/components/parameters/X-Request-Id"));
                 ERRORS.forEach((status, component) -> operation.getResponses().putIfAbsent(status,
                         new ApiResponse().$ref("#/components/responses/" + component)));
-                if ("/api/v1/auth/logout".equals(path)) {
+                if ("/api/v1/auth/logout".equals(path) || path.startsWith("/api/v1/auth/admin/")) {
                     operation.addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
                 }
                 if ("/api/v1/auth/register".equals(path)) moveSuccess(operation, "201", "Created");

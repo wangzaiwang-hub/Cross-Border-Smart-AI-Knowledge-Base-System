@@ -25,5 +25,6 @@
     </dependencyManagement>
     <modules>
         <module>ygh-user</module>
+        <module>ygh-system</module>
     </modules>
 </project>

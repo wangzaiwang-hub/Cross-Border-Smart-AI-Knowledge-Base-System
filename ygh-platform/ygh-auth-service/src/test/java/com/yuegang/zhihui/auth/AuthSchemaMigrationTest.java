@@ -49,7 +49,7 @@ class AuthSchemaMigrationTest {
             var second = flyway.migrate();
             grantAppTablePrivileges(fixture, appUser);
 
-            assertThat(first.migrationsExecuted).isEqualTo(2);
+            assertThat(first.migrationsExecuted).isEqualTo(3);
             assertThat(second.migrationsExecuted).isZero();
             try (var connection = DriverManager.getConnection(
                     fixture.jdbcUrl(), fixture.username(), fixture.credential())) {
@@ -57,7 +57,7 @@ class AuthSchemaMigrationTest {
                         "auth_account",
                         "auth_credential",
                         "auth_refresh_token",
-                        "auth_login_attempt",
+                        "auth_login_attempt", "auth_account_admin_audit",
                         "flyway_schema_history");
                 assertThat(columnNames(connection, "auth_account")).contains(
                         "id", "user_id", "principal", "account_type", "status",
@@ -79,6 +79,8 @@ class AuthSchemaMigrationTest {
                                 "idx_auth_refresh_expiry");
                 assertThat(indexNames(connection, "auth_login_attempt"))
                         .contains("idx_auth_login_occurred_at", "idx_auth_login_ip_hash_time");
+                assertThat(indexNames(connection, "auth_account_admin_audit"))
+                        .contains("idx_auth_admin_audit_account_created", "idx_auth_admin_audit_operator_created");
                 assertThat(importedKeyTables(connection, "auth_credential"))
                         .contains("auth_account");
             }
@@ -338,7 +340,8 @@ class AuthSchemaMigrationTest {
                 var statement = connection.createStatement()) {
             String catalog = connection.getCatalog().replace("`", "``");
             for (String table : java.util.List.of(
-                    "auth_account", "auth_credential", "auth_refresh_token", "auth_login_attempt")) {
+                    "auth_account", "auth_credential", "auth_refresh_token", "auth_login_attempt",
+                    "auth_account_admin_audit")) {
                 statement.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON `" + catalog
                         + "`.`" + table + "` TO '" + appUser + "'@'%'");
             }

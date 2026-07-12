@@ -41,6 +41,8 @@ if (Test-Path $envPath) {
     }
     if ($existing -notmatch '(?m)^USER_PII_KEY_VERSION=') { Add-Content -LiteralPath $envPath -Value "USER_PII_KEY_VERSION=1" -Encoding UTF8NoBOM; $updated = $true }
     if ($existing -notmatch '(?m)^USER_ID_WORKER=') { Add-Content -LiteralPath $envPath -Value "USER_ID_WORKER=2" -Encoding UTF8NoBOM; $updated = $true }
+    if ($existing -notmatch '(?m)^SYSTEM_DB_APP_PASSWORD=') { Add-Content -LiteralPath $envPath -Value "SYSTEM_DB_APP_PASSWORD=$(New-Secret 24)" -Encoding UTF8NoBOM; $updated = $true }
+    if ($existing -notmatch '(?m)^SYSTEM_DB_MIGRATION_PASSWORD=') { Add-Content -LiteralPath $envPath -Value "SYSTEM_DB_MIGRATION_PASSWORD=$(New-Secret 24)" -Encoding UTF8NoBOM; $updated = $true }
     Write-Output $(if ($updated) { 'ENV_UPDATED_MISSING_VALUES_HIDDEN' } else { 'ENV_EXISTS_NO_CHANGE' })
     exit 0
 }
@@ -59,6 +61,8 @@ USER_DB_MIGRATION_PASSWORD=$(New-Secret 24)
 USER_PII_KEY_BASE64=$(New-Base64Secret 32)
 USER_PII_KEY_VERSION=1
 USER_ID_WORKER=2
+SYSTEM_DB_APP_PASSWORD=$(New-Secret 24)
+SYSTEM_DB_MIGRATION_PASSWORD=$(New-Secret 24)
 AUTH_AUDIT_PEPPER_BASE64=$(New-Secret 32)
 AUTH_ID_WORKER=1
 INTERNAL_REQUEST_HMAC_BASE64=$(New-Secret 32)

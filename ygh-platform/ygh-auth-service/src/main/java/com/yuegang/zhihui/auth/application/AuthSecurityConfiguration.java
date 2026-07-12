@@ -26,6 +26,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
+import com.yuegang.zhihui.auth.api.AuthTrustedUserContextResolver;
+import com.yuegang.zhihui.auth.domain.AccountAdministrationRepository;
+import com.yuegang.zhihui.auth.infrastructure.JdbcAccountAdministrationRepository;
+import com.yuegang.zhihui.auth.infrastructure.HttpSystemAuthorityProvider;
+import com.yuegang.zhihui.auth.domain.AuthorityProvider;
 import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -56,6 +61,16 @@ class AuthSecurityConfiguration {
     AccountSecurityRepository accountSecurityRepository(DataSource dataSource) {
         return new JdbcAccountSecurityRepository(dataSource);
     }
+
+    @Bean AccountAdministrationRepository accountAdministrationRepository(DataSource dataSource){return new JdbcAccountAdministrationRepository(dataSource);}
+    @Bean AccountAdministrationService accountAdministrationService(AccountAdministrationRepository repository,SessionStateStore sessions){return new AccountAdministrationService(repository,sessions);}
+    @Bean AuthTrustedUserContextResolver authTrustedUserContextResolver(
+            @org.springframework.beans.factory.annotation.Value("${ygh.internal-request.hmac-base64}") String encoded,Clock clock){
+        byte[] secret=Base64.getDecoder().decode(encoded);try{return new AuthTrustedUserContextResolver(secret,clock);}finally{Arrays.fill(secret,(byte)0);}
+    }
+    @Bean @ConditionalOnProperty(prefix="ygh.security.jwt",name="enabled",havingValue="true") AuthorityProvider authorityProvider(
+            @org.springframework.beans.factory.annotation.Value("${ygh.system.internal-base-url}") String base,
+            @org.springframework.beans.factory.annotation.Value("${ygh.internal-request.hmac-base64}") String encoded,Clock clock){byte[] secret=Base64.getDecoder().decode(encoded);try{return new HttpSystemAuthorityProvider(base,secret,clock);}finally{Arrays.fill(secret,(byte)0);}}
 
     @Bean
     RefreshTokenRepository refreshTokenRepository(DataSource dataSource) {

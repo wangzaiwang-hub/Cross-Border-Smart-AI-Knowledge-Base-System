@@ -65,6 +65,8 @@ management:
       enabled: true
 
 ygh:
+  system:
+    internal-base-url: ${YGH_SYSTEM_INTERNAL_BASE_URL}
   internal-request:
     hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
   auth:

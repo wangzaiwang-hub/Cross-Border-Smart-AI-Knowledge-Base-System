@@ -1,6 +1,7 @@
 package com.yuegang.zhihui.auth.application;
 
 import com.yuegang.zhihui.auth.domain.AccessTokenIssuer;
+import com.yuegang.zhihui.auth.domain.AuthorityProvider;
 import com.yuegang.zhihui.auth.infrastructure.NimbusAccessTokenIssuer;
 import com.yuegang.zhihui.auth.infrastructure.RsaSigningKeyRing;
 import com.yuegang.zhihui.common.redis.SessionStateStore;
@@ -29,10 +30,10 @@ class JwtTokenConfiguration {
             @Value("${ygh.security.jwt.audience:ygh-api}") String audience,
             @Value("${ygh.security.jwt.access-token-minutes:15}") long lifetimeMinutes,
             SessionStateStore sessions,
-            Clock clock) {
+            Clock clock, AuthorityProvider authorities) {
         var signer = new NimbusAccessTokenIssuer(
                 keyRing, issuer, audience, Duration.ofMinutes(lifetimeMinutes), clock);
-        return new SessionAwareAccessTokenIssuer(signer, sessions, clock);
+        return new AuthorityAwareAccessTokenIssuer(new SessionAwareAccessTokenIssuer(signer, sessions, clock), authorities);
     }
 
     @Bean

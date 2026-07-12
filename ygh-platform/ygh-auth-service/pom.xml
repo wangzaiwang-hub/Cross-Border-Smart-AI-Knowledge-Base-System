@@ -15,6 +15,7 @@
     <name>YGH Authentication Service</name>
 
     <dependencies>
+        <dependency><groupId>com.yuegang.zhihui</groupId><artifactId>ygh-system-api</artifactId><version>${revision}</version></dependency>
         <dependency>
             <groupId>com.yuegang.zhihui</groupId>
             <artifactId>ygh-common-core</artifactId>

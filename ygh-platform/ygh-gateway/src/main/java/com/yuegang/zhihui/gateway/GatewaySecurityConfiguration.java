@@ -86,6 +86,7 @@ class GatewaySecurityConfiguration {
                                 "/api/v1/departments/**",
                                 "/api/v1/jobs/**").hasAnyRole("EMPLOYEE", "ADMIN")
                         .pathMatchers(
+                                "/api/v1/auth/admin/**",
                                 "/api/v1/admin/**",
                                 "/api/v1/system/**",
                                 "/api/v1/roles/**",

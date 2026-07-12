@@ -38,14 +38,15 @@ EOSQL
 table_count=$(MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot -Nse \
   "SELECT COUNT(*) FROM information_schema.TABLES
    WHERE TABLE_SCHEMA = 'auth_db'
-     AND TABLE_NAME IN ('auth_account','auth_credential','auth_refresh_token','auth_login_attempt')")
+     AND TABLE_NAME IN ('auth_account','auth_credential','auth_refresh_token','auth_login_attempt','auth_account_admin_audit')")
 
-if [ "$table_count" -eq 4 ]; then
+if [ "$table_count" -eq 5 ]; then
   MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot <<-EOSQL
 GRANT SELECT, INSERT, UPDATE, DELETE ON auth_db.auth_account TO 'ygh_auth_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON auth_db.auth_credential TO 'ygh_auth_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON auth_db.auth_refresh_token TO 'ygh_auth_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON auth_db.auth_login_attempt TO 'ygh_auth_app'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE ON auth_db.auth_account_admin_audit TO 'ygh_auth_app'@'%';
 FLUSH PRIVILEGES;
 EOSQL
 fi

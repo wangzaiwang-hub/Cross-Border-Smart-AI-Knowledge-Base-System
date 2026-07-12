@@ -102,7 +102,7 @@ class OperationalLoginHttpIntegrationTest {
     private static void verifyOpenApi(int port) throws Exception {
         JsonNode api = get(port, "/v3/api-docs");
         assertThat(api.path("info").path("title").asString()).isEqualTo("YGH Authentication API");
-        assertThat(api.path("paths").size()).isEqualTo(8);
+        assertThat(api.path("paths").size()).isEqualTo(9);
         assertThat(api.path("servers").get(0).path("url").asString()).isEqualTo("/");
         assertThat(api.path("paths").path("/api/v1/auth/register").path("post")
                 .path("responses").has("201")).isTrue();
@@ -112,6 +112,9 @@ class OperationalLoginHttpIntegrationTest {
         assertThat(logout.path("security").toString()).contains("bearerAuth");
         assertThat(logout.path("responses").has("401")).isTrue();
         assertThat(logout.path("responses").has("503")).isTrue();
+        JsonNode administration = api.path("paths").path("/api/v1/auth/admin/users/{userId}/status").path("put");
+        assertThat(administration.path("security").toString()).contains("bearerAuth");
+        assertThat(administration.path("responses").has("403")).isTrue();
         assertThat(api.path("components").path("schemas").has("ApiResponse")).isTrue();
     }
 

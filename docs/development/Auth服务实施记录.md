@@ -144,3 +144,12 @@ Auth Reactor 共执行 45 项测试，JaCoCo 门禁通过；真实链路未使�
 - 冻结文件位于 `spec/openapi/auth-service-v1.json`，兼容性测试校验路径集合、环境中立性、成功状态码、退出安全方案、错误响应和秘密输入 `writeOnly`，防止文档静默漂移。
 - 前端接入清单已同步 Token 保存/轮换、字符串 ID、验证码、退出失败处理以及九个稳定错误码。核心注册、登录、刷新、退出和验证码标记为“可联调”；密码重置因通知域尚未建设，明确标记为契约冻结且当前返回 503，没有伪称完成。
 - 开发 Gateway 与 Auth 均通过独立 runtime JAR 目录部署，构建产物不再被 Windows 运行进程锁定；Gateway issuer 与 Auth 逻辑 issuer 已统一。真实 Gateway 调用 `/api/v1/auth/captcha` 返回 `SUCCESS/image/png` 和规范 traceId。
+
+## 13. BE-0344 账号启停子能力（角色分配完成前不关闭任务）
+
+- 新增管理员接口 `PUT /api/v1/auth/admin/users/{userId}/status`，Gateway 与 Auth 双层校验 `ADMIN` 角色；Auth 重新验证 Gateway 绑定 userId、角色、权限、traceId、requestId、方法、路径和时间戳的身份签名。
+- 管理写入按 userId 查找 Auth 自有账号，以版本号乐观更新 `ACTIVE/DISABLED`，同时清理登录失败和临时锁定；管理员不能禁用自身，越权、资源探测和陈旧版本均不会泄露账号事实。
+- `auth_account_admin_audit` 记录目标账号、业务用户 ID、操作人、动作、原因和服务端时间。应用账号仅获该表 DML，迁移账号继续持有 Schema DDL。
+- 状态变更提交后同步更新 Redis 账号状态；禁用立即使现有 Access Token 失效，重新启用不恢复已撤销 Token，用户必须重新登录。
+- 真实链路 `Gateway → ADMIN JWT → Auth V3 → Redis → Gateway Session 校验` 已验证：目标账号由 ACTIVE 切为 DISABLED 后旧 Token 立即返回 401，再恢复 ACTIVE，证据为 `ACCOUNT_ADMIN_E2E_OK`。
+- 本节只完成 BE-0344 的账号启停部分；角色事实必须落在独立 `system_db`，不得为了提前勾选任务写入 `auth_db`。完成 System RBAC 和授权快照联动后再将 BE-0344 标记完成。

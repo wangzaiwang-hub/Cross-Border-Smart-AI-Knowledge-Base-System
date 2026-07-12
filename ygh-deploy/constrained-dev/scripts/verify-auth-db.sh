@@ -31,7 +31,7 @@ MYSQL_PWD=$AUTH_DB_APP_PASSWORD
 export MYSQL_PWD
 compose_exec -e MYSQL_PWD mysql \
   mysql -h127.0.0.1 -uygh_auth_app -Dauth_db -Nse "SELECT 1" >/dev/null
-if [ "$table_count" -ne 5 ]; then
+if [ "$table_count" -ne 6 ]; then
   echo "AUTH_DB_TABLE_COUNT_UNEXPECTED:$table_count" >&2
   exit 1
 fi
@@ -40,7 +40,7 @@ export MYSQL_PWD
 schema_version=$(compose_exec -e MYSQL_PWD mysql \
   mysql -h127.0.0.1 -uygh_auth_migration -Dauth_db -Nse \
   "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank DESC LIMIT 1")
-if [ "$schema_version" != "2" ]; then
+if [ "$schema_version" != "3" ]; then
   echo "AUTH_DB_SCHEMA_VERSION_UNEXPECTED:$schema_version" >&2
   exit 1
 fi
@@ -89,12 +89,14 @@ app_account='GRANT SELECT, INSERT, UPDATE, DELETE ON `auth_db`.`auth_account` TO
 app_credential='GRANT SELECT, INSERT, UPDATE, DELETE ON `auth_db`.`auth_credential` TO `ygh_auth_app`@`%`'
 app_refresh='GRANT SELECT, INSERT, UPDATE, DELETE ON `auth_db`.`auth_refresh_token` TO `ygh_auth_app`@`%`'
 app_attempt='GRANT SELECT, INSERT, UPDATE, DELETE ON `auth_db`.`auth_login_attempt` TO `ygh_auth_app`@`%`'
-if [ "$(printf '%s\n' "$app_grants" | sed '/^$/d' | wc -l)" -ne 5 ] ||
+app_admin_audit='GRANT SELECT, INSERT, UPDATE, DELETE ON `auth_db`.`auth_account_admin_audit` TO `ygh_auth_app`@`%`'
+if [ "$(printf '%s\n' "$app_grants" | sed '/^$/d' | wc -l)" -ne 6 ] ||
    ! printf '%s\n' "$app_grants" | grep -Fqx "$app_usage" ||
    ! printf '%s\n' "$app_grants" | grep -Fqx "$app_account" ||
    ! printf '%s\n' "$app_grants" | grep -Fqx "$app_credential" ||
    ! printf '%s\n' "$app_grants" | grep -Fqx "$app_refresh" ||
-   ! printf '%s\n' "$app_grants" | grep -Fqx "$app_attempt"; then
+   ! printf '%s\n' "$app_grants" | grep -Fqx "$app_attempt" ||
+   ! printf '%s\n' "$app_grants" | grep -Fqx "$app_admin_audit"; then
   echo AUTH_APP_GRANT_DRIFT >&2
   exit 1
 fi
