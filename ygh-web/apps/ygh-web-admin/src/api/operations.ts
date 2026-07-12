@@ -60,6 +60,36 @@ export interface Permission {
     resourceType: string;
     enabled: boolean;
 }
+export interface KnowledgeDocument {
+    id: string;
+    title: string;
+    category: string;
+    fileName: string;
+    mediaType: string;
+    sizeBytes: number;
+    status: string;
+    version: number;
+    updatedAt: string;
+}
+export interface KnowledgeJob {
+    id: string;
+    documentId: string;
+    taskType?: string;
+    indexVersion?: string;
+    jobType?: string;
+    status: string;
+    progress: number;
+    retryCount: number;
+    failureReason?: string;
+    updatedAt: string;
+}
+export interface DeadLetter {
+    id: string;
+    messageId: string;
+    eventId: string;
+    failureReason: string;
+    failedAt: string;
+}
 export const getDashboard = async (): Promise<Dashboard> =>
     apiData(await useHttp().get("/api/v1/admin/dashboard"));
 export const listAccounts = async (
@@ -98,3 +128,44 @@ export const listRoles = async (): Promise<Role[]> =>
     apiData(await useHttp().get("/api/v1/system/admin/roles"));
 export const listPermissions = async (): Promise<Permission[]> =>
     apiData(await useHttp().get("/api/v1/system/admin/permissions"));
+export const listAdminKnowledge = async (
+    status?: string,
+): Promise<KnowledgeDocument[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/knowledge/documents", {
+            params: { status: status || undefined, limit: 100 },
+        }),
+    );
+export const listProcessingJobs = async (
+    status?: string,
+): Promise<KnowledgeJob[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/knowledge/processing-jobs", {
+            params: { status: status || undefined, limit: 100 },
+        }),
+    );
+export const listIndexJobs = async (status?: string): Promise<KnowledgeJob[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/knowledge/index-jobs", {
+            params: { status: status || undefined, limit: 100 },
+        }),
+    );
+export const retryProcessingJob = async (id: string): Promise<void> => {
+    await useHttp().post(`/api/v1/admin/knowledge/processing-jobs/${id}/retry`);
+};
+export const retryIndexJob = async (id: string): Promise<void> => {
+    await useHttp().post(`/api/v1/admin/knowledge/index-jobs/${id}/retry`);
+};
+export const listDeadLetters = async (): Promise<DeadLetter[]> =>
+    apiData(await useHttp().get("/api/v1/admin/notifications/dead-letters"));
+export const replayDeadLetter = async (id: string): Promise<void> => {
+    await useHttp().post(
+        `/api/v1/admin/notifications/dead-letters/${id}/replay`,
+    );
+};
+export const dispatchNotifications = async (): Promise<number> => {
+    const result = apiData<{ sent: number }>(
+        await useHttp().post("/api/v1/admin/notifications/dispatch"),
+    );
+    return result.sent;
+};

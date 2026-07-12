@@ -1,3 +1,147 @@
-<script setup lang="ts">import {ref} from 'vue';import {Plus,Refresh} from '@element-plus/icons-vue';const tab=ref('review');const docs=[{id:'K20260713001',title:'粤港澳跨境商品合规经营提示',category:'政策法规',uploader:'陈嘉怡',status:'待审核',version:'V1.0',updated:'2026-07-13 00:12'},{id:'K20260712018',title:'进口冷链水产溯源信息识别指南',category:'商品知识',uploader:'黄志强',status:'已发布',version:'V1.9',updated:'2026-07-12 16:30'},{id:'K20260711009',title:'三单对碰申报与放行全流程',category:'通关流程',uploader:'王晓明',status:'解析失败',version:'V2.7',updated:'2026-07-11 14:08'}];</script>
-<template><div class="page-head"><div><h1>知识库治理</h1><p>上传、安全校验、解析切片、审核、发布与索引版本的完整治理链。</p></div><el-button type="primary" :icon="Plus">上传知识</el-button></div><div class="metric-grid"><div class="metric panel"><span>已发布知识</span><b>1,286</b><small>今日新增 12</small></div><div class="metric panel"><span>待审核</span><b>17</b><small>最长等待 18h</small></div><div class="metric panel"><span>处理失败任务</span><b>3</b><small>可人工重试</small></div><div class="metric panel"><span>当前索引版本</span><b>idx-v42</b><small>ES + PGVector 一致</small></div></div><el-tabs v-model="tab" class="panel governance"><el-tab-pane label="审核队列" name="review"/><el-tab-pane label="全部知识" name="all"/><el-tab-pane label="解析任务" name="parse"/><el-tab-pane label="索引任务" name="index"/><div class="filter-row"><el-input placeholder="标题、文档编号"/><el-select placeholder="知识分类"><el-option label="政策法规" value="POLICY"/><el-option label="通关流程" value="CUSTOMS"/><el-option label="商品知识" value="PRODUCT"/></el-select><el-button type="primary">查询</el-button><el-button :icon="Refresh">重试失败任务</el-button></div><el-table :data="docs"><el-table-column prop="id" label="文档编号"/><el-table-column prop="title" label="标题" min-width="260"/><el-table-column prop="category" label="分类"/><el-table-column prop="uploader" label="上传人"/><el-table-column prop="version" label="版本"/><el-table-column prop="status" label="状态"><template #default="s"><el-tag :type="s.row.status==='已发布'?'success':s.row.status==='解析失败'?'danger':'warning'">{{s.row.status}}</el-tag></template></el-table-column><el-table-column prop="updated" label="更新时间"/><el-table-column label="操作" width="170"><template #default="s"><el-button v-if="s.row.status==='待审核'" link type="primary">审核</el-button><el-button v-if="s.row.status==='解析失败'" link type="danger">重试</el-button><el-button link>详情</el-button></template></el-table-column></el-table></el-tabs></template>
-<style scoped>.governance{margin-top:14px;padding:16px}</style>
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { Refresh } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import {
+    listAdminKnowledge,
+    listIndexJobs,
+    listProcessingJobs,
+    retryIndexJob,
+    retryProcessingJob,
+    type KnowledgeDocument,
+    type KnowledgeJob,
+} from "@/api/operations";
+const tab = ref("documents");
+const loading = ref(true);
+const documents = ref<KnowledgeDocument[]>([]);
+const processing = ref<KnowledgeJob[]>([]);
+const indexing = ref<KnowledgeJob[]>([]);
+async function load() {
+    loading.value = true;
+    try {
+        [documents.value, processing.value, indexing.value] = await Promise.all(
+            [listAdminKnowledge(), listProcessingJobs(), listIndexJobs()],
+        );
+    } catch {
+        ElMessage.error("知识治理数据加载失败");
+    } finally {
+        loading.value = false;
+    }
+}
+async function retry(item: KnowledgeJob, type: "processing" | "index") {
+    try {
+        if (type === "processing") await retryProcessingJob(item.id);
+        else await retryIndexJob(item.id);
+        ElMessage.success("重试任务已受理");
+        await load();
+    } catch {
+        ElMessage.error("任务重试失败");
+    }
+}
+onMounted(load);
+</script>
+<template>
+    <div class="page-head">
+        <div>
+            <h1>知识库治理</h1>
+            <p>上传、安全校验、解析切片、审核、发布与索引版本的完整治理链。</p>
+        </div>
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+    </div>
+    <div class="metric-grid">
+        <div class="metric panel">
+            <span>文档总数</span><b>{{ documents.length }}</b>
+        </div>
+        <div class="metric panel">
+            <span>待审核</span
+            ><b>{{
+                documents.filter((x) => x.status === "PENDING_REVIEW").length
+            }}</b>
+        </div>
+        <div class="metric panel">
+            <span>解析失败</span
+            ><b>{{ processing.filter((x) => x.status === "FAILED").length }}</b>
+        </div>
+        <div class="metric panel">
+            <span>索引失败</span
+            ><b>{{ indexing.filter((x) => x.status === "FAILED").length }}</b>
+        </div>
+    </div>
+    <el-tabs v-model="tab" v-loading="loading" class="panel governance"
+        ><el-tab-pane label="全部知识" name="documents"
+            ><el-table :data="documents"
+                ><el-table-column prop="id" label="文档 ID" /><el-table-column
+                    prop="title"
+                    label="标题"
+                    min-width="260"
+                /><el-table-column
+                    prop="category"
+                    label="分类"
+                /><el-table-column
+                    prop="version"
+                    label="版本"
+                /><el-table-column prop="status" label="状态" /><el-table-column
+                    label="更新时间"
+                    ><template #default="scope">{{
+                        new Date(scope.row.updatedAt).toLocaleString("zh-CN")
+                    }}</template></el-table-column
+                ></el-table
+            ></el-tab-pane
+        ><el-tab-pane label="解析任务" name="processing"
+            ><el-table :data="processing"
+                ><el-table-column prop="id" label="任务 ID" /><el-table-column
+                    prop="documentId"
+                    label="文档 ID"
+                /><el-table-column
+                    prop="taskType"
+                    label="类型"
+                /><el-table-column prop="status" label="状态" /><el-table-column
+                    prop="progress"
+                    label="进度"
+                /><el-table-column
+                    prop="failureReason"
+                    label="失败原因"
+                /><el-table-column label="操作"
+                    ><template #default="scope"
+                        ><el-button
+                            v-if="scope.row.status === 'FAILED'"
+                            link
+                            type="danger"
+                            @click="retry(scope.row, 'processing')"
+                            >重试</el-button
+                        ></template
+                    ></el-table-column
+                ></el-table
+            ></el-tab-pane
+        ><el-tab-pane label="索引任务" name="index"
+            ><el-table :data="indexing"
+                ><el-table-column prop="id" label="任务 ID" /><el-table-column
+                    prop="documentId"
+                    label="文档 ID"
+                /><el-table-column
+                    prop="indexVersion"
+                    label="索引版本"
+                /><el-table-column prop="status" label="状态" /><el-table-column
+                    prop="failureReason"
+                    label="失败原因"
+                /><el-table-column label="操作"
+                    ><template #default="scope"
+                        ><el-button
+                            v-if="scope.row.status === 'FAILED'"
+                            link
+                            type="danger"
+                            @click="retry(scope.row, 'index')"
+                            >重试</el-button
+                        ></template
+                    ></el-table-column
+                ></el-table
+            ></el-tab-pane
+        ></el-tabs
+    >
+</template>
+<style scoped>
+.governance {
+    margin-top: 14px;
+    padding: 16px;
+}
+</style>
