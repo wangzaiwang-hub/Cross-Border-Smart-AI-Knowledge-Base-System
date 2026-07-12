@@ -25,6 +25,7 @@ ygh:
     chat-model: ${YGH_DOUBAO_CHAT_MODEL}
     search-base-url: ${YGH_SEARCH_INTERNAL_BASE_URL}
     product-base-url: ${YGH_PRODUCT_INTERNAL_BASE_URL}
+    inventory-base-url: ${YGH_INVENTORY_INTERNAL_BASE_URL}
     order-base-url: ${YGH_ORDER_INTERNAL_BASE_URL}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 management.endpoint.health.probes.enabled: true
