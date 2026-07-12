@@ -4,6 +4,7 @@ param(
     [string]$DatabaseHost = "192.168.154.10",
     [string]$NacosHost = "192.168.154.10",
     [string]$RedisHost = "192.168.154.10",
+    [string]$JwtKeyId = "auth-dev-2026",
     [int]$Port = 18081
 )
 
@@ -21,7 +22,7 @@ Get-Content -LiteralPath $envFile | ForEach-Object {
 }
 foreach ($required in @(
         "AUTH_DB_APP_PASSWORD", "AUTH_DB_MIGRATION_PASSWORD", "AUTH_AUDIT_PEPPER_BASE64",
-        "INTERNAL_REQUEST_HMAC_BASE64", "NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD")) {
+        "INTERNAL_REQUEST_HMAC_BASE64", "AUTH_ID_WORKER", "NACOS_ADMIN_PASSWORD", "REDIS_PASSWORD")) {
     if ([string]::IsNullOrWhiteSpace($config[$required])) { throw "$required missing" }
 }
 
@@ -48,6 +49,7 @@ try {
     $env:YGH_REDIS_PASSWORD = $config.REDIS_PASSWORD
     $env:YGH_REDIS_ENVIRONMENT = "dev"
     $env:YGH_AUTH_AUDIT_PEPPER_BASE64 = $config.AUTH_AUDIT_PEPPER_BASE64
+    $env:YGH_AUTH_ID_WORKER = $config.AUTH_ID_WORKER
     $env:YGH_INTERNAL_REQUEST_HMAC_BASE64 = $config.INTERNAL_REQUEST_HMAC_BASE64
 
     & java '-Dloader.main=com.yuegang.zhihui.auth.AuthMigrationApplication' `
@@ -62,6 +64,20 @@ try {
     Remove-Item Env:YGH_AUTH_DB_MIGRATION_USERNAME -ErrorAction SilentlyContinue
     Remove-Item Env:YGH_AUTH_DB_MIGRATION_PASSWORD -ErrorAction SilentlyContinue
     $env:YGH_AUTH_PORT = $Port.ToString()
+    $jwtDirectory = Join-Path $composeDir "secrets\jwt"
+    foreach ($keyFile in @("$JwtKeyId.private.pem", "$JwtKeyId.public.pem")) {
+        if (-not (Test-Path (Join-Path $jwtDirectory $keyFile))) {
+            throw "JWT key file missing: $keyFile; run scripts/generate-jwt-keypair.sh first"
+        }
+    }
+    $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    & icacls $jwtDirectory /inheritance:r /grant:r "*$sid`:(OI)(CI)(F)" '*S-1-5-18:(OI)(CI)(F)' '*S-1-5-32-544:(OI)(CI)(F)' | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "JWT key directory ACL hardening failed" }
+    $env:YGH_JWT_ENABLED = "true"
+    $env:YGH_JWT_KEY_DIRECTORY = (Resolve-Path $jwtDirectory).Path
+    $env:YGH_JWT_ACTIVE_KID = $JwtKeyId
+    $env:YGH_JWT_ISSUER = "https://auth.dev.ygh.internal"
+    $env:YGH_JWT_AUDIENCE = "ygh-api"
     $stdout = Join-Path (Split-Path $jar) "auth-service.log"
     $stderr = Join-Path (Split-Path $jar) "auth-service-error.log"
     $pidFile = Join-Path (Split-Path $jar) "auth-service.pid"

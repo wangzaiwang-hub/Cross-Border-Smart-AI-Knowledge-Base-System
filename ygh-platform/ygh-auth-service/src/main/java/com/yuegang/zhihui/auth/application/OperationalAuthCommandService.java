@@ -5,22 +5,34 @@ import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.core.ErrorCode;
 import java.util.Objects;
 
-/** Operational login adapter; remaining commands are enabled by subsequent authenticated use cases. */
+/** Operational authentication adapter. */
 final class OperationalAuthCommandService implements AuthCommandService {
     private final LoginUseCase loginUseCase;
+    private final RegistrationUseCase registrationUseCase;
+    private final TokenLifecycleUseCase tokenLifecycle;
+    private final CaptchaService captchas;
+    private final AccessTokenVerificationService accessTokenVerifier;
 
-    OperationalAuthCommandService(LoginUseCase loginUseCase) {
+    OperationalAuthCommandService(LoginUseCase loginUseCase, RegistrationUseCase registrationUseCase,
+            TokenLifecycleUseCase tokenLifecycle, CaptchaService captchas,
+            AccessTokenVerificationService accessTokenVerifier) {
         this.loginUseCase = Objects.requireNonNull(loginUseCase, "loginUseCase must not be null");
+        this.registrationUseCase = Objects.requireNonNull(registrationUseCase);
+        this.tokenLifecycle = Objects.requireNonNull(tokenLifecycle);
+        this.captchas = Objects.requireNonNull(captchas);
+        this.accessTokenVerifier = Objects.requireNonNull(accessTokenVerifier);
     }
 
     @Override public AuthenticationResponse login(LoginRequest request, LoginSecurityContext context) {
         return loginUseCase.login(request, context);
     }
 
-    @Override public AuthenticationResponse register(RegisterRequest request) { throw unavailable(); }
-    @Override public TokenResponse refresh(RefreshTokenRequest request) { throw unavailable(); }
-    @Override public OperationResponse logout(LogoutRequest request) { throw unavailable(); }
-    @Override public CaptchaResponse captcha() { throw unavailable(); }
+    @Override public AuthenticationResponse register(RegisterRequest request) { return registrationUseCase.register(request); }
+    @Override public TokenResponse refresh(RefreshTokenRequest request) { return tokenLifecycle.refresh(request); }
+    @Override public OperationResponse logout(LogoutRequest request, String authorization) {
+        return tokenLifecycle.logout(request, accessTokenVerifier.verifyAuthorization(authorization));
+    }
+    @Override public CaptchaResponse captcha() { return captchas.create(); }
     @Override public PasswordResetRequestedResponse requestPasswordReset(PasswordResetRequest request) {
         throw unavailable();
     }

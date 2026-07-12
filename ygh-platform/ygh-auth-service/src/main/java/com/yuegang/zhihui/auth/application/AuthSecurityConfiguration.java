@@ -18,6 +18,7 @@ import com.yuegang.zhihui.auth.infrastructure.JdbcRefreshTokenRepository;
 import com.yuegang.zhihui.auth.infrastructure.JdbcLoginAttemptRepository;
 import com.yuegang.zhihui.auth.infrastructure.JdbcLoginAccountRepository;
 import com.yuegang.zhihui.auth.infrastructure.RedisLoginRateLimiter;
+import com.yuegang.zhihui.auth.infrastructure.RedisCaptchaChallengeStore;
 import com.yuegang.zhihui.common.redis.RedisKeyBuilder;
 import com.yuegang.zhihui.common.redis.SessionStateStore;
 import com.yuegang.zhihui.common.security.InternalRequestSignature;
@@ -192,7 +193,48 @@ class AuthSecurityConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
-    AuthCommandService operationalAuthCommandService(LoginUseCase loginUseCase) {
-        return new OperationalAuthCommandService(loginUseCase);
+    RedisCaptchaChallengeStore captchaChallengeStore(StringRedisTemplate redis, RedisKeyBuilder keys,
+            @org.springframework.beans.factory.annotation.Value("${ygh.redis.environment}") String environment) {
+        return new RedisCaptchaChallengeStore(redis, keys, environment);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    CaptchaService captchaService(RedisCaptchaChallengeStore store, SensitiveValueHasher hasher, Clock clock) {
+        return new CaptchaService(store, hasher, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    SnowflakeIdGenerator authIdGenerator(
+            @org.springframework.beans.factory.annotation.Value("${ygh.auth.id-worker}") long workerId, Clock clock) {
+        return new SnowflakeIdGenerator(workerId, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    RegistrationUseCase registrationUseCase(LoginAccountRepository accounts, PasswordPolicy passwords,
+            Argon2PasswordHasher passwordHasher, CaptchaService captchas, SnowflakeIdGenerator ids,
+            AccessTokenIssuer accessTokens, OpaqueRefreshTokenService refreshTokens,
+            SessionStateStore sessions, Clock clock) {
+        return new RegistrationUseCase(accounts, passwords, passwordHasher, captchas, ids,
+                accessTokens, refreshTokens, sessions, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    TokenLifecycleUseCase tokenLifecycleUseCase(OpaqueRefreshTokenService refreshTokens,
+            LoginAccountRepository accounts, AccessTokenIssuer accessTokens,
+            SessionStateStore sessions, Clock clock) {
+        return new TokenLifecycleUseCase(refreshTokens, accounts, accessTokens, sessions, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    AuthCommandService operationalAuthCommandService(LoginUseCase loginUseCase,
+            RegistrationUseCase registrationUseCase, TokenLifecycleUseCase tokenLifecycle,
+            CaptchaService captchas, AccessTokenVerificationService accessTokenVerifier) {
+        return new OperationalAuthCommandService(loginUseCase, registrationUseCase, tokenLifecycle,
+                captchas, accessTokenVerifier);
     }
 }

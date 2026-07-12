@@ -68,6 +68,7 @@ ygh:
   internal-request:
     hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
   auth:
+    id-worker: ${YGH_AUTH_ID_WORKER}
     audit-pepper-base64: ${YGH_AUTH_AUDIT_PEPPER_BASE64}
     rate-limit:
       principal-limit: ${YGH_AUTH_PRINCIPAL_LOGIN_LIMIT:10}

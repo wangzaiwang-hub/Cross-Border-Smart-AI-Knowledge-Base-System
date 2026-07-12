@@ -16,7 +16,7 @@ class ContractOnlyAuthCommandServiceTest {
         assertUnavailable(() -> service.register(null));
         assertUnavailable(() -> service.login(null, null));
         assertUnavailable(() -> service.refresh(null));
-        assertUnavailable(() -> service.logout(null));
+        assertUnavailable(() -> service.logout(null, null));
         assertUnavailable(service::captcha);
         assertUnavailable(() -> service.requestPasswordReset(null));
         assertUnavailable(() -> service.confirmPasswordReset(null));

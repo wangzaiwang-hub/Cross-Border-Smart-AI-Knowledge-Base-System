@@ -13,7 +13,7 @@ final class ContractOnlyAuthCommandService implements AuthCommandService {
     @Override public AuthenticationResponse register(RegisterRequest request) { throw unavailable(); }
     @Override public AuthenticationResponse login(LoginRequest request, LoginSecurityContext context) { throw unavailable(); }
     @Override public TokenResponse refresh(RefreshTokenRequest request) { throw unavailable(); }
-    @Override public OperationResponse logout(LogoutRequest request) { throw unavailable(); }
+    @Override public OperationResponse logout(LogoutRequest request, String authorization) { throw unavailable(); }
     @Override public CaptchaResponse captcha() { throw unavailable(); }
     @Override public PasswordResetRequestedResponse requestPasswordReset(PasswordResetRequest request) {
         throw unavailable();

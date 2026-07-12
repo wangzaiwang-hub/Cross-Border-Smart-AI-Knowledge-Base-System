@@ -34,4 +34,11 @@ class JwtTokenConfiguration {
                 keyRing, issuer, audience, Duration.ofMinutes(lifetimeMinutes), clock);
         return new SessionAwareAccessTokenIssuer(signer, sessions, clock);
     }
+
+    @Bean
+    AccessTokenVerificationService accessTokenVerificationService(RsaSigningKeyRing keyRing,
+            @Value("${ygh.security.jwt.issuer}") String issuer,
+            @Value("${ygh.security.jwt.audience:ygh-api}") String audience, Clock clock) {
+        return new AccessTokenVerificationService(keyRing, issuer, audience, clock);
+    }
 }

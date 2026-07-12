@@ -156,7 +156,7 @@ class AuthApiContractTest {
         }
 
         @Override
-        public OperationResponse logout(com.yuegang.zhihui.auth.api.dto.LogoutRequest request) {
+        public OperationResponse logout(com.yuegang.zhihui.auth.api.dto.LogoutRequest request, String authorization) {
             return new OperationResponse(true);
         }
 

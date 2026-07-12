@@ -123,3 +123,16 @@ JWT 功能通过 `YGH_JWT_ENABLED=true` 显式启用，并要求注入 `YGH_JWT_
 真实 MySQL 8.4.10 + Redis 8.4.4 + 临时 RSA 密钥 + Auth 随机端口 HTTP 测试已验证：登录 200、JWT `sub/account_id/roles`、Refresh Token 行、Redis Session/账号状态和 HMAC 登录审计五处事实一致。Reviewer 复核无 P0/P1。
 
 虚拟机 MySQL 于 2026-07-12 从 V1 前向迁移至 V2，Flyway 校验并成功应用 1 个迁移；更新后的 `verify-auth-db.sh` 已确认版本为 2、`client_ip` 已删除、仅保留 `client_ip_hash`，同时应用账号 DDL 拒绝、迁移账号 DDL 成功及五张含 Flyway 历史表的表数量门禁均通过。随后开发 Auth 实例重新部署成功。
+
+## 11. BE-0326 注册、轮换、重放、锁定与退出闭环
+
+- 注册使用一次性 Redis 验证码。验证码答案使用带域分离的 HMAC-SHA256 存储，Lua 在校验时无论成功失败都删除挑战；对外仅返回带干扰线、随机颜色和旋转字符的 PNG，不把答案作为 SVG 文本或响应字段暴露。
+- 注册主体统一规范化，密码先经过长度、控制字符与泄露密码库检查，再执行 Argon2id；账号与凭据在一个 MySQL 事务写入，唯一键竞态稳定转换为 `BUSINESS_CONFLICT`。
+- 业务 ID 使用 64 位 Snowflake 生成器，固定纪元、10 bit worker 和 12 bit 毫秒序列；`YGH_AUTH_ID_WORKER` 为部署必填项，同一集群实例不得重复，时钟回拨与序列容量耗尽均失败关闭。
+- Refresh Token 每次使用即轮换；旧 Token 重放会撤销整个 token family。账号缺失或禁用时，新生成的轮换 Token 被补偿撤销，不签发 Access Token。
+- 退出必须同时携带有效 RS256 Bearer Token 与 Refresh Token。Auth 独立校验签名、`kid`、issuer、audience、有效期和 `account_id/jti`，随后撤销 Refresh family，并原子删除 Redis Access Session、写入撤销标记；缺少或伪造 Authorization 返回 401。
+- 真实 HTTP 集成测试使用 MySQL 8.4.10、Redis 8.4.4、临时 RSA 密钥和随机端口，覆盖验证码、注册 201、登录 200、刷新轮换、旧 Token 重放 401、无 Authorization 退出 401、有效退出、Redis Session 撤销、连续五次失败锁定及锁定后正确密码仍为 401。
+
+Auth Reactor 共执行 45 项测试，JaCoCo 门禁通过；真实链路未使用 Mock Controller、内存数据库或伪造 Token。
+
+开发 Auth 部署脚本已改为强制加载忽略目录中的 3072-bit RSA 密钥、收紧 Windows ACL、开启 JWT 真实模式并注入唯一 worker ID。实测部署后 readiness 为 `UP`、验证码接口返回 `SUCCESS/image/png`，证明当前运行实例不是 503 契约回退实现；虚拟机 `auth_db` V2 与最小权限复验同时通过。

@@ -49,8 +49,10 @@ public final class AuthController {
 
     @PostMapping("/logout")
     public ApiResponse<OperationResponse> logout(
-            @Valid @RequestBody LogoutRequest request, HttpServletRequest servletRequest) {
-        return success(authService.logout(request), servletRequest);
+            @Valid @RequestBody LogoutRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest servletRequest) {
+        return success(authService.logout(request, authorization), servletRequest);
     }
 
     @GetMapping("/captcha")

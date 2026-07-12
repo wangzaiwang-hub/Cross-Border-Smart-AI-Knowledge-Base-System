@@ -17,7 +17,7 @@ public interface AuthCommandService {
     AuthenticationResponse register(RegisterRequest request);
     AuthenticationResponse login(LoginRequest request, LoginSecurityContext context);
     TokenResponse refresh(RefreshTokenRequest request);
-    OperationResponse logout(LogoutRequest request);
+    OperationResponse logout(LogoutRequest request, String authorization);
     CaptchaResponse captcha();
     PasswordResetRequestedResponse requestPasswordReset(PasswordResetRequest request);
     OperationResponse confirmPasswordReset(PasswordResetConfirmRequest request);

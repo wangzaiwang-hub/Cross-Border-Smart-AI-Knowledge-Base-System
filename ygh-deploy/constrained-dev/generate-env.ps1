@@ -18,6 +18,10 @@ if (Test-Path $envPath) {
         Add-Content -LiteralPath $envPath -Value "INTERNAL_REQUEST_HMAC_BASE64=$(New-Secret 32)" -Encoding UTF8NoBOM
         $updated = $true
     }
+    if ($existing -notmatch '(?m)^AUTH_ID_WORKER=') {
+        Add-Content -LiteralPath $envPath -Value "AUTH_ID_WORKER=1" -Encoding UTF8NoBOM
+        $updated = $true
+    }
     Write-Output $(if ($updated) { 'ENV_UPDATED_MISSING_VALUES_HIDDEN' } else { 'ENV_EXISTS_NO_CHANGE' })
     exit 0
 }
@@ -32,6 +36,7 @@ NACOS_DB_PASSWORD=$(New-Secret 24)
 AUTH_DB_APP_PASSWORD=$(New-Secret 24)
 AUTH_DB_MIGRATION_PASSWORD=$(New-Secret 24)
 AUTH_AUDIT_PEPPER_BASE64=$(New-Secret 32)
+AUTH_ID_WORKER=1
 INTERNAL_REQUEST_HMAC_BASE64=$(New-Secret 32)
 REDIS_PASSWORD=$(New-Secret 24)
 NACOS_AUTH_TOKEN=$nacosToken

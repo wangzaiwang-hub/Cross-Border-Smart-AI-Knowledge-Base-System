@@ -54,6 +54,21 @@ public final class SensitiveValueHasher {
         }
     }
 
+    public String hashCaptchaAnswer(String answer) {
+        if (answer == null || !answer.matches("[A-Za-z0-9]{6}")) {
+            throw new IllegalArgumentException("captcha answer must contain six alphanumeric characters");
+        }
+        byte[] raw = answer.toUpperCase(java.util.Locale.ROOT).getBytes(StandardCharsets.US_ASCII);
+        byte[] domainSeparated = new byte[raw.length + 1];
+        domainSeparated[0] = 2;
+        System.arraycopy(raw, 0, domainSeparated, 1, raw.length);
+        try { return hmac(domainSeparated); }
+        finally {
+            Arrays.fill(raw, (byte) 0);
+            Arrays.fill(domainSeparated, (byte) 0);
+        }
+    }
+
     private String hmac(byte[] value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

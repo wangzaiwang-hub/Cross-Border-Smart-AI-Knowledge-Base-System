@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jwt.SignedJWT;
 import com.yuegang.zhihui.auth.domain.Argon2PasswordHasher;
+import com.yuegang.zhihui.auth.domain.SensitiveValueHasher;
 import com.yuegang.zhihui.common.redis.RedisKeyBuilder;
 import com.yuegang.zhihui.common.redis.SessionRedisKeys;
 import com.yuegang.zhihui.common.security.InternalRequestSignature;
@@ -73,6 +74,7 @@ class OperationalLoginHttpIntegrationTest {
                                 "YGH_AUTH_AUDIT_PEPPER_BASE64=" + TEST_SECRET,
                                 "YGH_INTERNAL_REQUEST_HMAC_BASE64=" + TEST_SECRET,
                                 "YGH_JWT_ENABLED=true",
+                                "YGH_AUTH_ID_WORKER=1",
                                 "YGH_JWT_KEY_DIRECTORY=" + keyDirectory.toAbsolutePath(),
                                 "YGH_JWT_ACTIVE_KID=login-test",
                                 "YGH_JWT_ISSUER=https://auth.integration.test")
@@ -88,11 +90,106 @@ class OperationalLoginHttpIntegrationTest {
                     assertThat(result.refreshToken).isNotBlank();
                     verifyDatabase(mysql.jdbcUrl(), mysql.username(), mysql.credential());
                     verifyRedis(redis.getHost(), redis.getMappedPort(6379), jwt.getJWTClaimsSet().getJWTID());
+                    verifyRegistrationRefreshReplayLogoutAndLock(port, redis.getHost(), redis.getMappedPort(6379));
                 }
             } finally {
                 redis.stop();
             }
         }
+    }
+
+    private void verifyRegistrationRefreshReplayLogoutAndLock(int port, String redisHost, int redisPort) throws Exception {
+        JsonNode captcha = get(port, "/api/v1/auth/captcha").path("data");
+        byte[] captchaImage = Base64.getDecoder().decode(captcha.path("imageBase64").asString());
+        assertThat(captcha.path("mimeType").asString()).isEqualTo("image/png");
+        assertThat(captchaImage).startsWith(0x89, 0x50, 0x4e, 0x47);
+        String registrationChallenge = "integrationcaptcha1";
+        String registrationAnswer = "ABC234";
+        seedCaptcha(redisHost, redisPort, registrationChallenge, registrationAnswer);
+        String registerBody = """
+                {"principal":"new.customer@example.com","password":"Unique enterprise phrase 2026!",
+                 "confirmPassword":"Unique enterprise phrase 2026!","captchaChallengeId":"%s",
+                 "captchaAnswer":"%s","agreementAccepted":true}
+                """.formatted(registrationChallenge, registrationAnswer);
+        HttpResponse<String> registered = post(port, "/api/v1/auth/register", registerBody);
+        assertThat(registered.statusCode()).isEqualTo(201);
+        JsonNode registeredJson = JsonMapper.builder().build().readTree(registered.body());
+        String registeredRefresh = registeredJson.path("data").path("tokens").path("refreshToken").asString();
+        assertThat(registeredRefresh).isNotBlank();
+
+        HttpResponse<String> refreshed = post(port, "/api/v1/auth/refresh",
+                "{\"refreshToken\":\"" + registeredRefresh + "\",\"deviceId\":\"browser\"}");
+        assertThat(refreshed.statusCode()).isEqualTo(200);
+        String replacement = JsonMapper.builder().build().readTree(refreshed.body())
+                .path("data").path("refreshToken").asString();
+        assertThat(replacement).isNotBlank().isNotEqualTo(registeredRefresh);
+
+        HttpResponse<String> replay = post(port, "/api/v1/auth/refresh",
+                "{\"refreshToken\":\"" + registeredRefresh + "\",\"deviceId\":\"browser\"}");
+        assertThat(replay.statusCode()).isEqualTo(401);
+        assertThat(JsonMapper.builder().build().readTree(replay.body()).path("code").asString())
+                .isEqualTo("UNAUTHENTICATED");
+
+        assertThat(post(port, "/api/v1/auth/logout",
+                "{\"refreshToken\":\"" + replacement + "\"}").statusCode()).isEqualTo(401);
+        String registeredAccess = registeredJson.path("data").path("tokens").path("accessToken").asString();
+        HttpResponse<String> logout = postAuthorized(port, "/api/v1/auth/logout",
+                "{\"refreshToken\":\"" + replacement + "\"}", registeredAccess);
+        assertThat(logout.statusCode()).isEqualTo(200);
+        SignedJWT registeredJwt = SignedJWT.parse(registeredAccess);
+        verifyRevokedSession(redisHost, redisPort,
+                Long.parseLong(registeredJwt.getJWTClaimsSet().getStringClaim("account_id")),
+                registeredJwt.getJWTClaimsSet().getJWTID());
+        assertThat(post(port, "/api/v1/auth/refresh",
+                "{\"refreshToken\":\"" + replacement + "\",\"deviceId\":\"browser\"}").statusCode())
+                .isEqualTo(401);
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertThat(loginResponse(port, "Wrong enterprise passphrase", "lock-" + attempt).statusCode())
+                    .isEqualTo(401);
+        }
+        assertThat(loginResponse(port, "Correct Horse Battery 2026", "locked-correct").statusCode())
+                .isEqualTo(401);
+    }
+
+    private static JsonNode get(int port, String path) throws Exception {
+        HttpResponse<String> response = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                URI.create("http://127.0.0.1:" + port + path)).GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(200);
+        return JsonMapper.builder().build().readTree(response.body());
+    }
+
+    private static HttpResponse<String> post(int port, String path, String body) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                URI.create("http://127.0.0.1:" + port + path))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static HttpResponse<String> postAuthorized(int port, String path, String body, String access) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                URI.create("http://127.0.0.1:" + port + path))
+                .header("Content-Type", "application/json").header("Authorization", "Bearer " + access)
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> loginResponse(int port, String password, String suffix) throws Exception {
+        Instant now = Instant.now();
+        String traceId = "trace-http-" + suffix;
+        String requestId = "request-http-" + suffix;
+        var signatures = new InternalRequestSignature(Base64.getDecoder().decode(TEST_SECRET),
+                Clock.systemUTC(), Duration.ofSeconds(30));
+        var metadata = new InternalRequestSignature.Metadata(
+                "192.0.2.89", traceId, requestId, "POST", "/api/v1/auth/login", now);
+        String body = "{\"principal\":\"alice@example.com\",\"password\":\"" + password
+                + "\",\"deviceId\":\"test\"}";
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + port + "/api/v1/auth/login"))
+                .header("Content-Type", "application/json").header("X-Trace-Id", traceId)
+                .header("X-Request-Id", requestId).header("X-YGH-Client-IP", "192.0.2.89")
+                .header("X-YGH-Client-IP-Timestamp", Long.toString(now.toEpochMilli()))
+                .header("X-YGH-Client-IP-Signature", signatures.sign(metadata))
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private LoginResult login(int port) throws Exception {
@@ -176,6 +273,32 @@ class OperationalLoginHttpIntegrationTest {
         } finally {
             connectionFactory.destroy();
         }
+    }
+
+    private static void verifyRevokedSession(String host, int port, long accountId, String jwtId) {
+        var connectionFactory = new LettuceConnectionFactory(host, port);
+        connectionFactory.afterPropertiesSet();
+        connectionFactory.start();
+        try {
+            var redis = new StringRedisTemplate(connectionFactory);
+            redis.afterPropertiesSet();
+            var keys = new SessionRedisKeys(new RedisKeyBuilder(), "test");
+            assertThat(redis.opsForValue().get(keys.session(accountId, jwtId))).isNull();
+            assertThat(redis.opsForValue().get(keys.revoked(accountId, jwtId))).isEqualTo("1");
+        } finally { connectionFactory.destroy(); }
+    }
+
+    private static void seedCaptcha(String host, int port, String challengeId, String answer) {
+        var connectionFactory = new LettuceConnectionFactory(host, port);
+        connectionFactory.afterPropertiesSet();
+        connectionFactory.start();
+        try {
+            var redis = new StringRedisTemplate(connectionFactory);
+            redis.afterPropertiesSet();
+            String key = new RedisKeyBuilder().build("test", "auth", "captcha", challengeId);
+            String hash = new SensitiveValueHasher(Base64.getDecoder().decode(TEST_SECRET)).hashCaptchaAnswer(answer);
+            redis.opsForValue().set(key, hash, Duration.ofMinutes(5));
+        } finally { connectionFactory.destroy(); }
     }
 
     private void writeKeyPair(String kid) throws Exception {
