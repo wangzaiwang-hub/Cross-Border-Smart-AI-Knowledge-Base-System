@@ -225,6 +225,18 @@ export interface TrainingGate {
     passScore: number;
     maximumAttempts: number;
 }
+export interface LearningPath {
+    id: string;
+    positionCode: string;
+    name: string;
+    enabled: boolean;
+    version: number;
+    courses: Array<{
+        courseId: string;
+        sequenceNo: number;
+        prerequisiteCourseId?: string;
+    }>;
+}
 export interface AuditLog {
     timestamp: string;
     userId?: string;
@@ -677,6 +689,27 @@ export const getTrainingAnalytics = async (): Promise<TrainingAnalytics> =>
     apiData(await useHttp().get("/api/v1/training/learning/admin/analytics"));
 export const listTrainingCourses = async (): Promise<TrainingCourse[]> =>
     apiData(await useHttp().get("/api/v1/training/courses"));
+export const listLearningPaths = async (): Promise<LearningPath[]> =>
+    apiData(await useHttp().get("/api/v1/training/paths/admin/all"));
+export const createLearningPath = async (command: {
+    positionCode: string;
+    name: string;
+}): Promise<LearningPath> =>
+    apiData(await useHttp().post("/api/v1/training/paths/admin", command));
+export const addLearningPathCourse = async (
+    pathId: string,
+    command: {
+        courseId: string;
+        sequenceNo: number;
+        prerequisiteCourseId?: string;
+    },
+): Promise<LearningPath> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/training/paths/admin/${pathId}/courses`,
+            command,
+        ),
+    );
 export const listTrainingChapters = async (
     courseId: string,
 ): Promise<TrainingChapter[]> =>

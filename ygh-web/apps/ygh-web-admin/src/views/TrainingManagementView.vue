@@ -7,24 +7,32 @@ import {
     createTrainingCourse,
     createTrainingGate,
     createTrainingQuestion,
+    createLearningPath,
+    addLearningPathCourse,
     getTrainingAnalytics,
     listTrainingCourses,
     listTrainingChapters,
     listTrainingGates,
+    listLearningPaths,
     publishTrainingCourse,
     uploadTrainingDocument,
     type TrainingChapter,
     type TrainingAnalytics,
     type TrainingCourse,
     type TrainingGate,
+    type LearningPath,
 } from "@/api/operations";
 const tab = ref("courses");
 const loading = ref(true);
 const data = ref<TrainingAnalytics>();
 const courses = ref<TrainingCourse[]>([]);
+const paths = ref<LearningPath[]>([]);
 const courseDialog = ref(false);
 const assignmentDialog = ref(false);
 const contentDialog = ref(false);
+const pathDialog = ref(false);
+const pathCourseDialog = ref(false);
+const selectedPath = ref<LearningPath>();
 const saving = ref(false);
 const selectedCourse = ref<TrainingCourse>();
 const chapters = ref<TrainingChapter[]>([]);
@@ -58,12 +66,19 @@ const questionForm = reactive({
     explanation: "",
     score: 10,
 });
+const pathForm = reactive({ positionCode: "", name: "" });
+const pathCourseForm = reactive({
+    courseId: "",
+    sequenceNo: 1,
+    prerequisiteCourseId: "",
+});
 async function load() {
     loading.value = true;
     try {
-        [data.value, courses.value] = await Promise.all([
+        [data.value, courses.value, paths.value] = await Promise.all([
             getTrainingAnalytics(),
             listTrainingCourses(),
+            listLearningPaths(),
         ]);
     } catch {
         ElMessage.error("培训运营数据加载失败");
@@ -200,6 +215,42 @@ async function uploadDocument() {
         saving.value = false;
     }
 }
+async function savePath() {
+    saving.value = true;
+    try {
+        await createLearningPath(pathForm);
+        paths.value = await listLearningPaths();
+        pathDialog.value = false;
+        ElMessage.success("岗位学习路径已创建");
+    } catch {
+        ElMessage.error("学习路径创建失败，请检查岗位编码");
+    } finally {
+        saving.value = false;
+    }
+}
+function openPathCourse(path: LearningPath) {
+    selectedPath.value = path;
+    pathCourseForm.sequenceNo = path.courses.length + 1;
+    pathCourseDialog.value = true;
+}
+async function savePathCourse() {
+    if (!selectedPath.value) return;
+    saving.value = true;
+    try {
+        await addLearningPathCourse(selectedPath.value.id, {
+            ...pathCourseForm,
+            prerequisiteCourseId:
+                pathCourseForm.prerequisiteCourseId || undefined,
+        });
+        paths.value = await listLearningPaths();
+        pathCourseDialog.value = false;
+        ElMessage.success("课程已加入学习路径");
+    } catch {
+        ElMessage.error("路径课程保存失败，请检查顺序和前置课程");
+    } finally {
+        saving.value = false;
+    }
+}
 onMounted(load);
 </script>
 <template>
@@ -210,6 +261,7 @@ onMounted(load);
                 <p>按部门、岗位和员工维护课程、任务与统计。</p>
             </div>
             <div>
+                <el-button @click="pathDialog = true">新建学习路径</el-button>
                 <el-button @click="assignmentDialog = true">分配任务</el-button
                 ><el-button type="primary" @click="courseDialog = true"
                     >新建课程</el-button
@@ -264,6 +316,32 @@ onMounted(load);
                         ></el-table-column
                     ></el-table
                 ></el-tab-pane
+            ><el-tab-pane label="岗位学习路径" name="paths"
+                ><el-table :data="paths"
+                    ><el-table-column
+                        prop="positionCode"
+                        label="岗位编码"
+                    /><el-table-column
+                        prop="name"
+                        label="路径名称"
+                    /><el-table-column label="课程数"
+                        ><template #default="scope">{{
+                            scope.row.courses.length
+                        }}</template></el-table-column
+                    ><el-table-column
+                        prop="version"
+                        label="版本"
+                    /><el-table-column label="操作"
+                        ><template #default="scope"
+                            ><el-button
+                                link
+                                type="primary"
+                                @click="openPathCourse(scope.row)"
+                                >添加课程</el-button
+                            ></template
+                        ></el-table-column
+                    ></el-table
+                ></el-tab-pane
             ><el-tab-pane label="学习分析" name="analytics"
                 ><el-table :data="data?.weakKnowledge || []"
                     ><el-table-column
@@ -298,6 +376,60 @@ onMounted(load);
                     :loading="saving"
                     @click="createCourse"
                     >创建草稿</el-button
+                ></template
+            ></el-dialog
+        ><el-dialog v-model="pathDialog" title="新建岗位学习路径" width="520"
+            ><el-form label-position="top"
+                ><el-form-item label="岗位编码"
+                    ><el-input v-model="pathForm.positionCode" /></el-form-item
+                ><el-form-item label="路径名称"
+                    ><el-input
+                        v-model="pathForm.name" /></el-form-item></el-form
+            ><template #footer
+                ><el-button @click="pathDialog = false">取消</el-button
+                ><el-button type="primary" :loading="saving" @click="savePath"
+                    >保存</el-button
+                ></template
+            ></el-dialog
+        ><el-dialog
+            v-model="pathCourseDialog"
+            :title="`${selectedPath?.name || ''} · 添加课程`"
+            width="560"
+            ><el-form label-position="top"
+                ><el-form-item label="课程"
+                    ><el-select
+                        v-model="pathCourseForm.courseId"
+                        style="width: 100%"
+                        ><el-option
+                            v-for="course in courses.filter(
+                                (x) => x.status === 'PUBLISHED',
+                            )"
+                            :key="course.id"
+                            :label="course.title"
+                            :value="course.id" /></el-select></el-form-item
+                ><el-form-item label="顺序"
+                    ><el-input-number
+                        v-model="pathCourseForm.sequenceNo"
+                        :min="1" /></el-form-item
+                ><el-form-item label="前置课程"
+                    ><el-select
+                        v-model="pathCourseForm.prerequisiteCourseId"
+                        clearable
+                        style="width: 100%"
+                        ><el-option
+                            v-for="course in courses"
+                            :key="course.id"
+                            :label="course.title"
+                            :value="
+                                course.id
+                            " /></el-select></el-form-item></el-form
+            ><template #footer
+                ><el-button @click="pathCourseDialog = false">取消</el-button
+                ><el-button
+                    type="primary"
+                    :loading="saving"
+                    @click="savePathCourse"
+                    >保存</el-button
                 ></template
             ></el-dialog
         ><el-dialog
