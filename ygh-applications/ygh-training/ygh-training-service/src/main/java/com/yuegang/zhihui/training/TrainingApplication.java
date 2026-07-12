@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.training;import org.springframework.boot.*;import org.springframework.boot.autoconfigure.*;@SpringBootApplication public class TrainingApplication{public static void main(String[]a){SpringApplication.run(TrainingApplication.class,a);}}

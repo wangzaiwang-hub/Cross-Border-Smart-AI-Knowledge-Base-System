@@ -1,0 +1,21 @@
+server.port: ${YGH_TRAINING_PORT:8091}
+spring:
+  application.name: ygh-training-service
+  datasource:
+    url: ${YGH_TRAINING_DB_URL}
+    username: ${YGH_TRAINING_DB_APP_USERNAME:ygh_training_app}
+    password: ${YGH_TRAINING_DB_APP_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    url: ${YGH_TRAINING_DB_URL}
+    user: ${YGH_TRAINING_DB_MIGRATION_USERNAME:ygh_training_migration}
+    password: ${YGH_TRAINING_DB_MIGRATION_PASSWORD}
+    locations: classpath:db/migration
+  cloud.nacos.discovery:
+    server-addr: ${YGH_NACOS_SERVER_ADDR}
+    username: ${YGH_NACOS_USERNAME}
+    password: ${YGH_NACOS_PASSWORD}
+    namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
+    group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
+ygh.internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
+management.endpoints.web.exposure.include: health,info
