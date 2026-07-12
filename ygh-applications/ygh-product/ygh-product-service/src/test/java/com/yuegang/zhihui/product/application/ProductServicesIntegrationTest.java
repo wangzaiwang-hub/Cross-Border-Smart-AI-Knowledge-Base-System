@@ -39,14 +39,15 @@ class ProductServicesIntegrationTest {
             var root = catalog.createCategory(new SaveCategoryRequest(null, "FOOD", "食品", 1));
             var snacks = catalog.createCategory(new SaveCategoryRequest(root.id(), "SNACK", "跨境零食", 2));
             var brand = catalog.createBrand(new SaveBrandRequest("LNZ", "岭南滋味", "https://img/logo.png"));
-            assertThat(catalog.categories(true)).extracting(c -> c.code()).containsExactly("FOOD", "SNACK");
-            assertThat(catalog.categories(false)).hasSize(2);
+            assertThat(catalog.categories(true)).extracting(c -> c.code()).contains("YGH_MALL", "HK_FRESH", "LINGNAN_SPECIALTY", "CROSS_BORDER_SNACK", "FOOD", "SNACK");
+            assertThat(catalog.categories(false)).hasSize(6);
             assertThat(catalog.brands(true)).containsExactly(brand);
             assertThat(catalog.brands(false)).hasSize(1);
 
             var created = products.create(new SaveProductRequest(snacks.id(), brand.id(), "荔枝曲奇", "SKU-LYCHEE",
-                    new BigDecimal("29.90"), "CNY", List.of("https://img/1.png"), "TRACE-001", 0));
+                    new BigDecimal("29.90"), "CNY", List.of("https://img/1.png"), "TRACE-001", 0, Map.of("净含量", "200g")));
             assertThat(created.status()).isEqualTo(ProductStatus.DRAFT);
+            assertThat(created.specifications()).containsEntry("净含量", "200g");
             assertThat(products.list(snacks.id(), "荔枝", 1000, false)).containsExactly(created);
             assertThat(products.list(null, null, 0, true)).isEmpty();
             assertBusinessError(() -> products.get(created.skuId(), true), ErrorCode.RESOURCE_NOT_FOUND);
@@ -57,10 +58,11 @@ class ProductServicesIntegrationTest {
 
             var updated = administration.update(created.skuId(), new UpdateProductRequest(snacks.id(), "", "荔枝曲奇礼盒",
                     "岭南特产", new BigDecimal("35.50"), "CNY", List.of("https://img/2.png", "https://img/3.png"),
-                    "TRACE-002", published.version()));
+                    "TRACE-002", published.version(), Map.of("净含量", "400g", "包装", "礼盒")));
             assertThat(updated.brandId()).isNull();
             assertThat(updated.images()).containsExactly("https://img/2.png", "https://img/3.png");
             assertThat(updated.price()).isEqualByComparingTo("35.50");
+            assertThat(updated.specifications()).containsEntry("包装", "礼盒");
             assertBusinessError(() -> administration.update(created.skuId(), new UpdateProductRequest(snacks.id(), null,
                     "冲突", null, BigDecimal.ONE, "CNY", List.of(), null, 999)), ErrorCode.BUSINESS_CONFLICT);
 
