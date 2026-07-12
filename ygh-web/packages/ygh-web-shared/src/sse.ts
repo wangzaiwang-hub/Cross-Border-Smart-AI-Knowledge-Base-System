@@ -5,6 +5,20 @@ export async function streamSse(
   onDelta: (value: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  return streamSseEvents(url, token, body, event => {
+    if (event.data !== '[DONE]') onDelta(event.data)
+  }, signal)
+}
+
+export interface SseEvent { event: string; data: string; id?: string }
+
+export async function streamSseEvents(
+  url: string,
+  token: string,
+  body: unknown,
+  onEvent: (event: SseEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -24,11 +38,17 @@ export async function streamSse(
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
+    buffer = buffer.replaceAll('\r\n', '\n')
     const events = buffer.split('\n\n')
     buffer = events.pop() ?? ''
     for (const event of events) {
-      const data = event.split('\n').find(line => line.startsWith('data:'))?.slice(5).trim()
-      if (data && data !== '[DONE]') onDelta(data)
+      const lines = event.split('\n')
+      const data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+      if (data) onEvent({
+        event: lines.find(line => line.startsWith('event:'))?.slice(6).trim() || 'message',
+        data,
+        id: lines.find(line => line.startsWith('id:'))?.slice(3).trim(),
+      })
     }
   }
 }
