@@ -12,6 +12,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.slf4j.MDC;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /** Records safe request metadata without reading query values or request bodies. */
@@ -45,6 +46,8 @@ public final class RequestLoggingFilter extends OncePerRequestFilter {
         request.setAttribute(TraceIdResolver.REQUEST_ID_ATTRIBUTE, requestId);
         response.setHeader(TraceIdResolver.TRACE_ID_HEADER, traceId);
         response.setHeader(TraceIdResolver.REQUEST_ID_HEADER, requestId);
+        MDC.put("traceId", traceId);
+        MDC.put("requestId", requestId);
 
         boolean failed = false;
         try {
@@ -58,6 +61,8 @@ public final class RequestLoggingFilter extends OncePerRequestFilter {
             publishSafely(new RequestLogEvent(
                     traceId, requestId, request.getMethod(), request.getRequestURI(),
                     status, durationMs, safeHeaders(request)));
+            MDC.remove("requestId");
+            MDC.remove("traceId");
         }
     }
 

@@ -19,6 +19,10 @@ if docker inspect -f '{{.State.Running}}' ygh-vm-pgvector-1 2>/dev/null | grep -
     pg_dump -U ygh_vector -d ygh_vector -Fc >"${backup_dir}/pgvector.dump"
 fi
 
+if [[ -d "${YGH_KNOWLEDGE_STORAGE_PATH:-/opt/ygh/data/knowledge}" ]]; then
+  tar -C "$(dirname "${YGH_KNOWLEDGE_STORAGE_PATH:-/opt/ygh/data/knowledge}")" -czf "${backup_dir}/knowledge-files.tar.gz" "$(basename "${YGH_KNOWLEDGE_STORAGE_PATH:-/opt/ygh/data/knowledge}")"
+fi
+
 sha256sum "${backup_dir}"/* >"${backup_dir}/SHA256SUMS"
 chmod 600 "${backup_dir}"/*
 echo "BACKUP_OK path=${backup_dir}"

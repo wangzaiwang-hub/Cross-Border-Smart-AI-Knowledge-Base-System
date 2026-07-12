@@ -1,0 +1,136 @@
+name: ygh-enterprise
+
+x-java-service: &java-service
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  networks: [ygh-backend]
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 768m
+  cpus: 0.75
+  logging: &service-logging
+    driver: json-file
+    options: {max-size: 20m, max-file: "5"}
+
+x-health: &health
+  interval: 20s
+  timeout: 5s
+  retries: 10
+  start_period: 60s
+
+services:
+  gateway:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-gateway:${YGH_VERSION:-latest}
+    ports: ["8080:8080"]
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8080/actuator/health/readiness]}
+  auth:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-auth-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8081/actuator/health/readiness]}
+  user:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-user-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8082/actuator/health/readiness]}
+  system:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-system-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8083/actuator/health/readiness]}
+  product:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-product-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8084/actuator/health/readiness]}
+  inventory:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-inventory-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8085/actuator/health/readiness]}
+  order:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-order-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8086/actuator/health/readiness]}
+  wallet:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-wallet-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8087/actuator/health/readiness]}
+  knowledge:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-knowledge-service:${YGH_VERSION:-latest}
+    volumes: [knowledge-files:/data/knowledge]
+    read_only: false
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8088/actuator/health/readiness]}
+  search:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-search-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8089/actuator/health/readiness]}
+  ai:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-ai-service:${YGH_VERSION:-latest}
+    mem_limit: 1024m
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8090/actuator/health/readiness]}
+  training:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-training-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8091/actuator/health/readiness]}
+  notification:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-notification-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8092/actuator/health/readiness]}
+  admin:
+    <<: *java-service
+    image: ${YGH_REGISTRY:-ghcr.io/wangzaiwang-hub}/ygh-admin-service:${YGH_VERSION:-latest}
+    healthcheck: {<<: *health, test: [CMD, wget, -qO-, http://127.0.0.1:8093/actuator/health/readiness]}
+
+  mysql:
+    image: mysql:8.4.10
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment: {MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?required}"}
+    volumes: [mysql-data:/var/lib/mysql]
+    networks: [ygh-backend]
+    mem_limit: 2g
+    logging: *service-logging
+    healthcheck: {<<: *health, test: [CMD-SHELL, "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -uroot --silent"]}
+  redis:
+    image: redis:8.4.4
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    command: [sh, -c, 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    volumes: [redis-data:/data]
+    networks: [ygh-backend]
+    mem_limit: 512m
+    logging: *service-logging
+  pgvector:
+    image: pgvector/pgvector:0.8.5-pg17-bookworm
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment: {POSTGRES_DB: ygh_vector, POSTGRES_USER: ygh_vector, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?required}"}
+    volumes: [pgvector-data:/var/lib/postgresql/data]
+    networks: [ygh-backend]
+    mem_limit: 1g
+    logging: *service-logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.17
+    restart: unless-stopped
+    environment: {discovery.type: single-node, xpack.security.enabled: "true", ELASTIC_PASSWORD: "${ELASTIC_PASSWORD:?required}", ES_JAVA_OPTS: -Xms1g -Xmx1g}
+    volumes: [elasticsearch-data:/usr/share/elasticsearch/data]
+    networks: [ygh-backend]
+    mem_limit: 2g
+    logging: *service-logging
+
+networks:
+  ygh-backend: {name: ygh-enterprise-backend}
+volumes:
+  mysql-data: {}
+  redis-data: {}
+  pgvector-data: {}
+  elasticsearch-data: {}
+  knowledge-files: {}
