@@ -33,7 +33,7 @@ export function createHttpClient(baseURL: string, hooks: HttpHooks): AxiosInstan
         original._retried = true
         refreshing ??= axios.post<ApiResponse<{ accessToken: string }>>(
           `${baseURL}/api/v1/auth/refresh`,
-          { refreshToken: hooks.refreshToken() },
+          { refreshToken: hooks.refreshToken(), deviceId: browserDeviceId() },
           { headers: { 'X-Request-Id': requestId() } },
         ).then(response => {
           hooks.updateAccessToken(response.data.data.accessToken)
@@ -53,6 +53,15 @@ export function createHttpClient(baseURL: string, hooks: HttpHooks): AxiosInstan
     },
   )
   return client
+}
+
+export function browserDeviceId(): string {
+  const key = 'ygh.device-id'
+  const existing = localStorage.getItem(key)
+  if (existing) return existing
+  const created = crypto.randomUUID()
+  localStorage.setItem(key, created)
+  return created
 }
 
 export function apiData<T>(response: { data: ApiResponse<T> }): T {

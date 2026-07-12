@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import type { SessionUser, TokenPair } from './types'
 
-const SESSION_ACCESS_KEY = 'ygh.access-token'
 const SESSION_REFRESH_KEY = 'ygh.refresh-token'
 const USER_KEY = 'ygh.session-user'
 
@@ -16,7 +15,9 @@ function readUser(): SessionUser | null {
 
 export const useSessionStore = defineStore('session', {
   state: () => ({
-    bearer: sessionStorage.getItem(SESSION_ACCESS_KEY) ?? '',
+    // Access tokens deliberately remain memory-only. A page reload must use the
+    // refresh-token flow instead of restoring a bearer token from Web Storage.
+    bearer: '',
     renewal: localStorage.getItem(SESSION_REFRESH_KEY) ?? '',
     user: readUser() as SessionUser | null,
   }),
@@ -29,19 +30,16 @@ export const useSessionStore = defineStore('session', {
       this.bearer = tokens.accessToken
       this.renewal = tokens.refreshToken
       this.user = user
-      sessionStorage.setItem(SESSION_ACCESS_KEY, tokens.accessToken)
       localStorage.setItem(SESSION_REFRESH_KEY, tokens.refreshToken)
       sessionStorage.setItem(USER_KEY, JSON.stringify(user))
     },
     updateAccessToken(accessToken: string) {
       this.bearer = accessToken
-      sessionStorage.setItem(SESSION_ACCESS_KEY, accessToken)
     },
     clear() {
       this.bearer = ''
       this.renewal = ''
       this.user = null
-      sessionStorage.removeItem(SESSION_ACCESS_KEY)
       sessionStorage.removeItem(USER_KEY)
       localStorage.removeItem(SESSION_REFRESH_KEY)
     },

@@ -24,8 +24,27 @@ export interface SessionUser {
 export interface TokenPair {
   accessToken: string
   refreshToken: string
-  accessExpiresAt: string
-  refreshExpiresAt: string
+  tokenType: string
+  expiresIn: number
+  refreshExpiresIn: number
+}
+
+export interface AuthenticationResult {
+  userId: string
+  tokens: TokenPair
+}
+
+export interface CaptchaChallenge {
+  challengeId: string
+  mimeType: string
+  imageBase64: string
+  expiresAt: string
+}
+
+export interface JwtIdentity {
+  subject: string
+  roles: string[]
+  permissions: string[]
 }
 
 export interface ProductSummary {
