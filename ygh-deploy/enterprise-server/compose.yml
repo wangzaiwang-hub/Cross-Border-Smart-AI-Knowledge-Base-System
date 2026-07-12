@@ -90,7 +90,9 @@ services:
       - path: .env
         required: false
     environment: {MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?required}"}
-    volumes: [mysql-data:/var/lib/mysql]
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../constrained-dev/mysql/init:/docker-entrypoint-initdb.d:ro
     networks: [ygh-backend]
     mem_limit: 2g
     logging: *service-logging
@@ -126,6 +128,74 @@ services:
     mem_limit: 2g
     logging: *service-logging
 
+  nacos:
+    image: nacos/nacos-server:v3.1.1
+    restart: unless-stopped
+    depends_on:
+      mysql: {condition: service_healthy}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: mysql
+      MYSQL_SERVICE_HOST: mysql
+      MYSQL_SERVICE_PORT: 3306
+      MYSQL_SERVICE_DB_NAME: nacos_config
+      MYSQL_SERVICE_USER: nacos
+      MYSQL_SERVICE_PASSWORD: "${NACOS_DB_PASSWORD:?required}"
+      NACOS_AUTH_ENABLE: "true"
+      NACOS_AUTH_TOKEN: "${NACOS_AUTH_TOKEN:?required}"
+      NACOS_AUTH_IDENTITY_KEY: "${NACOS_AUTH_IDENTITY_KEY:?required}"
+      NACOS_AUTH_IDENTITY_VALUE: "${NACOS_AUTH_IDENTITY_VALUE:?required}"
+      JVM_XMS: 384m
+      JVM_XMX: 384m
+      JVM_XMN: 128m
+    volumes: [nacos-logs:/home/nacos/logs]
+    networks: [ygh-backend]
+    mem_limit: 768m
+    logging: *service-logging
+    healthcheck: {<<: *health, test: [CMD-SHELL, "curl -fsS http://127.0.0.1:8848/nacos/v3/admin/core/state/readiness >/dev/null"]}
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.1
+    restart: unless-stopped
+    command: [sh, /home/rocketmq/ygh-entrypoint.sh, namesrv]
+    volumes:
+      - ../constrained-dev/rocketmq/ygh-entrypoint.sh:/home/rocketmq/ygh-entrypoint.sh:ro
+    networks: [ygh-backend]
+    mem_limit: 384m
+    logging: *service-logging
+    healthcheck: {<<: *health, test: [CMD-SHELL, "grep -q 'The Name Server boot success' /home/rocketmq/logs/rocketmqlogs/namesrv.log"]}
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.1
+    restart: unless-stopped
+    depends_on:
+      rocketmq-namesrv: {condition: service_healthy}
+    command: [sh, /home/rocketmq/ygh-entrypoint.sh, broker, -n, rocketmq-namesrv:9876, -c, /home/rocketmq/rocketmq-5.3.1/conf/broker.conf]
+    environment: {NAMESRV_ADDR: rocketmq-namesrv:9876}
+    volumes:
+      - ../constrained-dev/rocketmq/ygh-entrypoint.sh:/home/rocketmq/ygh-entrypoint.sh:ro
+      - ../constrained-dev/rocketmq/broker.conf:/home/rocketmq/rocketmq-5.3.1/conf/broker.conf:ro
+      - rocketmq-store:/home/rocketmq/store
+    networks: [ygh-backend]
+    mem_limit: 1g
+    logging: *service-logging
+    healthcheck: {<<: *health, test: [CMD-SHELL, "grep -q 'boot success' /home/rocketmq/logs/rocketmqlogs/broker.log"]}
+
+  seata:
+    image: apache/seata-server:2.5.0
+    restart: unless-stopped
+    environment:
+      STORE_MODE: file
+      SEATA_IP: seata
+      SEATA_PORT: 8091
+      JAVA_OPTS: -Xms256m -Xmx256m
+    networks: [ygh-backend]
+    mem_limit: 512m
+    logging: *service-logging
+
 networks:
   ygh-backend: {name: ygh-enterprise-backend}
 volumes:
@@ -134,3 +204,5 @@ volumes:
   pgvector-data: {}
   elasticsearch-data: {}
   knowledge-files: {}
+  nacos-logs: {}
+  rocketmq-store: {}
