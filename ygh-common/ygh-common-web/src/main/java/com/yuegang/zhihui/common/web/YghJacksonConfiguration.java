@@ -1,6 +1,7 @@
 package com.yuegang.zhihui.common.web;
 
 import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.cfg.DateTimeFeature;
@@ -13,6 +14,13 @@ public class YghJacksonConfiguration {
     @Bean
     JsonMapperBuilderCustomizer yghJsonMapperBuilderCustomizer() {
         return YghJacksonConfiguration::customize;
+    }
+
+    /** Compatibility mapper for domain and MQ adapters not yet migrated to Jackson 3. */
+    @Bean
+    @ConditionalOnMissingBean(com.fasterxml.jackson.databind.ObjectMapper.class)
+    com.fasterxml.jackson.databind.ObjectMapper legacyObjectMapper() {
+        return new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
     }
 
     public static JsonMapper createMapper() {

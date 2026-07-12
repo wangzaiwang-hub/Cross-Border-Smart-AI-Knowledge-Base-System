@@ -9,7 +9,7 @@ import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-public final class ProductAdministrationService {
+public class ProductAdministrationService {
     private final JdbcTemplate jdbc;
     private final ProductService products;
     private final ObjectMapper json;

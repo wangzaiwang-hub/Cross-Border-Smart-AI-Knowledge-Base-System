@@ -22,8 +22,7 @@ class UserProfileServiceTest {
     }
     @Test void rejectsMissingInvalidTimezoneAndUnsafeAvatar() {
         var service = new UserProfileService(new MemoryRepository());
-        assertThatThrownBy(() -> service.get("42")).isInstanceOfSatisfying(BusinessException.class,
-                e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
+        assertThat(service.get("42")).extracting(UserProfileView::displayName).isEqualTo("新用户");
         assertThatThrownBy(() -> service.update("42", new UpdateUserProfileRequest("Alice", null, "zh-CN", "Mars/Base", 0)))
                 .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
         assertThatThrownBy(() -> service.update("42", request("Alice", "file:///secret", 0)))

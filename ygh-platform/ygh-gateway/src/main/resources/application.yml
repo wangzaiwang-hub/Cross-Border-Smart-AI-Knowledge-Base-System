@@ -36,7 +36,7 @@ spring:
             - id: user-service
               uri: lb://ygh-user-service
               predicates:
-                - Path=/api/v1/user/**,/api/v1/addresses/**
+                - Path=/api/v1/users/**,/api/v1/organization/**
             - id: system-service
               uri: lb://ygh-system-service
               predicates:

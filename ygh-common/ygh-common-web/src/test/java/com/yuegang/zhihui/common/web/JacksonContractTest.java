@@ -61,6 +61,14 @@ class JacksonContractTest {
         assertThat(restored.occurredAt().getOffset()).isEqualTo(ZoneOffset.ofHours(8));
     }
 
+    @Test
+    void exposesLegacyMapperForAdaptersAwaitingJacksonThreeMigration() throws Exception {
+        var legacy = new YghJacksonConfiguration().legacyObjectMapper();
+
+        assertThat(legacy.writeValueAsString(java.util.Map.of("status", "ok")))
+                .isEqualTo("{\"status\":\"ok\"}");
+    }
+
     private record TimeEnvelope(OffsetDateTime occurredAt) {
     }
 }

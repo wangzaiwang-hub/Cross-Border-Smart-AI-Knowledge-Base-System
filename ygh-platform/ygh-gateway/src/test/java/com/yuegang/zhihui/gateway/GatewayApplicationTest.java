@@ -127,8 +127,8 @@ class GatewayApplicationTest {
             assertThat(byId.get("notification-service").getUri()).isEqualTo(URI.create("lb://ygh-notification-service"));
             assertRoutePaths(byId.get("auth-service"), Set.of("/api/v1/auth/**"));
             assertRoutePaths(byId.get("user-service"), Set.of(
-                    "/api/v1/user/**",
-                    "/api/v1/addresses/**"));
+                    "/api/v1/users/**",
+                    "/api/v1/organization/**"));
             assertRoutePaths(byId.get("system-service"), Set.of(
                     "/api/v1/system/**",
                     "/api/v1/roles/**",
@@ -266,7 +266,7 @@ class GatewayApplicationTest {
                     .exchange()
                     .expectStatus().isForbidden();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
-                    .get().uri("/api/v1/user/profile")
+                    .get().uri("/api/v1/users/me")
                     .header(GatewayHeaders.TRACE_ID, "trace-dependency-1234")
                     .exchange()
                     .expectStatus().isEqualTo(503)
@@ -274,7 +274,7 @@ class GatewayApplicationTest {
                     .expectBody()
                     .jsonPath("$.code").isEqualTo("DEPENDENCY_UNAVAILABLE")
                     .jsonPath("$.traceId").isEqualTo("trace-dependency-1234");
-            client.get().uri("/api/v1/user/profile")
+            client.get().uri("/api/v1/users/me")
                     .header(GatewayHeaders.TRACE_ID, "trace-security-1234")
                     .exchange()
                     .expectStatus().isUnauthorized()
@@ -289,16 +289,16 @@ class GatewayApplicationTest {
                     .exchange()
                     .expectStatus().isUnauthorized();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
-                    .get().uri("/api/v1/user/profile")
+                    .get().uri("/api/v1/users/me")
                     .exchange()
                     .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("user-1001")))
-                    .get().uri("/api/v1/user/organization/departments")
+                    .get().uri("/api/v1/organization/departments")
                     .exchange()
                     .expectStatus().isForbidden();
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("employee-1001"))
                             .authorities(new SimpleGrantedAuthority("ROLE_EMPLOYEE")))
-                    .get().uri("/api/v1/user/organization/departments")
+                    .get().uri("/api/v1/organization/departments")
                     .exchange()
                     .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
             client.mutateWith(mockJwt().jwt(jwt -> jwt.subject("employee-1001"))

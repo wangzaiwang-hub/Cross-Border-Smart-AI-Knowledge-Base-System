@@ -24,7 +24,7 @@ public final class JdbcUserProfileRepository implements UserProfileRepository {
                 if (current == null) {
                     if (request.version() != 0) { c.rollback(); return Optional.empty(); }
                     try (var s = c.prepareStatement("""
-                            INSERT INTO user_profile(user_id,display_name,avatar_url,locale,timezone,profile_completed,version)
+                            INSERT IGNORE INTO user_profile(user_id,display_name,avatar_url,locale,timezone,profile_completed,version)
                             VALUES (?,?,?,?,?,TRUE,0)
                             """)) { bind(s, userId, request); s.executeUpdate(); }
                 } else {

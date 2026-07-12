@@ -11,7 +11,10 @@ public final class UserProfileService {
     private final UserProfileRepository repository;
     public UserProfileService(UserProfileRepository repository) { this.repository = Objects.requireNonNull(repository); }
     public UserProfileView get(String userId) {
-        return repository.findByUserId(parse(userId)).orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        long id = parse(userId);
+        return repository.findByUserId(id).orElseGet(() -> repository.save(id,
+                new UpdateUserProfileRequest("新用户", null, "zh-CN", "Asia/Shanghai", 0))
+                .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_CONFLICT)));
     }
     public UserProfileView update(String userId, UpdateUserProfileRequest request) {
         validate(request);

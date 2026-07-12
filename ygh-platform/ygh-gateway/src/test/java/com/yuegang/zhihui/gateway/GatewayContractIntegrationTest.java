@@ -103,7 +103,7 @@ class GatewayContractIntegrationTest {
                         .isNotNull();
                 assertThat(jwksRequests).hasValue(1);
 
-                client.get().uri("/api/v1/user/profile")
+                client.get().uri("/api/v1/users/me")
                         .header(GatewayHeaders.TRACE_ID, "trace-contract-401")
                         .exchange()
                         .expectStatus().isUnauthorized()
@@ -133,7 +133,7 @@ class GatewayContractIntegrationTest {
                         .jsonPath("$.code").isEqualTo("RATE_LIMITED")
                         .jsonPath("$.traceId").isEqualTo("trace-contract-429");
 
-                client.get().uri("/api/v1/user/profile")
+                client.get().uri("/api/v1/users/me")
                         .headers(headers -> headers.setBearerAuth(customerToken))
                         .exchange()
                         .expectStatus().isNoContent();
@@ -149,10 +149,10 @@ class GatewayContractIntegrationTest {
                 assertThat(received).extracting(ReceivedRequest::path)
                         .containsExactlyInAnyOrder(
                                 "/api/v1/auth/login",
-                                "/api/v1/user/profile",
+                                "/api/v1/users/me",
                                 "/api/v1/system/config",
                                 "/api/v1/admin/dashboard");
-                assertThat(received).filteredOn(item -> "/api/v1/user/profile".equals(item.path()))
+                assertThat(received).filteredOn(item -> "/api/v1/users/me".equals(item.path()))
                         .singleElement()
                         .satisfies(item -> {
                             assertThat(item.userId()).isEqualTo("customer-1001");
