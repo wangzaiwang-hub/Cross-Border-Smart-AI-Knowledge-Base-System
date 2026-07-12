@@ -17,6 +17,6 @@ docker compose --env-file .env up -d
 .\rollback.ps1 -Version 0.9.0
 ```
 
-编排包含 14 个 Java 服务以及 MySQL、Redis、Nacos、RocketMQ、Seata、PGVector 和 Elasticsearch。生产 Secret 必须由部署平台注入；`.env` 不得提交。首次初始化会由 MySQL init 脚本创建 Nacos 和各业务数据库。
+编排包含 14 个 Java 服务、MySQL、Redis、Nacos、RocketMQ、Seata、PGVector、Elasticsearch，以及 Prometheus、Alertmanager、Grafana 和 Node Exporter。告警规则覆盖服务不可用、HTTP 错误率、P95 延迟、JVM 堆、数据库连接池和磁盘水位。生产 Secret 必须由部署平台注入；`.env` 不得提交。首次初始化会由 MySQL init 脚本创建 Nacos 和各业务数据库。
 
 生产环境应将 MySQL、Redis、Elasticsearch、RocketMQ、Nacos 和对象存储替换为高可用集群或云托管服务。应用镜像不可使用 `latest` 发布，必须指定不可变版本或 digest。

@@ -196,6 +196,49 @@ services:
     mem_limit: 512m
     logging: *service-logging
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=15d, --storage.tsdb.retention.size=8GB]
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    networks: [ygh-backend]
+    mem_limit: 768m
+    logging: *service-logging
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    command: [--config.file=/etc/alertmanager/alertmanager.yml, --storage.path=/alertmanager]
+    volumes:
+      - ../observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks: [ygh-backend]
+    mem_limit: 256m
+    logging: *service-logging
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?required}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes: [grafana-data:/var/lib/grafana]
+    networks: [ygh-backend]
+    mem_limit: 512m
+    logging: *service-logging
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    command: [--path.rootfs=/host]
+    volumes: ["/:/host:ro,rslave"]
+    networks: [ygh-backend]
+    mem_limit: 128m
+    logging: *service-logging
+
 networks:
   ygh-backend: {name: ygh-enterprise-backend}
 volumes:
@@ -206,3 +249,6 @@ volumes:
   knowledge-files: {}
   nacos-logs: {}
   rocketmq-store: {}
+  prometheus-data: {}
+  alertmanager-data: {}
+  grafana-data: {}
