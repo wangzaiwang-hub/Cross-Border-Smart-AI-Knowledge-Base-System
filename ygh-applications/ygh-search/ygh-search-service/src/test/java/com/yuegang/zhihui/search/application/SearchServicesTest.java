@@ -1,0 +1,26 @@
+package com.yuegang.zhihui.search.application;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import com.sun.net.httpserver.HttpServer;
+import com.yuegang.zhihui.common.core.BusinessException;
+import com.yuegang.zhihui.search.api.*;
+import com.yuegang.zhihui.search.infrastructure.DoubaoEmbeddingGateway;
+import java.net.InetSocketAddress;import java.nio.charset.StandardCharsets;import java.sql.Timestamp;import java.time.LocalDateTime;
+import org.junit.jupiter.api.*;import org.springframework.jdbc.core.*;
+
+class SearchServicesTest {
+  HttpServer server; String base;
+  @BeforeEach void start() throws Exception {server=HttpServer.create(new InetSocketAddress(0),0);base="http://localhost:"+server.getAddress().getPort();server.createContext("/embeddings",x->{byte[] b="{\"data\":[{\"embedding\":[0.1,0.2]}]}".getBytes(StandardCharsets.UTF_8);x.getResponseHeaders().add("Content-Type","application/json");x.sendResponseHeaders(200,b.length);x.getResponseBody().write(b);x.close();});server.createContext("/knowledge-active/_search",x->{String content="x".repeat(301);byte[] b=("{\"hits\":{\"hits\":[{\"_score\":2.0,\"_source\":{\"documentId\":\"1\",\"chunkId\":\"2\",\"title\":\"Policy\",\"content\":\""+content+"\"}}]}}" ).getBytes(StandardCharsets.UTF_8);x.getResponseHeaders().add("Content-Type","application/json");x.sendResponseHeaders(200,b.length);x.getResponseBody().write(b);x.close();});server.createContext("/",x->{x.sendResponseHeaders(200,-1);x.close();});server.start();}
+  @AfterEach void stop(){server.stop(0);}
+  @Test void embeddingDeletionAndIndexLifecycle() throws Exception {
+    var embedding=new DoubaoEmbeddingGateway(base,"secret","model");assertThat(embedding.embed("policy")).containsExactly(0.1,0.2);
+    JdbcTemplate jdbc=mock(JdbcTemplate.class);new SearchDeletionService(jdbc,base,"knowledge-active").deleteDocument("8");verify(jdbc).update("DELETE FROM search_embedding WHERE document_id=?",8L);assertThatThrownBy(()->new SearchDeletionService(jdbc,base,"knowledge-active").deleteDocument("bad")).isInstanceOf(BusinessException.class);
+    var lifecycle=new IndexLifecycleService(jdbc,base,"knowledge-active");lifecycle.create("knowledge-v2");assertThatThrownBy(()->lifecycle.create("INVALID")).isInstanceOf(BusinessException.class);
+    when(jdbc.queryForObject(anyString(),eq(Long.class),eq("knowledge-v2"))).thenReturn(1L);when(jdbc.update(startsWith("UPDATE search_index_version"),eq("knowledge-v2"),eq("knowledge-active"))).thenReturn(1);
+    doAnswer(i->{ResultSetExtractor<?> e=i.getArgument(1);var rs=mock(java.sql.ResultSet.class);when(rs.next()).thenReturn(true);when(rs.getString(1)).thenReturn("knowledge-active");when(rs.getString(2)).thenReturn("knowledge-v2");when(rs.getString(3)).thenReturn("knowledge-v1");when(rs.getLong(5)).thenReturn(2L);when(rs.getTimestamp(4)).thenReturn(Timestamp.valueOf(LocalDateTime.now()));return e.extractData(rs);}).when(jdbc).query(startsWith("SELECT alias_name"),any(ResultSetExtractor.class),eq("knowledge-active"));
+    assertThat(lifecycle.switchTo(new SwitchIndexRequest("knowledge-v2",true)).activeVersion()).isEqualTo("knowledge-v2");lifecycle.deletePrevious();verify(jdbc).update("DELETE FROM search_embedding WHERE index_version=?","knowledge-v1");
+  }
+  @Test void hybridSearchesMergesAndIndexes(){JdbcTemplate jdbc=mock(JdbcTemplate.class);when(jdbc.query(anyString(),any(RowMapper.class),any(Object[].class))).thenReturn(java.util.List.of());var service=new HybridSearchService(jdbc,base,new DoubaoEmbeddingGateway(base,"secret","model"),"knowledge-active");assertThat(service.search(new SearchRequest("policy",5,"POLICY"))).singleElement().satisfies(h->{assertThat(h.title()).isEqualTo("Policy");assertThat(h.excerpt()).hasSize(300);});assertThat(service.search(new SearchRequest("policy",5,null))).hasSize(1);service.index(new IndexChunkCommand("1","2","t","c","POLICY","PUBLIC","knowledge-v1",true));assertThatThrownBy(()->service.index(new IndexChunkCommand("1","2","t","c","POLICY","PUBLIC","knowledge-v1",false))).isInstanceOf(BusinessException.class);}
+}
