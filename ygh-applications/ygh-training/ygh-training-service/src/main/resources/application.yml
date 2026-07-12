@@ -19,6 +19,7 @@ spring:
     group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
 ygh.internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
 ygh.training.storage-root: ${YGH_TRAINING_STORAGE_ROOT}
+ygh.training.user-base-url: ${YGH_USER_INTERNAL_BASE_URL:http://ygh-user-service:8082}
 ygh.mq.enabled: ${YGH_MQ_ENABLED:false}
 ygh.mq.nameserver: ${YGH_ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
 ygh.mq.topic: ${YGH_ROCKETMQ_TOPIC:YGH_DOMAIN_EVENTS}
