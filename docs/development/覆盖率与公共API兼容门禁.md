@@ -32,7 +32,9 @@
 - `ygh-common-mq`
 - `ygh-common-test`
 
-扫描器同时支持 Reactor 类目录和打包 JAR，记录公开或受保护的类型、构造器、方法和字段，排除 synthetic 与 bridge 成员。当前已审查基线为 `490` 条签名，规范化 SHA-256 为 `690c3dd73ba45810c1db9af628118cfd67aaba6c1ba934dc83a29d160192910c`。
+扫描器同时支持 Reactor 类目录和打包 JAR，记录公开或受保护的类型、构造器、方法和字段，排除 synthetic 与 bridge 成员。当前已审查基线为 `577` 条签名，规范化 SHA-256 为 `147ef7fade1c5acbe77b4442beaf879adf0eb32bece5f5d77b4315949e200d67`。
+
+2026-07-13 集中测试审查新增 29 条、删除 0 条签名。新增内容属于跨服务复用的稳定公共能力：`DomainEventPublisher`、`JdbcOutboxDispatcher`、`RocketMqDomainEventPublisher`、`InternalServiceSignature`、`AuditLoggingFilter` 和 `YghFeignAutoConfiguration`。这些类型分别承担业务事件一致性、内部服务 HMAC、统一审计和 Feign 上下文传播，必须保持 public 才能由业务模块或 Spring 容器使用，因此纳入兼容基线；未通过缩小扫描范围绕过门禁。
 
 基线文件位于：
 

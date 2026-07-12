@@ -1,7 +1,7 @@
 CONSTRUCTOR protected com.yuegang.zhihui.common.mq.MessageHandlingException(java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.core.ApiResponse(java.lang.String,java.lang.String,T,java.lang.String,java.time.OffsetDateTime)
-CONSTRUCTOR public com.yuegang.zhihui.common.core.BusinessException(com.yuegang.zhihui.common.core.ErrorCode,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.core.BusinessException(com.yuegang.zhihui.common.core.ErrorCode)
+CONSTRUCTOR public com.yuegang.zhihui.common.core.BusinessException(com.yuegang.zhihui.common.core.ErrorCode,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.core.EventMetadata(java.lang.String,java.lang.String,int,java.time.OffsetDateTime,java.lang.String,java.lang.String,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.core.ExternalId(java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.core.IdempotencyRequestContext(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.time.OffsetDateTime)
@@ -12,14 +12,16 @@ CONSTRUCTOR public com.yuegang.zhihui.common.core.PageResponse(java.util.List<T>
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.DeadLetterRecord(java.lang.String,java.lang.String,int,java.lang.String,java.lang.String,java.lang.String,int,java.lang.String,java.time.Instant)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.IdempotentMessageConsumer(java.lang.String,int,java.time.Duration,com.yuegang.zhihui.common.mq.MessageConsumptionStore,java.time.Clock)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.JdbcMessageConsumptionStore(org.springframework.jdbc.core.JdbcTemplate,org.springframework.transaction.PlatformTransactionManager,java.time.Clock)
+CONSTRUCTOR public com.yuegang.zhihui.common.mq.JdbcOutboxDispatcher(org.springframework.jdbc.core.JdbcTemplate,com.yuegang.zhihui.common.mq.DomainEventPublisher,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.MessageClaimResult(com.yuegang.zhihui.common.mq.MessageClaimStatus,java.util.Optional<com.yuegang.zhihui.common.mq.MessageProcessingClaim>)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.MessageInfrastructureException(java.lang.String,java.lang.Throwable)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.MessageProcessingClaim(java.lang.String,java.lang.String,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.NonRetryableMessageException(java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.RetryableMessageException(java.lang.String)
+CONSTRUCTOR public com.yuegang.zhihui.common.mq.RocketMqDomainEventPublisher(java.lang.String,java.lang.String,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.mq.SecureMessageClaimOwnerGenerator()
-CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.AuditableEntity()
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.AuditMetaObjectHandler(com.yuegang.zhihui.common.mybatis.AuditorProvider,java.time.Clock)
+CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.AuditableEntity()
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.FlywayConfigurationGuard()
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.FlywayConfigurationGuard(java.util.Set<java.lang.String>)
 CONSTRUCTOR public com.yuegang.zhihui.common.mybatis.FlywayHistoryValidator()
@@ -43,10 +45,12 @@ CONSTRUCTOR public com.yuegang.zhihui.common.redis.TtlJitterPolicy()
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.TtlJitterPolicy(double)
 CONSTRUCTOR public com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration()
 CONSTRUCTOR public com.yuegang.zhihui.common.security.CurrentUserPrincipal(java.lang.String,java.util.Set<java.lang.String>,java.util.Set<java.lang.String>)
-CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalRequestSignature(byte[],java.time.Clock,java.time.Duration)
 CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.time.Instant)
-CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalUserContextSignature(byte[],java.time.Clock,java.time.Duration)
+CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalRequestSignature(byte[],java.time.Clock,java.time.Duration)
+CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata(java.lang.String,java.lang.String,java.lang.String,java.time.Instant)
+CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalServiceSignature(byte[],java.time.Clock,java.time.Duration)
 CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata(java.lang.String,java.util.List<java.lang.String>,java.util.List<java.lang.String>,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.time.Instant)
+CONSTRUCTOR public com.yuegang.zhihui.common.security.InternalUserContextSignature(byte[],java.time.Clock,java.time.Duration)
 CONSTRUCTOR public com.yuegang.zhihui.common.security.PermissionDeniedException()
 CONSTRUCTOR public com.yuegang.zhihui.common.security.PermissionDeniedException(java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.security.ResourceAccessGuard()
@@ -55,11 +59,13 @@ CONSTRUCTOR public com.yuegang.zhihui.common.test.TestDataFactory(long)
 CONSTRUCTOR public com.yuegang.zhihui.common.test.TestUserData(java.lang.String,java.lang.String,java.lang.String,java.lang.String)
 CONSTRUCTOR public com.yuegang.zhihui.common.web.ApiAccessDeniedHandler()
 CONSTRUCTOR public com.yuegang.zhihui.common.web.ApiAuthenticationEntryPoint()
+CONSTRUCTOR public com.yuegang.zhihui.common.web.AuditLoggingFilter()
 CONSTRUCTOR public com.yuegang.zhihui.common.web.FieldValidationError(java.lang.String,java.lang.String,java.lang.Object)
 CONSTRUCTOR public com.yuegang.zhihui.common.web.GlobalExceptionHandler()
 CONSTRUCTOR public com.yuegang.zhihui.common.web.RequestLogEvent(java.lang.String,java.lang.String,java.lang.String,java.lang.String,int,long,java.util.Map<java.lang.String, java.lang.String>)
 CONSTRUCTOR public com.yuegang.zhihui.common.web.RequestLoggingAutoConfiguration()
 CONSTRUCTOR public com.yuegang.zhihui.common.web.RequestLoggingFilter(com.yuegang.zhihui.common.web.RequestLogSink)
+CONSTRUCTOR public com.yuegang.zhihui.common.web.YghFeignAutoConfiguration()
 CONSTRUCTOR public com.yuegang.zhihui.common.web.YghJacksonConfiguration()
 CONSTRUCTOR public com.yuegang.zhihui.common.web.YghOpenApiAutoConfiguration()
 FIELD public static final com.yuegang.zhihui.common.core.CurrencyCode com.yuegang.zhihui.common.core.CurrencyCode.CNY
@@ -107,9 +113,15 @@ FIELD public static final java.lang.String com.yuegang.zhihui.common.web.YghOpen
 FIELD public static final java.time.Duration com.yuegang.zhihui.common.redis.RedisDistributedLock.MAX_LEASE
 FIELD public static final java.time.Duration com.yuegang.zhihui.common.redis.RedisDistributedLock.MIN_LEASE
 FIELD public static final java.time.Duration com.yuegang.zhihui.common.redis.TtlJitterPolicy.MAX_BASE_TTL
+METHOD protected boolean com.yuegang.zhihui.common.web.AuditLoggingFilter.shouldNotFilter(jakarta.servlet.http.HttpServletRequest)
+METHOD protected void com.yuegang.zhihui.common.web.AuditLoggingFilter.doFilterInternal(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,jakarta.servlet.FilterChain) throws jakarta.servlet.ServletException,java.io.IOException
 METHOD protected void com.yuegang.zhihui.common.web.RequestLoggingFilter.doFilterInternal(jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse,jakarta.servlet.FilterChain) throws jakarta.servlet.ServletException,java.io.IOException
 METHOD public <I> void com.yuegang.zhihui.common.security.ResourceAccessGuard.requireOwnerOrPermission(com.yuegang.zhihui.common.security.CurrentUserPrincipal,I,com.yuegang.zhihui.common.security.ResourceOwnershipChecker<I>,java.lang.String)
 METHOD public <T> com.yuegang.zhihui.common.mq.MessageConsumptionResult com.yuegang.zhihui.common.mq.IdempotentMessageConsumer.consume(com.yuegang.zhihui.common.core.DomainEvent<T>,int,com.yuegang.zhihui.common.mq.MessageHandler<T>)
+METHOD public T com.yuegang.zhihui.common.core.ApiResponse.data()
+METHOD public T com.yuegang.zhihui.common.core.IdempotencyResult.value()
+METHOD public T com.yuegang.zhihui.common.core.VersionedDomainEvent.payload()
+METHOD public abstract T com.yuegang.zhihui.common.core.DomainEvent.payload()
 METHOD public abstract boolean com.yuegang.zhihui.common.mq.MessageConsumptionStore.executeAndMarkSucceeded(com.yuegang.zhihui.common.mq.MessageProcessingClaim,com.yuegang.zhihui.common.mq.MessageBusinessOperation) throws java.lang.Exception
 METHOD public abstract boolean com.yuegang.zhihui.common.mq.MessageConsumptionStore.markDeadLettered(com.yuegang.zhihui.common.mq.MessageProcessingClaim,com.yuegang.zhihui.common.mq.DeadLetterRecord)
 METHOD public abstract boolean com.yuegang.zhihui.common.mq.MessageConsumptionStore.releaseForRetry(com.yuegang.zhihui.common.mq.MessageProcessingClaim)
@@ -129,7 +141,7 @@ METHOD public abstract java.lang.String com.yuegang.zhihui.common.mybatis.Audito
 METHOD public abstract java.lang.String com.yuegang.zhihui.common.redis.LockOwnerTokenGenerator.generate()
 METHOD public abstract java.lang.String com.yuegang.zhihui.common.security.RequiresPermission.value()
 METHOD public abstract reactor.core.publisher.Mono<java.lang.Boolean> com.yuegang.zhihui.common.redis.ReactiveSessionValidator.valid(long,java.lang.String)
-METHOD public abstract T com.yuegang.zhihui.common.core.DomainEvent.payload()
+METHOD public abstract void com.yuegang.zhihui.common.mq.DomainEventPublisher.publish(java.lang.String,java.lang.String,java.lang.String,java.lang.String)
 METHOD public abstract void com.yuegang.zhihui.common.mq.MessageBusinessOperation.execute() throws java.lang.Exception
 METHOD public abstract void com.yuegang.zhihui.common.mq.MessageHandler.handle(com.yuegang.zhihui.common.core.DomainEvent<T>) throws java.lang.Exception
 METHOD public abstract void com.yuegang.zhihui.common.redis.SessionStateStore.disableAccount(long)
@@ -154,6 +166,7 @@ METHOD public boolean com.yuegang.zhihui.common.redis.SpringDataRedisLockCommand
 METHOD public boolean com.yuegang.zhihui.common.security.CurrentUserPrincipal.hasPermission(java.lang.String)
 METHOD public boolean com.yuegang.zhihui.common.security.CurrentUserPrincipal.hasRole(java.lang.String)
 METHOD public boolean com.yuegang.zhihui.common.security.InternalRequestSignature.verify(com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata,java.lang.String)
+METHOD public boolean com.yuegang.zhihui.common.security.InternalServiceSignature.verify(com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata,java.lang.String)
 METHOD public boolean com.yuegang.zhihui.common.security.InternalUserContextSignature.verify(com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata,java.lang.String)
 METHOD public com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor com.yuegang.zhihui.common.mybatis.YghMybatisAutoConfiguration.mybatisPlusInterceptor()
 METHOD public com.yuegang.zhihui.common.core.CurrencyCode com.yuegang.zhihui.common.core.Money.currency()
@@ -190,6 +203,7 @@ METHOD public default java.lang.String com.yuegang.zhihui.common.core.DomainEven
 METHOD public default java.lang.String com.yuegang.zhihui.common.core.DomainEvent.producer()
 METHOD public default java.lang.String com.yuegang.zhihui.common.core.DomainEvent.traceId()
 METHOD public default java.time.OffsetDateTime com.yuegang.zhihui.common.core.DomainEvent.occurredAt()
+METHOD public default void com.yuegang.zhihui.common.mq.DomainEventPublisher.close()
 METHOD public final boolean com.yuegang.zhihui.common.core.ApiResponse.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.core.EventMetadata.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.core.ExternalId.equals(java.lang.Object)
@@ -207,6 +221,7 @@ METHOD public final boolean com.yuegang.zhihui.common.mybatis.MigrationViolation
 METHOD public final boolean com.yuegang.zhihui.common.redis.RedisLockHandle.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.security.CurrentUserPrincipal.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.equals(java.lang.Object)
+METHOD public final boolean com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.security.SecurityAuditEvent.equals(java.lang.Object)
 METHOD public final boolean com.yuegang.zhihui.common.test.TestUserData.equals(java.lang.Object)
@@ -229,6 +244,7 @@ METHOD public final int com.yuegang.zhihui.common.mybatis.MigrationViolation.has
 METHOD public final int com.yuegang.zhihui.common.redis.RedisLockHandle.hashCode()
 METHOD public final int com.yuegang.zhihui.common.security.CurrentUserPrincipal.hashCode()
 METHOD public final int com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.hashCode()
+METHOD public final int com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.hashCode()
 METHOD public final int com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.hashCode()
 METHOD public final int com.yuegang.zhihui.common.security.SecurityAuditEvent.hashCode()
 METHOD public final int com.yuegang.zhihui.common.test.TestUserData.hashCode()
@@ -249,6 +265,7 @@ METHOD public final java.lang.String com.yuegang.zhihui.common.mybatis.Migration
 METHOD public final java.lang.String com.yuegang.zhihui.common.mybatis.MigrationViolation.toString()
 METHOD public final java.lang.String com.yuegang.zhihui.common.security.CurrentUserPrincipal.toString()
 METHOD public final java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.toString()
+METHOD public final java.lang.String com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.toString()
 METHOD public final java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.toString()
 METHOD public final java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.toString()
 METHOD public final java.lang.String com.yuegang.zhihui.common.web.FieldValidationError.toString()
@@ -260,6 +277,7 @@ METHOD public int com.yuegang.zhihui.common.core.PageResponse.pageNo()
 METHOD public int com.yuegang.zhihui.common.core.PageResponse.pageSize()
 METHOD public int com.yuegang.zhihui.common.mq.DeadLetterRecord.deliveryAttempt()
 METHOD public int com.yuegang.zhihui.common.mq.DeadLetterRecord.eventVersion()
+METHOD public int com.yuegang.zhihui.common.mq.JdbcOutboxDispatcher.dispatch()
 METHOD public int com.yuegang.zhihui.common.web.RequestLogEvent.status()
 METHOD public java.lang.Object com.yuegang.zhihui.common.web.FieldValidationError.rejectedValue()
 METHOD public java.lang.String com.yuegang.zhihui.common.core.ApiResponse.code()
@@ -308,18 +326,22 @@ METHOD public java.lang.String com.yuegang.zhihui.common.redis.SessionRedisKeys.
 METHOD public java.lang.String com.yuegang.zhihui.common.redis.SessionRedisKeys.revoked(long,java.lang.String)
 METHOD public java.lang.String com.yuegang.zhihui.common.redis.SessionRedisKeys.session(long,java.lang.String)
 METHOD public java.lang.String com.yuegang.zhihui.common.security.CurrentUserPrincipal.userId()
-METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature.sign(com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata)
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.clientIp()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.method()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.path()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.requestId()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.traceId()
-METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature.sign(com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata)
+METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalRequestSignature.sign(com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata)
+METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.method()
+METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.path()
+METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.service()
+METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalServiceSignature.sign(com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata)
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.method()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.path()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.requestId()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.traceId()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.userId()
+METHOD public java.lang.String com.yuegang.zhihui.common.security.InternalUserContextSignature.sign(com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata)
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.action()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.reason()
 METHOD public java.lang.String com.yuegang.zhihui.common.security.SecurityAuditEvent.requiredPermission()
@@ -353,6 +375,7 @@ METHOD public java.time.Instant com.yuegang.zhihui.common.mq.DeadLetterRecord.fa
 METHOD public java.time.Instant com.yuegang.zhihui.common.mybatis.AuditableEntity.getCreatedAt()
 METHOD public java.time.Instant com.yuegang.zhihui.common.mybatis.AuditableEntity.getUpdatedAt()
 METHOD public java.time.Instant com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata.timestamp()
+METHOD public java.time.Instant com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata.timestamp()
 METHOD public java.time.Instant com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.timestamp()
 METHOD public java.time.Instant com.yuegang.zhihui.common.security.SecurityAuditEvent.occurredAt()
 METHOD public java.time.Instant com.yuegang.zhihui.common.test.MutableTestClock.instant()
@@ -361,10 +384,10 @@ METHOD public java.time.OffsetDateTime com.yuegang.zhihui.common.core.EventMetad
 METHOD public java.time.OffsetDateTime com.yuegang.zhihui.common.core.IdempotencyRequestContext.requestedAt()
 METHOD public java.time.OffsetDateTime com.yuegang.zhihui.common.core.IdempotencyResult.completedAt()
 METHOD public java.time.ZoneId com.yuegang.zhihui.common.test.MutableTestClock.getZone()
+METHOD public java.util.List<T> com.yuegang.zhihui.common.core.PageResponse.records()
 METHOD public java.util.List<com.yuegang.zhihui.common.mybatis.MigrationViolation> com.yuegang.zhihui.common.mybatis.MigrationValidationReport.violations()
 METHOD public java.util.List<java.lang.String> com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.permissions()
 METHOD public java.util.List<java.lang.String> com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata.roles()
-METHOD public java.util.List<T> com.yuegang.zhihui.common.core.PageResponse.records()
 METHOD public java.util.Map<java.lang.String, java.lang.String> com.yuegang.zhihui.common.web.RequestLogEvent.headers()
 METHOD public java.util.Optional<com.yuegang.zhihui.common.mq.MessageProcessingClaim> com.yuegang.zhihui.common.mq.MessageClaimResult.claim()
 METHOD public java.util.Optional<com.yuegang.zhihui.common.redis.RedisLockHandle> com.yuegang.zhihui.common.redis.RedisDistributedLock.tryAcquire(java.lang.String,java.time.Duration)
@@ -388,8 +411,8 @@ METHOD public reactor.core.publisher.Mono<java.lang.Boolean> com.yuegang.zhihui.
 METHOD public static <S,T> com.yuegang.zhihui.common.core.PageResponse<T> com.yuegang.zhihui.common.mybatis.MybatisPageAdapter.toPageResponse(com.baomidou.mybatisplus.core.metadata.IPage<S>,java.util.function.Function<? super S, T>)
 METHOD public static <T extends com.yuegang.zhihui.common.core.ImmutableEventPayload> com.yuegang.zhihui.common.core.VersionedDomainEvent<T> com.yuegang.zhihui.common.core.VersionedDomainEvent.of(com.yuegang.zhihui.common.core.EventMetadata,T)
 METHOD public static <T> com.baomidou.mybatisplus.extension.plugins.pagination.Page<T> com.yuegang.zhihui.common.mybatis.MybatisPageAdapter.toMybatisPage(com.yuegang.zhihui.common.core.PageRequest)
-METHOD public static <T> com.yuegang.zhihui.common.core.ApiResponse<T> com.yuegang.zhihui.common.core.ApiResponse.failure(com.yuegang.zhihui.common.core.ErrorCode,java.lang.String,java.lang.String)
 METHOD public static <T> com.yuegang.zhihui.common.core.ApiResponse<T> com.yuegang.zhihui.common.core.ApiResponse.failure(com.yuegang.zhihui.common.core.ErrorCode,java.lang.String,T,java.lang.String)
+METHOD public static <T> com.yuegang.zhihui.common.core.ApiResponse<T> com.yuegang.zhihui.common.core.ApiResponse.failure(com.yuegang.zhihui.common.core.ErrorCode,java.lang.String,java.lang.String)
 METHOD public static <T> com.yuegang.zhihui.common.core.ApiResponse<T> com.yuegang.zhihui.common.core.ApiResponse.success(T,java.lang.String)
 METHOD public static <T> com.yuegang.zhihui.common.core.IdempotencyResult<T> com.yuegang.zhihui.common.core.IdempotencyResult.completed(java.lang.String,T,java.time.OffsetDateTime)
 METHOD public static <T> com.yuegang.zhihui.common.core.IdempotencyResult<T> com.yuegang.zhihui.common.core.IdempotencyResult.inProgress(java.lang.String)
@@ -428,15 +451,14 @@ METHOD public static java.util.Map<java.lang.String, java.lang.String> com.yuega
 METHOD public static org.testcontainers.containers.GenericContainer<?> com.yuegang.zhihui.common.test.YghTestContainerFactory.redis()
 METHOD public static tools.jackson.databind.json.JsonMapper com.yuegang.zhihui.common.web.YghJacksonConfiguration.createMapper()
 METHOD public static void com.yuegang.zhihui.common.mq.MqEnvelopePolicy.validate(com.yuegang.zhihui.common.core.DomainEvent<?>)
-METHOD public T com.yuegang.zhihui.common.core.ApiResponse.data()
-METHOD public T com.yuegang.zhihui.common.core.IdempotencyResult.value()
-METHOD public T com.yuegang.zhihui.common.core.VersionedDomainEvent.payload()
+METHOD public void com.yuegang.zhihui.common.mq.RocketMqDomainEventPublisher.close()
+METHOD public void com.yuegang.zhihui.common.mq.RocketMqDomainEventPublisher.publish(java.lang.String,java.lang.String,java.lang.String,java.lang.String)
+METHOD public void com.yuegang.zhihui.common.mybatis.AuditMetaObjectHandler.insertFill(org.apache.ibatis.reflection.MetaObject)
+METHOD public void com.yuegang.zhihui.common.mybatis.AuditMetaObjectHandler.updateFill(org.apache.ibatis.reflection.MetaObject)
 METHOD public void com.yuegang.zhihui.common.mybatis.AuditableEntity.setCreatedAt(java.time.Instant)
 METHOD public void com.yuegang.zhihui.common.mybatis.AuditableEntity.setCreatedBy(java.lang.String)
 METHOD public void com.yuegang.zhihui.common.mybatis.AuditableEntity.setUpdatedAt(java.time.Instant)
 METHOD public void com.yuegang.zhihui.common.mybatis.AuditableEntity.setUpdatedBy(java.lang.String)
-METHOD public void com.yuegang.zhihui.common.mybatis.AuditMetaObjectHandler.insertFill(org.apache.ibatis.reflection.MetaObject)
-METHOD public void com.yuegang.zhihui.common.mybatis.AuditMetaObjectHandler.updateFill(org.apache.ibatis.reflection.MetaObject)
 METHOD public void com.yuegang.zhihui.common.mybatis.FlywayConfigurationGuard.validateOrThrow(org.flywaydb.core.api.configuration.Configuration)
 METHOD public void com.yuegang.zhihui.common.mybatis.FlywayHistoryValidator.validateOrThrow(org.flywaydb.core.Flyway)
 METHOD public void com.yuegang.zhihui.common.mybatis.MigrationValidationReport.throwIfInvalid()
@@ -458,6 +480,7 @@ TYPE public abstract class com.yuegang.zhihui.common.mybatis.AuditableEntity
 TYPE public abstract interface com.yuegang.zhihui.common.core.DomainEvent<T>
 TYPE public abstract interface com.yuegang.zhihui.common.core.ImmutableEventPayload
 TYPE public abstract interface com.yuegang.zhihui.common.core.StableCodeEnum
+TYPE public abstract interface com.yuegang.zhihui.common.mq.DomainEventPublisher
 TYPE public abstract interface com.yuegang.zhihui.common.mq.MessageBusinessOperation
 TYPE public abstract interface com.yuegang.zhihui.common.mq.MessageClaimOwnerGenerator
 TYPE public abstract interface com.yuegang.zhihui.common.mq.MessageConsumptionStore
@@ -477,16 +500,19 @@ TYPE public class com.yuegang.zhihui.common.mybatis.YghMybatisAutoConfiguration
 TYPE public class com.yuegang.zhihui.common.redis.YghRedisAutoConfiguration
 TYPE public class com.yuegang.zhihui.common.web.GlobalExceptionHandler
 TYPE public class com.yuegang.zhihui.common.web.RequestLoggingAutoConfiguration
+TYPE public class com.yuegang.zhihui.common.web.YghFeignAutoConfiguration
 TYPE public class com.yuegang.zhihui.common.web.YghJacksonConfiguration
 TYPE public class com.yuegang.zhihui.common.web.YghOpenApiAutoConfiguration
 TYPE public final class com.yuegang.zhihui.common.core.VersionedDomainEvent<T>
 TYPE public final class com.yuegang.zhihui.common.mq.IdempotentMessageConsumer
 TYPE public final class com.yuegang.zhihui.common.mq.JdbcMessageConsumptionStore
+TYPE public final class com.yuegang.zhihui.common.mq.JdbcOutboxDispatcher
 TYPE public final class com.yuegang.zhihui.common.mq.MessageInfrastructureException
 TYPE public final class com.yuegang.zhihui.common.mq.MqEnvelopePolicy
 TYPE public final class com.yuegang.zhihui.common.mq.MqMessageHeaders
 TYPE public final class com.yuegang.zhihui.common.mq.NonRetryableMessageException
 TYPE public final class com.yuegang.zhihui.common.mq.RetryableMessageException
+TYPE public final class com.yuegang.zhihui.common.mq.RocketMqDomainEventPublisher
 TYPE public final class com.yuegang.zhihui.common.mq.SecureMessageClaimOwnerGenerator
 TYPE public final class com.yuegang.zhihui.common.mybatis.AuditMetaObjectHandler
 TYPE public final class com.yuegang.zhihui.common.mybatis.FlywayConfigurationGuard
@@ -506,6 +532,7 @@ TYPE public final class com.yuegang.zhihui.common.redis.SessionRedisKeys
 TYPE public final class com.yuegang.zhihui.common.redis.SpringDataRedisLockCommands
 TYPE public final class com.yuegang.zhihui.common.redis.TtlJitterPolicy
 TYPE public final class com.yuegang.zhihui.common.security.InternalRequestSignature
+TYPE public final class com.yuegang.zhihui.common.security.InternalServiceSignature
 TYPE public final class com.yuegang.zhihui.common.security.InternalUserContextSignature
 TYPE public final class com.yuegang.zhihui.common.security.PermissionDeniedException
 TYPE public final class com.yuegang.zhihui.common.security.ResourceAccessGuard
@@ -515,6 +542,7 @@ TYPE public final class com.yuegang.zhihui.common.test.TestDataFactory
 TYPE public final class com.yuegang.zhihui.common.test.YghTestContainerFactory
 TYPE public final class com.yuegang.zhihui.common.web.ApiAccessDeniedHandler
 TYPE public final class com.yuegang.zhihui.common.web.ApiAuthenticationEntryPoint
+TYPE public final class com.yuegang.zhihui.common.web.AuditLoggingFilter
 TYPE public final class com.yuegang.zhihui.common.web.RequestLoggingFilter
 TYPE public final class com.yuegang.zhihui.common.web.TraceIdResolver
 TYPE public final enum com.yuegang.zhihui.common.core.CurrencyCode
@@ -545,4 +573,5 @@ TYPE public final record com.yuegang.zhihui.common.test.TestUserData
 TYPE public final record com.yuegang.zhihui.common.web.FieldValidationError
 TYPE public final record com.yuegang.zhihui.common.web.RequestLogEvent
 TYPE public static final record com.yuegang.zhihui.common.security.InternalRequestSignature$Metadata
+TYPE public static final record com.yuegang.zhihui.common.security.InternalServiceSignature$Metadata
 TYPE public static final record com.yuegang.zhihui.common.security.InternalUserContextSignature$Metadata
