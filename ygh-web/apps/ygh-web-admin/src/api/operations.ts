@@ -111,6 +111,12 @@ export interface Permission {
     resourceType: string;
     enabled: boolean;
 }
+export interface AuthoritySnapshot {
+    userId: string;
+    roles: string[];
+    permissions: string[];
+    version: number;
+}
 export interface KnowledgeDocument {
     id: string;
     title: string;
@@ -453,6 +459,22 @@ export const listRoles = async (): Promise<Role[]> =>
     apiData(await useHttp().get("/api/v1/system/admin/roles"));
 export const listPermissions = async (): Promise<Permission[]> =>
     apiData(await useHttp().get("/api/v1/system/admin/permissions"));
+export const getUserAuthorities = async (
+    userId: string,
+): Promise<AuthoritySnapshot> =>
+    apiData(await useHttp().get(`/api/v1/system/users/${userId}/authorities`));
+export const assignUserRoles = async (
+    snapshot: AuthoritySnapshot,
+    roleCodes: string[],
+    reason: string,
+): Promise<AuthoritySnapshot> =>
+    apiData(
+        await useHttp().put(`/api/v1/system/users/${snapshot.userId}/roles`, {
+            roleCodes,
+            version: snapshot.version,
+            reason,
+        }),
+    );
 export async function saveRole(role: Role): Promise<Role> {
     return apiData(
         await useHttp().put(`/api/v1/system/admin/roles/${role.code}`, {

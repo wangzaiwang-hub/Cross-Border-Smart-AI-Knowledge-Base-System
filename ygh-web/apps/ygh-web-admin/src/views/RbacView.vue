@@ -4,10 +4,13 @@ import { ElMessage } from "element-plus";
 import {
     listPermissions,
     listRoles,
+    getUserAuthorities,
+    assignUserRoles,
     saveRole,
     savePermission,
     type Permission,
     type Role,
+    type AuthoritySnapshot,
 } from "@/api/operations";
 const active = ref("role");
 const loading = ref(true);
@@ -15,6 +18,10 @@ const roles = ref<Role[]>([]);
 const permissions = ref<Permission[]>([]);
 const roleDialog = ref(false);
 const editingRole = ref<Role>();
+const authority = ref<AuthoritySnapshot>();
+const authorityUserId = ref("");
+const assignedRoles = ref<string[]>([]);
+const assignmentReason = ref("");
 function editRole(role: Role) {
     editingRole.value = { ...role, permissions: [...role.permissions] };
     roleDialog.value = true;
@@ -39,6 +46,36 @@ async function togglePermission(permission: Permission) {
     } catch {
         permission.enabled = !permission.enabled;
         ElMessage.error("权限状态更新失败");
+    }
+}
+async function loadAuthority() {
+    if (!authorityUserId.value.trim()) return;
+    try {
+        authority.value = await getUserAuthorities(
+            authorityUserId.value.trim(),
+        );
+        assignedRoles.value = [...authority.value.roles];
+    } catch {
+        authority.value = undefined;
+        ElMessage.error("用户授权信息加载失败");
+    }
+}
+async function persistAuthority() {
+    if (!authority.value || !assignmentReason.value.trim()) {
+        ElMessage.warning("请先加载用户并填写授权变更原因");
+        return;
+    }
+    try {
+        authority.value = await assignUserRoles(
+            authority.value,
+            assignedRoles.value,
+            assignmentReason.value.trim(),
+        );
+        assignedRoles.value = [...authority.value.roles];
+        assignmentReason.value = "";
+        ElMessage.success("用户角色已更新");
+    } catch {
+        ElMessage.error("授权失败，角色或授权版本可能已变化");
     }
 }
 onMounted(async () => {
@@ -108,6 +145,50 @@ onMounted(async () => {
                             @change="
                                 togglePermission(scope.row)
                             " /></template></el-table-column></el-table></el-tab-pane
+        ><el-tab-pane label="用户授权" name="assignment"
+            ><div class="assignment">
+                <el-input
+                    v-model="authorityUserId"
+                    placeholder="输入用户 ID"
+                    @keyup.enter="loadAuthority"
+                    ><template #append
+                        ><el-button @click="loadAuthority"
+                            >加载</el-button
+                        ></template
+                    ></el-input
+                >
+                <el-form v-if="authority" label-position="top">
+                    <el-form-item label="角色集合"
+                        ><el-select
+                            v-model="assignedRoles"
+                            multiple
+                            filterable
+                            style="width: 100%"
+                            ><el-option
+                                v-for="role in roles.filter((x) => x.enabled)"
+                                :key="role.code"
+                                :label="`${role.name} (${role.code})`"
+                                :value="role.code" /></el-select
+                    ></el-form-item>
+                    <el-form-item label="变更原因"
+                        ><el-input
+                            v-model="assignmentReason"
+                            type="textarea"
+                            maxlength="500"
+                    /></el-form-item>
+                    <el-alert
+                        :title="`当前权限 ${authority.permissions.length} 项 · 授权版本 ${authority.version}`"
+                        type="info"
+                        :closable="false"
+                    />
+                    <el-button
+                        type="primary"
+                        class="save-assignment"
+                        @click="persistAuthority"
+                        >保存用户角色</el-button
+                    >
+                </el-form>
+            </div></el-tab-pane
         ><el-tab-pane label="权限设计规则" name="rule"
             ><div class="permission">
                 <ul>
@@ -162,5 +243,15 @@ onMounted(async () => {
     margin: 10px 0;
     color: var(--muted);
     font-size: 12px;
+}
+.assignment {
+    max-width: 680px;
+    padding: 20px;
+}
+.assignment form {
+    margin-top: 20px;
+}
+.save-assignment {
+    margin-top: 16px;
 }
 </style>
