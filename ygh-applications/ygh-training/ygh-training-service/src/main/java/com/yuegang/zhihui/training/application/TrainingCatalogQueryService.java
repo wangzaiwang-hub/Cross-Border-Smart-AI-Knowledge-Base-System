@@ -23,7 +23,7 @@ public final class TrainingCatalogQueryService {
                 """, (row, index) -> new GateView(
                 Long.toString(row.getLong("id")), Long.toString(row.getLong("chapter_id")),
                 row.getString("title"), row.getInt("pass_score"),
-                (Integer) row.getObject("maximum_attempts")), positive(courseId));
+                nullableInteger(row.getObject("maximum_attempts"))), positive(courseId));
     }
 
     public List<TrainingDocumentView> documents(String chapterId) {
@@ -44,5 +44,9 @@ public final class TrainingCatalogQueryService {
         } catch (NumberFormatException failure) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+    }
+
+    private static Integer nullableInteger(Object value) {
+        return value == null ? null : ((Number) value).intValue();
     }
 }

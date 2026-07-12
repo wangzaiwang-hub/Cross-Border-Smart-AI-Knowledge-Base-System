@@ -54,6 +54,16 @@ class TrainingServicesIntegrationTest {
                     "file", "empty.txt", "text/plain", new byte[0])))
                     .isInstanceOf(BusinessException.class);
 
+            var catalog = new TrainingCatalogQueryService(dataSource);
+            assertThat(catalog.gates(course.id())).singleElement()
+                    .extracting(GateView::id).isEqualTo(gate.id());
+            assertThat(catalog.documents(chapter.id())).singleElement()
+                    .extracting(TrainingDocumentView::fileName).isEqualTo("lesson.txt");
+            assertThatThrownBy(() -> catalog.gates("0"))
+                    .isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> catalog.documents("not-an-id"))
+                    .isInstanceOf(BusinessException.class);
+
             var paths = new LearningPathService(dataSource);
             LearningPathView path = paths.create(new SaveLearningPathRequest("CUSTOMS", "关务学习路径"));
             assertThat(paths.addCourse(path.id(), new AddPathCourseRequest(course.id(), 1, null)).courses())
