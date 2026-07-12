@@ -136,6 +136,15 @@ export interface TrainingAnalytics {
     averageScore: string;
     weakKnowledge: Array<{ knowledgeCode: string; wrongCount: number }>;
 }
+export interface TrainingCourse {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    passScore: number;
+    estimatedMinutes: number;
+    version: number;
+}
 export interface AuditLog {
     timestamp: string;
     userId?: string;
@@ -355,6 +364,34 @@ export const runAiEvaluations = async (): Promise<EvaluationRun[]> =>
     apiData(await useHttp().post("/api/v1/admin/ai/evaluations/run"));
 export const getTrainingAnalytics = async (): Promise<TrainingAnalytics> =>
     apiData(await useHttp().get("/api/v1/training/learning/admin/analytics"));
+export const listTrainingCourses = async (): Promise<TrainingCourse[]> =>
+    apiData(await useHttp().get("/api/v1/training/courses"));
+export const createTrainingCourse = async (command: {
+    title: string;
+    description: string;
+    estimatedMinutes: number;
+    passScore: number;
+}): Promise<TrainingCourse> =>
+    apiData(await useHttp().post("/api/v1/training/admin/courses", command));
+export const publishTrainingCourse = async (
+    course: TrainingCourse,
+): Promise<TrainingCourse> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/training/admin/courses/${course.id}/publish`,
+            undefined,
+            { params: { version: course.version } },
+        ),
+    );
+export async function createScopedTrainingAssignment(command: {
+    targetType: "DEPARTMENT" | "POSITION" | "EMPLOYEE";
+    targetId: string;
+    pathId?: string;
+    courseId: string;
+    dueAt?: string;
+}): Promise<void> {
+    await useHttp().post("/api/v1/training/assignments/scoped", command);
+}
 export const listAuditLogs = async (
     params: Record<string, string | number | undefined> = {},
 ): Promise<AuditLog[]> =>
