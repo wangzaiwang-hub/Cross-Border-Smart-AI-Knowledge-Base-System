@@ -22,6 +22,33 @@ export interface AdminAccount {
     version: number;
     createdAt: string;
 }
+export interface Department {
+    id: string;
+    parentId?: string;
+    code: string;
+    name: string;
+    sortOrder: number;
+    enabled: boolean;
+    version: number;
+}
+export interface Position {
+    id: string;
+    code: string;
+    name: string;
+    description?: string;
+    enabled: boolean;
+    version: number;
+}
+export interface Employee {
+    id: string;
+    userId: string;
+    employeeNo: string;
+    departmentId?: string;
+    positionIds: string[];
+    status: string;
+    hiredOn?: string;
+    version: number;
+}
 export interface Product {
     spuId: string;
     skuId: string;
@@ -234,6 +261,58 @@ export const listAccounts = async (
                 limit: 100,
             },
         }),
+    );
+export const listDepartments = async (): Promise<Department[]> =>
+    apiData(await useHttp().get("/api/v1/user/organization/departments"));
+export const createDepartment = async (command: {
+    parentId?: string;
+    code: string;
+    name: string;
+    sortOrder: number;
+}): Promise<Department> =>
+    apiData(
+        await useHttp().post("/api/v1/user/organization/departments", command),
+    );
+export const listPositions = async (): Promise<Position[]> =>
+    apiData(await useHttp().get("/api/v1/user/organization/positions"));
+export const createPosition = async (command: {
+    code: string;
+    name: string;
+    description?: string;
+}): Promise<Position> =>
+    apiData(
+        await useHttp().post("/api/v1/user/organization/positions", command),
+    );
+export const listEmployees = async (): Promise<Employee[]> =>
+    apiData(await useHttp().get("/api/v1/user/organization/employees"));
+export const createEmployee = async (command: {
+    userId: string;
+    employeeNo: string;
+    departmentId?: string;
+    positionIds: string[];
+    hiredOn?: string;
+}): Promise<Employee> =>
+    apiData(
+        await useHttp().post("/api/v1/user/organization/employees", command),
+    );
+export const replaceEmployeePositions = async (
+    employeeId: string,
+    positionIds: string[],
+): Promise<Employee> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/user/organization/employees/${employeeId}/positions`,
+            positionIds,
+        ),
+    );
+export const changeEmployeeStatus = async (
+    employeeId: string,
+    status: "ACTIVE" | "SUSPENDED" | "LEFT",
+): Promise<Employee> =>
+    apiData(
+        await useHttp().put(
+            `/api/v1/user/organization/employees/${employeeId}/status/${status}`,
+        ),
     );
 export const listAdminProducts = async (
     keyword?: string,
