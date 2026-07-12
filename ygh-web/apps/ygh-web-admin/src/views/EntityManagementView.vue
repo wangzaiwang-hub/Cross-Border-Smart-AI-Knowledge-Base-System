@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
     changeAccountStatus,
     changeProductStatus,
+    createProduct,
     listAccounts,
     listAdminInventory,
     listAdminOrders,
     listAdminProducts,
+    listProductBrands,
+    listProductCategories,
     listWalletTransactions,
+    updateProduct,
     type AdminAccount,
     type Product,
+    type ProductBrand,
+    type ProductCategory,
 } from "@/api/operations";
 type Row = Record<string, unknown>;
 const route = useRoute();
@@ -21,6 +27,22 @@ const status = ref("");
 const loading = ref(true);
 const rows = ref<Row[]>([]);
 const unsupported = ref("");
+const productDialog = ref(false);
+const savingProduct = ref(false);
+const editingProduct = ref<Product>();
+const categories = ref<ProductCategory[]>([]);
+const brands = ref<ProductBrand[]>([]);
+const productForm = reactive({
+    categoryId: "",
+    brandId: "",
+    name: "",
+    skuCode: "",
+    price: "0.00",
+    currency: "CNY",
+    imagesText: "",
+    traceabilityCode: "",
+    specificationsText: "{}",
+});
 const configs: Record<
     string,
     { description: string; columns: Array<{ key: string; label: string }> }
@@ -100,12 +122,18 @@ async function load() {
                 keyword.value,
                 status.value,
             )) as unknown as Row[];
-        else if (entity.value === "product")
-            rows.value = (await listAdminProducts(
-                keyword.value,
-                status.value,
-            )) as unknown as Row[];
-        else if (entity.value === "order")
+        else if (entity.value === "product") {
+            const [products, categoryOptions, brandOptions] = await Promise.all(
+                [
+                    listAdminProducts(keyword.value, status.value),
+                    listProductCategories(),
+                    listProductBrands(),
+                ],
+            );
+            rows.value = products as unknown as Row[];
+            categories.value = categoryOptions.filter((item) => item.enabled);
+            brands.value = brandOptions.filter((item) => item.enabled);
+        } else if (entity.value === "order")
             rows.value = (await listAdminOrders(
                 status.value,
             )) as unknown as Row[];
@@ -121,6 +149,65 @@ async function load() {
         ElMessage.error(`${String(route.meta.title)}加载失败`);
     } finally {
         loading.value = false;
+    }
+}
+function openProduct(product?: Product) {
+    editingProduct.value = product;
+    Object.assign(productForm, {
+        categoryId: product?.categoryId ?? "",
+        brandId: product?.brandId ?? "",
+        name: product?.name ?? "",
+        skuCode: product?.skuCode ?? "",
+        price: product?.price ?? "0.00",
+        currency: product?.currency ?? "CNY",
+        imagesText: product?.images?.join("\n") ?? "",
+        traceabilityCode: product?.traceabilityCode ?? "",
+        specificationsText: JSON.stringify(
+            product?.specifications ?? {},
+            null,
+            2,
+        ),
+    });
+    productDialog.value = true;
+}
+async function saveProduct() {
+    if (!productForm.categoryId || !productForm.name || !productForm.skuCode) {
+        ElMessage.warning("请完整填写类目、商品名称和 SKU");
+        return;
+    }
+    let specifications: Record<string, string>;
+    try {
+        specifications = JSON.parse(productForm.specificationsText);
+    } catch {
+        ElMessage.warning("规格必须是合法的 JSON 对象");
+        return;
+    }
+    const command = {
+        categoryId: productForm.categoryId,
+        brandId: productForm.brandId || undefined,
+        name: productForm.name.trim(),
+        skuCode: productForm.skuCode.trim(),
+        price: productForm.price,
+        currency: productForm.currency,
+        images: productForm.imagesText
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean),
+        traceabilityCode: productForm.traceabilityCode.trim() || undefined,
+        specifications,
+    };
+    savingProduct.value = true;
+    try {
+        if (editingProduct.value)
+            await updateProduct(editingProduct.value, command);
+        else await createProduct({ ...command, version: 0 });
+        ElMessage.success(editingProduct.value ? "商品已更新" : "商品已创建");
+        productDialog.value = false;
+        await load();
+    } catch {
+        ElMessage.error("商品保存失败，请检查输入或数据版本");
+    } finally {
+        savingProduct.value = false;
     }
 }
 function format(value: unknown) {
@@ -167,6 +254,12 @@ watch(() => route.fullPath, load, { immediate: true });
             <h1>{{ route.meta.title }}</h1>
             <p>{{ config.description }}</p>
         </div>
+        <el-button
+            v-if="entity === 'product'"
+            type="primary"
+            @click="openProduct()"
+            >新增商品</el-button
+        >
     </div>
     <div class="panel filter-row">
         <el-input
@@ -220,8 +313,15 @@ watch(() => route.fullPath, load, { immediate: true });
             ><el-table-column
                 v-if="['user', 'product'].includes(entity)"
                 label="操作"
-                width="130"
+                width="190"
                 ><template #default="scope"
+                    ><el-button
+                        v-if="entity === 'product'"
+                        link
+                        type="primary"
+                        @click="openProduct(scope.row as Product)"
+                        >编辑</el-button
+                    >
                     ><el-button
                         link
                         type="primary"
@@ -245,4 +345,94 @@ watch(() => route.fullPath, load, { immediate: true });
             style="margin-top: 16px; justify-content: flex-end"
         />
     </section>
+    <el-dialog
+        v-model="productDialog"
+        :title="editingProduct ? '编辑商品' : '新增商品'"
+        width="720px"
+        destroy-on-close
+    >
+        <el-form label-position="top" class="product-form">
+            <el-form-item label="类目" required>
+                <el-select v-model="productForm.categoryId" filterable>
+                    <el-option
+                        v-for="item in categories"
+                        :key="item.id"
+                        :label="item.name"
+                        :value="item.id"
+                    />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="品牌">
+                <el-select v-model="productForm.brandId" clearable filterable>
+                    <el-option
+                        v-for="item in brands"
+                        :key="item.id"
+                        :label="item.name"
+                        :value="item.id"
+                    />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="商品名称" required>
+                <el-input v-model="productForm.name" maxlength="120" />
+            </el-form-item>
+            <el-form-item label="SKU" required>
+                <el-input
+                    v-model="productForm.skuCode"
+                    :disabled="Boolean(editingProduct)"
+                    maxlength="64"
+                />
+            </el-form-item>
+            <el-form-item label="售价" required>
+                <el-input v-model="productForm.price" />
+            </el-form-item>
+            <el-form-item label="币种">
+                <el-input v-model="productForm.currency" maxlength="3" />
+            </el-form-item>
+            <el-form-item label="溯源码">
+                <el-input v-model="productForm.traceabilityCode" />
+            </el-form-item>
+            <el-form-item label="图片 URL（每行一个）" class="full-row">
+                <el-input
+                    v-model="productForm.imagesText"
+                    type="textarea"
+                    :rows="3"
+                />
+            </el-form-item>
+            <el-form-item label="规格 JSON" class="full-row">
+                <el-input
+                    v-model="productForm.specificationsText"
+                    type="textarea"
+                    :rows="5"
+                />
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <el-button @click="productDialog = false">取消</el-button>
+            <el-button
+                type="primary"
+                :loading="savingProduct"
+                @click="saveProduct"
+                >保存</el-button
+            >
+        </template>
+    </el-dialog>
 </template>
+
+<style scoped>
+.product-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 20px;
+}
+.full-row {
+    grid-column: 1 / -1;
+}
+@media (max-width: 760px) {
+    .product-form {
+        grid-template-columns: 1fr;
+    }
+    .full-row {
+        grid-column: auto;
+    }
+}
+</style>

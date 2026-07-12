@@ -34,6 +34,20 @@ export interface Product {
     status: string;
     traceabilityCode: string;
     version: number;
+    images?: string[];
+    specifications?: Record<string, string>;
+}
+export interface ProductCategory {
+    id: string;
+    code: string;
+    name: string;
+    enabled: boolean;
+}
+export interface ProductBrand {
+    id: string;
+    code: string;
+    name: string;
+    enabled: boolean;
 }
 export interface Order {
     orderId: string;
@@ -219,6 +233,45 @@ export const listAdminProducts = async (
             },
         }),
     );
+export const listProductCategories = async (): Promise<ProductCategory[]> =>
+    apiData(await useHttp().get("/api/v1/product-categories"));
+export const listProductBrands = async (): Promise<ProductBrand[]> =>
+    apiData(await useHttp().get("/api/v1/product-brands"));
+export async function createProduct(command: {
+    categoryId: string;
+    brandId?: string;
+    name: string;
+    skuCode: string;
+    price: string;
+    currency: string;
+    images: string[];
+    traceabilityCode?: string;
+    version: number;
+    specifications: Record<string, string>;
+}): Promise<Product> {
+    return apiData(await useHttp().post("/api/v1/admin/products", command));
+}
+export async function updateProduct(
+    product: Product,
+    command: {
+        categoryId: string;
+        brandId?: string;
+        name: string;
+        description?: string;
+        price: string;
+        currency: string;
+        images: string[];
+        traceabilityCode?: string;
+        specifications: Record<string, string>;
+    },
+): Promise<Product> {
+    return apiData(
+        await useHttp().put(`/api/v1/admin/products/${product.skuId}`, {
+            ...command,
+            version: product.version,
+        }),
+    );
+}
 export const listAdminOrders = async (status?: string): Promise<Order[]> =>
     apiData(
         await useHttp().get("/api/v1/admin/orders", {
