@@ -38,7 +38,7 @@
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId><artifactId>jacoco-maven-plugin</artifactId>
-                <configuration><excludes combine.children="append"><exclude>**/*Application.class</exclude></excludes></configuration>
+                <configuration><excludes combine.children="append"><exclude>**/*Application.class</exclude><exclude>**/*MigrationApplication.class</exclude></excludes></configuration>
             </plugin>
         </plugins>
     </build>
