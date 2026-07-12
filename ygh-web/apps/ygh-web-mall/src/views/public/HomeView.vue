@@ -14,15 +14,19 @@ import { addCartItem } from "@/api/cart";
 import { listKnowledge, type KnowledgeDocument } from "@/api/knowledge";
 import { listCategories, listProducts, productSummary } from "@/api/product";
 import type { ProductSummary } from "@ygh/web-shared";
+import { useSessionStore } from "@ygh/web-shared";
 
 const products = ref<ProductSummary[]>([]);
 const knowledgeArticles = ref<KnowledgeDocument[]>([]);
+const session = useSessionStore();
 async function load() {
     try {
         const [rawProducts, categories, documents] = await Promise.all([
             listProducts({ limit: 4 }),
             listCategories(),
-            listKnowledge(undefined, 3),
+            session.authenticated
+                ? listKnowledge(undefined, 3)
+                : Promise.resolve([]),
         ]);
         const names = Object.fromEntries(
             categories.map((category) => [category.id, category.name]),

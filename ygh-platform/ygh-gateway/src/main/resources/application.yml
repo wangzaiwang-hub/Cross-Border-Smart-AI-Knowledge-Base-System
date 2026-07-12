@@ -36,15 +36,47 @@ spring:
             - id: user-service
               uri: lb://ygh-user-service
               predicates:
-                - Path=/api/v1/users/**,/api/v1/employees/**,/api/v1/departments/**,/api/v1/jobs/**,/api/v1/addresses/**
+                - Path=/api/v1/user/**,/api/v1/addresses/**
             - id: system-service
               uri: lb://ygh-system-service
               predicates:
                 - Path=/api/v1/system/**,/api/v1/roles/**,/api/v1/permissions/**
+            - id: product-service
+              uri: lb://ygh-product-service
+              predicates:
+                - Path=/api/v1/products/**,/api/v1/product-categories,/api/v1/product-brands,/api/v1/admin/products/**,/api/v1/admin/product-categories,/api/v1/admin/product-brands
+            - id: inventory-service
+              uri: lb://ygh-inventory-service
+              predicates:
+                - Path=/api/v1/admin/inventory/**
+            - id: order-service
+              uri: lb://ygh-order-service
+              predicates:
+                - Path=/api/v1/cart/**,/api/v1/orders/**,/api/v1/admin/orders/**
+            - id: wallet-service
+              uri: lb://ygh-wallet-service
+              predicates:
+                - Path=/api/v1/wallet/**,/api/v1/admin/wallet/**
+            - id: knowledge-service
+              uri: lb://ygh-knowledge-service
+              predicates:
+                - Path=/api/v1/knowledge/**,/api/v1/admin/knowledge/**
+            - id: ai-service
+              uri: lb://ygh-ai-service
+              predicates:
+                - Path=/api/v1/ai/**,/api/v1/admin/ai/**
+            - id: training-service
+              uri: lb://ygh-training-service
+              predicates:
+                - Path=/api/v1/training/**
+            - id: notification-service
+              uri: lb://ygh-notification-service
+              predicates:
+                - Path=/api/v1/notifications/**,/api/v1/admin/notifications/**
             - id: admin-service
               uri: lb://ygh-admin-service
               predicates:
-                - Path=/api/v1/admin/**
+                - Path=/api/v1/admin/dashboard,/api/v1/admin/audit-logs
 
 ygh:
   internal-request:

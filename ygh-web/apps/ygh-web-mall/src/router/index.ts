@@ -47,17 +47,20 @@ const routes: RouteRecordRaw[] = [
                 name: "knowledge",
                 component: () =>
                     import("@/views/public/KnowledgeCenterView.vue"),
+                meta: { requiresAuth: true },
             },
             {
                 path: "knowledge/:id",
                 name: "knowledge-detail",
                 component: () =>
                     import("@/views/public/KnowledgeDetailView.vue"),
+                meta: { requiresAuth: true },
             },
             {
                 path: "ai-service",
                 name: "ai-service",
                 component: () => import("@/views/ai/AiServiceView.vue"),
+                meta: { requiresAuth: true },
             },
         ],
     },

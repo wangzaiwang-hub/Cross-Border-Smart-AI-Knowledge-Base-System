@@ -81,6 +81,11 @@ class GatewaySecurityConfiguration {
                                 "/api/v1/auth/password-reset/request",
                                 "/api/v1/auth/password-reset/confirm").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/v1/auth/captcha").permitAll()
+                        .pathMatchers(HttpMethod.GET,
+                                "/api/v1/products",
+                                "/api/v1/products/**",
+                                "/api/v1/product-categories",
+                                "/api/v1/product-brands").permitAll()
                         .pathMatchers(
                                 "/api/v1/employees/**",
                                 "/api/v1/departments/**",
