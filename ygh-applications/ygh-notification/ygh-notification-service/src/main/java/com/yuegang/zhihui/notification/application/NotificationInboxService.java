@@ -1,3 +1,0 @@
-package com.yuegang.zhihui.notification.application;
-import javax.sql.DataSource;import org.springframework.jdbc.core.JdbcTemplate;
-public final class NotificationInboxService{private final JdbcTemplate jdbc;public NotificationInboxService(DataSource dataSource){jdbc=new JdbcTemplate(dataSource);}public long unreadCount(long userId){Long count=jdbc.queryForObject("SELECT COUNT(*) FROM notification_message WHERE user_id=? AND read_at IS NULL",Long.class,userId);return count==null?0:count;}public int readAll(long userId){return jdbc.update("UPDATE notification_message SET read_at=NOW(6) WHERE user_id=? AND read_at IS NULL",userId);}}

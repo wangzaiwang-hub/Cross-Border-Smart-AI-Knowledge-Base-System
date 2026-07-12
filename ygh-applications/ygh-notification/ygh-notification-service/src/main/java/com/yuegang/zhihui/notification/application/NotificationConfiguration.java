@@ -1,9 +1,1 @@
-package com.yuegang.zhihui.notification.application;
-import com.yuegang.zhihui.notification.security.NotificationSecurity;import java.util.*;import javax.sql.DataSource;import org.springframework.beans.factory.annotation.Value;import org.springframework.context.annotation.*;
-@Configuration(proxyBeanMethods=false)class NotificationConfiguration{
- @Bean NotificationService notificationService(DataSource dataSource){return new NotificationService(dataSource);}
- @Bean NotificationInboxService notificationInboxService(DataSource dataSource){return new NotificationInboxService(dataSource);}
- @Bean NotificationDispatchJob notificationDispatchJob(NotificationService service){return new NotificationDispatchJob(service);}
- @Bean NotificationQueryService notificationQueryService(DataSource dataSource){return new NotificationQueryService(dataSource);}
- @Bean NotificationSecurity notificationSecurity(@Value("${ygh.internal-request.hmac-base64}")String encoded){byte[]key=Base64.getDecoder().decode(encoded);try{return new NotificationSecurity(key);}finally{Arrays.fill(key,(byte)0);}}
-}
+package com.yuegang.zhihui.notification.application;import com.yuegang.zhihui.notification.security.*;import java.util.*;import javax.sql.*;import org.springframework.beans.factory.annotation.*;import org.springframework.context.annotation.*;@Configuration(proxyBeanMethods=false)class NotificationConfiguration{@Bean NotificationService notificationService(DataSource d){return new NotificationService(d);}@Bean NotificationDispatchJob notificationDispatchJob(NotificationService s){return new NotificationDispatchJob(s);}@Bean NotificationQueryService notificationQueryService(DataSource d){return new NotificationQueryService(d);}@Bean NotificationSecurity notificationSecurity(@Value("${ygh.internal-request.hmac-base64}")String e){byte[]k=Base64.getDecoder().decode(e);try{return new NotificationSecurity(k);}finally{Arrays.fill(k,(byte)0);}}}
