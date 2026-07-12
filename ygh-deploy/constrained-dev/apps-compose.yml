@@ -1,0 +1,183 @@
+name: ygh-apps
+
+x-app: &app
+  restart: unless-stopped
+  env_file: [.env]
+  networks: [ygh-apps]
+  mem_limit: 512m
+  cpus: 0.50
+  logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
+
+x-env: &common-env
+  YGH_NACOS_SERVER_ADDR: ${YGH_NACOS_SERVER_ADDR:-192.168.154.10:8848}
+  YGH_NACOS_USERNAME: ${YGH_NACOS_USERNAME:-nacos}
+  YGH_NACOS_PASSWORD: ${NACOS_ADMIN_PASSWORD:-nacos}
+  YGH_NACOS_NAMESPACE: ${YGH_NACOS_NAMESPACE:-ygh-dev}
+  YGH_INTERNAL_REQUEST_HMAC_BASE64: ${INTERNAL_REQUEST_HMAC_BASE64:?required}
+  YGH_LOG_PATH: /tmp/logs
+
+services:
+  gateway:
+    <<: *app
+    profiles: [platform]
+    build: {context: ../../ygh-platform/ygh-gateway}
+    environment:
+      <<: *common-env
+      YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
+      YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
+      YGH_JWT_JWK_SET_URI: http://auth:8081/.well-known/jwks.json
+      YGH_JWT_ISSUER: ${YGH_JWT_ISSUER:-https://auth.dev.ygh.internal}
+      YGH_JWT_AUDIENCE: ygh-api
+      YGH_REDIS_ENVIRONMENT: dev
+      YGH_GATEWAY_CORS_ALLOWED_ORIGINS: ${YGH_GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    ports: ["8080:8080"]
+  auth:
+    <<: *app
+    profiles: [platform]
+    build: {context: ../../ygh-platform/ygh-auth-service}
+    environment:
+      <<: *common-env
+      YGH_AUTH_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/auth_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_AUTH_DB_APP_PASSWORD: ${AUTH_DB_APP_PASSWORD:?required}
+      YGH_AUTH_DB_MIGRATION_PASSWORD: ${AUTH_DB_MIGRATION_PASSWORD:?required}
+      YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
+      YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
+      YGH_SYSTEM_INTERNAL_BASE_URL: http://system:8083
+      YGH_REDIS_ENVIRONMENT: dev
+      YGH_AUTH_AUDIT_PEPPER_BASE64: ${AUTH_AUDIT_PEPPER_BASE64:?required}
+      YGH_AUTH_ID_WORKER: ${AUTH_ID_WORKER:-1}
+      YGH_JWT_ENABLED: "true"
+      YGH_JWT_KEY_DIRECTORY: /run/secrets/jwt
+      YGH_JWT_ACTIVE_KID: ${YGH_JWT_ACTIVE_KID:-auth-dev-2026}
+      YGH_JWT_ISSUER: ${YGH_JWT_ISSUER:-https://auth.dev.ygh.internal}
+      YGH_JWT_AUDIENCE: ygh-api
+    volumes: [./secrets/jwt:/run/secrets/jwt:ro]
+  user:
+    <<: *app
+    profiles: [platform]
+    build: {context: ../../ygh-applications/ygh-user/ygh-user-service}
+    environment:
+      <<: *common-env
+      YGH_USER_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/user_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_USER_DB_APP_PASSWORD: ${USER_DB_APP_PASSWORD:?required}
+      YGH_USER_DB_MIGRATION_PASSWORD: ${USER_DB_MIGRATION_PASSWORD:?required}
+      YGH_USER_PII_KEY_BASE64: ${USER_PII_KEY_BASE64:?required}
+  system:
+    <<: *app
+    profiles: [platform]
+    build: {context: ../../ygh-applications/ygh-system/ygh-system-service}
+    environment:
+      <<: *common-env
+      YGH_SYSTEM_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/system_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_SYSTEM_DB_APP_PASSWORD: ${SYSTEM_DB_APP_PASSWORD:?required}
+      YGH_SYSTEM_DB_MIGRATION_PASSWORD: ${SYSTEM_DB_MIGRATION_PASSWORD:?required}
+  product:
+    <<: *app
+    profiles: [mall]
+    build: {context: ../../ygh-applications/ygh-product/ygh-product-service}
+    environment:
+      <<: *common-env
+      YGH_PRODUCT_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/product_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_PRODUCT_DB_APP_PASSWORD: ${YGH_PRODUCT_DB_APP_PASSWORD:?required}
+      YGH_PRODUCT_DB_MIGRATION_PASSWORD: ${YGH_PRODUCT_DB_MIGRATION_PASSWORD:?required}
+  inventory:
+    <<: *app
+    profiles: [mall]
+    build: {context: ../../ygh-applications/ygh-inventory/ygh-inventory-service}
+    environment:
+      <<: *common-env
+      YGH_INVENTORY_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/inventory_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_INVENTORY_DB_APP_PASSWORD: ${YGH_INVENTORY_DB_APP_PASSWORD:?required}
+      YGH_INVENTORY_DB_MIGRATION_PASSWORD: ${YGH_INVENTORY_DB_MIGRATION_PASSWORD:?required}
+  order:
+    <<: *app
+    profiles: [mall]
+    build: {context: ../../ygh-applications/ygh-order/ygh-order-service}
+    environment:
+      <<: *common-env
+      YGH_ORDER_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/order_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_ORDER_DB_APP_PASSWORD: ${YGH_ORDER_DB_APP_PASSWORD:?required}
+      YGH_ORDER_DB_MIGRATION_PASSWORD: ${YGH_ORDER_DB_MIGRATION_PASSWORD:?required}
+      YGH_PRODUCT_INTERNAL_BASE_URL: http://product:8084
+      YGH_INVENTORY_INTERNAL_BASE_URL: http://inventory:8085
+      YGH_MQ_ENABLED: "true"
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+  wallet:
+    <<: *app
+    profiles: [mall]
+    build: {context: ../../ygh-applications/ygh-wallet/ygh-wallet-service}
+    environment:
+      <<: *common-env
+      YGH_WALLET_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/wallet_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_WALLET_DB_APP_PASSWORD: ${YGH_WALLET_DB_APP_PASSWORD:?required}
+      YGH_WALLET_DB_MIGRATION_PASSWORD: ${YGH_WALLET_DB_MIGRATION_PASSWORD:?required}
+      YGH_MQ_ENABLED: "true"
+      YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:9876}
+  notification:
+    <<: *app
+    profiles: [mall]
+    build: {context: ../../ygh-applications/ygh-notification/ygh-notification-service}
+    environment:
+      <<: *common-env
+      YGH_NOTIFICATION_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/notification_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_NOTIFICATION_DB_APP_PASSWORD: ${YGH_NOTIFICATION_DB_APP_PASSWORD:?required}
+      YGH_NOTIFICATION_DB_MIGRATION_PASSWORD: ${YGH_NOTIFICATION_DB_MIGRATION_PASSWORD:?required}
+  admin:
+    <<: *app
+    profiles: [platform]
+    build: {context: ../../ygh-applications/ygh-admin/ygh-admin-service}
+    environment:
+      <<: *common-env
+      YGH_ADMIN_SERVICE_HEALTH_URLS: auth=http://auth:8081/actuator/health,system=http://system:8083/actuator/health,product=http://product:8084/actuator/health,order=http://order:8086/actuator/health,knowledge=http://knowledge:8088/actuator/health,training=http://training:8091/actuator/health
+  knowledge:
+    <<: *app
+    profiles: [ai-apps]
+    build: {context: ../../ygh-applications/ygh-knowledge/ygh-knowledge-service}
+    environment:
+      <<: *common-env
+      YGH_KNOWLEDGE_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/knowledge_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_KNOWLEDGE_DB_APP_PASSWORD: ${YGH_KNOWLEDGE_DB_APP_PASSWORD:?required}
+      YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD: ${YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD:?required}
+      YGH_KNOWLEDGE_STORAGE_ROOT: /data/knowledge
+      YGH_SEARCH_INTERNAL_BASE_URL: http://search:8089
+    volumes: [knowledge-files:/data/knowledge]
+  search:
+    <<: *app
+    profiles: [ai-apps]
+    build: {context: ../../ygh-applications/ygh-search/ygh-search-service}
+    environment:
+      <<: *common-env
+      YGH_VECTOR_DB_URL: jdbc:postgresql://${YGH_VM_HOST:-192.168.154.10}:5432/ygh_vector
+      YGH_VECTOR_DB_USERNAME: ygh_vector
+      YGH_VECTOR_DB_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      YGH_ELASTICSEARCH_BASE_URL: http://host.docker.internal:9200
+      YGH_DOUBAO_API_KEY: ${YGH_DOUBAO_API_KEY:-}
+      YGH_DOUBAO_EMBEDDING_MODEL: ${YGH_DOUBAO_EMBEDDING_MODEL:-}
+  ai:
+    <<: *app
+    profiles: [ai-apps]
+    build: {context: ../../ygh-applications/ygh-ai/ygh-ai-service}
+    environment:
+      <<: *common-env
+      YGH_AI_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/ai_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_AI_DB_APP_PASSWORD: ${YGH_AI_DB_APP_PASSWORD:?required}
+      YGH_AI_DB_MIGRATION_PASSWORD: ${YGH_AI_DB_MIGRATION_PASSWORD:?required}
+      YGH_SEARCH_INTERNAL_BASE_URL: http://search:8089
+      YGH_PRODUCT_INTERNAL_BASE_URL: http://product:8084
+      YGH_ORDER_INTERNAL_BASE_URL: http://order:8086
+      YGH_DOUBAO_API_KEY: ${YGH_DOUBAO_API_KEY:-}
+      YGH_DOUBAO_CHAT_MODEL: ${YGH_DOUBAO_CHAT_MODEL:-}
+  training:
+    <<: *app
+    profiles: [training]
+    build: {context: ../../ygh-applications/ygh-training/ygh-training-service}
+    environment:
+      <<: *common-env
+      YGH_TRAINING_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/training_db?useSSL=false&serverTimezone=Asia/Shanghai
+      YGH_TRAINING_DB_APP_PASSWORD: ${YGH_TRAINING_DB_APP_PASSWORD:?required}
+      YGH_TRAINING_DB_MIGRATION_PASSWORD: ${YGH_TRAINING_DB_MIGRATION_PASSWORD:?required}
+      YGH_TRAINING_STORAGE_ROOT: /data/training
+    volumes: [training-files:/data/training]
+
+networks: {ygh-apps: {name: ygh-apps}}
+volumes: {knowledge-files: {}, training-files: {}}
