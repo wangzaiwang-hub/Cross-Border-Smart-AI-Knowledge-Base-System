@@ -14,4 +14,8 @@ spring:
     namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
     group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
 ygh.search.elasticsearch-base-url: ${YGH_ELASTICSEARCH_BASE_URL}
+ygh.search.embedding-base-url: ${YGH_DOUBAO_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+ygh.search.embedding-api-key: ${YGH_DOUBAO_API_KEY}
+ygh.search.embedding-model: ${YGH_DOUBAO_EMBEDDING_MODEL}
+ygh.search.index-alias: ${YGH_SEARCH_INDEX_ALIAS:knowledge-active}
 management.endpoints.web.exposure.include: health,info

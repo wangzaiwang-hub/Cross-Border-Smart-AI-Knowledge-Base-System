@@ -1,0 +1,1 @@
+package com.yuegang.zhihui.search.api;import jakarta.validation.constraints.*;public record IndexChunkCommand(@NotBlank String documentId,@NotBlank String chunkId,@NotBlank String title,@NotBlank String content,@NotBlank String category,@NotBlank String visibility,@NotBlank String indexVersion,@AssertTrue boolean published){}
