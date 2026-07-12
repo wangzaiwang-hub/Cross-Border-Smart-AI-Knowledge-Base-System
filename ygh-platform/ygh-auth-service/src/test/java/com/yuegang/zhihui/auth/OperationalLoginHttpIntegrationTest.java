@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jwt.SignedJWT;
 import com.yuegang.zhihui.auth.domain.Argon2PasswordHasher;
+import com.yuegang.zhihui.auth.domain.AuthorityProvider;
 import com.yuegang.zhihui.auth.domain.SensitiveValueHasher;
 import com.yuegang.zhihui.common.redis.RedisKeyBuilder;
 import com.yuegang.zhihui.common.redis.SessionRedisKeys;
@@ -30,6 +31,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -54,7 +58,7 @@ class OperationalLoginHttpIntegrationTest {
                 insertAccount(mysql.jdbcUrl(), mysql.username(), mysql.credential(), digest.hash());
                 writeKeyPair("login-test");
 
-                try (var context = new SpringApplicationBuilder(AuthApplication.class)
+                try (var context = new SpringApplicationBuilder(AuthApplication.class, AuthorityStubConfiguration.class)
                         .web(WebApplicationType.SERVLET)
                         .properties(
                                 "YGH_AUTH_PORT=0",
@@ -73,6 +77,7 @@ class OperationalLoginHttpIntegrationTest {
                                 "YGH_REDIS_ENVIRONMENT=test",
                                 "YGH_AUTH_AUDIT_PEPPER_BASE64=" + TEST_SECRET,
                                 "YGH_INTERNAL_REQUEST_HMAC_BASE64=" + TEST_SECRET,
+                                "YGH_SYSTEM_INTERNAL_BASE_URL=http://127.0.0.1:1",
                                 "YGH_JWT_ENABLED=true",
                                 "YGH_AUTH_ID_WORKER=1",
                                 "YGH_JWT_KEY_DIRECTORY=" + keyDirectory.toAbsolutePath(),
@@ -96,6 +101,15 @@ class OperationalLoginHttpIntegrationTest {
             } finally {
                 redis.stop();
             }
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class AuthorityStubConfiguration {
+        @Bean
+        @Primary
+        AuthorityProvider testAuthorityProvider() {
+            return userId -> new AuthorityProvider.Authorities(Set.of("CUSTOMER"), Set.of());
         }
     }
 
