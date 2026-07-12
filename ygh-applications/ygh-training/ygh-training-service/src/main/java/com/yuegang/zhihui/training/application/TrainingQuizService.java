@@ -37,7 +37,7 @@ public final class TrainingQuizService {
         if (existing != null) return existing;
         long assignmentId = positive(request.assignmentId());
         long gateId = positive(request.gateId());
-        Integer allowed = jdbc.queryForObject("SELECT COUNT(*) FROM training_assignment a JOIN training_gate g JOIN training_chapter c ON c.id=g.chapter_id AND c.course_id=a.course_id WHERE a.id=? AND a.user_id=? AND g.id=? AND a.status IN ('ASSIGNED','IN_PROGRESS')", Integer.class, assignmentId, userId, gateId);
+        Integer allowed = jdbc.queryForObject("SELECT COUNT(*) FROM training_assignment a JOIN training_gate g JOIN training_chapter c ON c.id=g.chapter_id AND c.course_id=a.course_id JOIN training_chapter_progress p ON p.assignment_id=a.id AND p.chapter_id=c.id AND p.completed=TRUE WHERE a.id=? AND a.user_id=? AND g.id=? AND a.status IN ('ASSIGNED','IN_PROGRESS')", Integer.class, assignmentId, userId, gateId);
         if (allowed == null || allowed != 1) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         Integer maximum = jdbc.queryForObject("SELECT maximum_attempts FROM training_gate WHERE id=?", Integer.class, gateId);
         Integer attempts = jdbc.queryForObject("SELECT COUNT(*) FROM training_quiz_attempt WHERE assignment_id=? AND gate_id=?", Integer.class, assignmentId, gateId);
@@ -57,6 +57,7 @@ public final class TrainingQuizService {
         boolean passed = score >= passScore;
         long id = System.currentTimeMillis() * 1000 + Math.floorMod(request.requestId().hashCode(), 1000);
         jdbc.update("INSERT INTO training_quiz_attempt(id,request_id,assignment_id,gate_id,user_id,score,passed,answers_json,started_at) VALUES(?,?,?,?,?,?,?,?,?)", id, request.requestId(), assignmentId, gateId, userId, score, passed, answersJson(request), LocalDateTime.now());
+        if (passed) jdbc.update("UPDATE training_assignment a SET status='COMPLETED',completed_at=NOW(6),version=version+1 WHERE a.id=? AND NOT EXISTS(SELECT 1 FROM training_chapter c LEFT JOIN training_chapter_progress p ON p.chapter_id=c.id AND p.assignment_id=a.id WHERE c.course_id=a.course_id AND COALESCE(p.completed,FALSE)=FALSE) AND NOT EXISTS(SELECT 1 FROM training_gate g JOIN training_chapter c ON c.id=g.chapter_id WHERE c.course_id=a.course_id AND NOT EXISTS(SELECT 1 FROM training_quiz_attempt q WHERE q.assignment_id=a.id AND q.gate_id=g.id AND q.passed=TRUE))",assignmentId);
         return new QuizAttemptView(Long.toString(id), Long.toString(assignmentId), Long.toString(gateId), score, passed);
     }
 
