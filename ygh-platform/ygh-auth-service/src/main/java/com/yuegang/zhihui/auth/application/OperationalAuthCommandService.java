@@ -12,15 +12,17 @@ final class OperationalAuthCommandService implements AuthCommandService {
     private final TokenLifecycleUseCase tokenLifecycle;
     private final CaptchaService captchas;
     private final AccessTokenVerificationService accessTokenVerifier;
+    private final PasswordResetService passwordResets;
 
     OperationalAuthCommandService(LoginUseCase loginUseCase, RegistrationUseCase registrationUseCase,
             TokenLifecycleUseCase tokenLifecycle, CaptchaService captchas,
-            AccessTokenVerificationService accessTokenVerifier) {
+            AccessTokenVerificationService accessTokenVerifier, PasswordResetService passwordResets) {
         this.loginUseCase = Objects.requireNonNull(loginUseCase, "loginUseCase must not be null");
         this.registrationUseCase = Objects.requireNonNull(registrationUseCase);
         this.tokenLifecycle = Objects.requireNonNull(tokenLifecycle);
         this.captchas = Objects.requireNonNull(captchas);
         this.accessTokenVerifier = Objects.requireNonNull(accessTokenVerifier);
+        this.passwordResets = Objects.requireNonNull(passwordResets);
     }
 
     @Override public AuthenticationResponse login(LoginRequest request, LoginSecurityContext context) {
@@ -34,13 +36,9 @@ final class OperationalAuthCommandService implements AuthCommandService {
     }
     @Override public CaptchaResponse captcha() { return captchas.create(); }
     @Override public PasswordResetRequestedResponse requestPasswordReset(PasswordResetRequest request) {
-        throw unavailable();
+        return passwordResets.request(request);
     }
     @Override public OperationResponse confirmPasswordReset(PasswordResetConfirmRequest request) {
-        throw unavailable();
-    }
-
-    private static BusinessException unavailable() {
-        return new BusinessException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        return passwordResets.confirm(request);
     }
 }

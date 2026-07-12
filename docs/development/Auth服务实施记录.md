@@ -1,5 +1,13 @@
 # Auth 服务实施记录
 
+## 2026-07-12 密码重置闭环
+
+- 密码重置申请先消费一次性验证码，外部始终返回相同的 202 结构，避免泄露账号是否存在。
+- 重置令牌使用 256 位随机数，数据库仅保存 SHA-256 摘要和 15 分钟有效期。
+- 原始令牌通过带 HMAC 签名的 Notification 内部接口投递到本人站内信，不写日志、不进入 API 响应。
+- 确认接口在本地事务中锁定并一次性消费令牌，执行密码策略和 Argon2id 重散列，同时撤销该账号全部 Refresh Token。
+- 新增 Flyway `V2__create_password_reset.sql`，Notification 新增 `AUTH_PASSWORD_RESET` 模板；集中测试按当前“先开发后测试”策略后置。
+
 > 模块：`ygh-platform/ygh-auth-service`  
 > 技术基线：JDK 25、Spring Boot 4.0.7、MySQL 8.4.10、Flyway 11  
 > 当前完成：`BE-0320`—`BE-0321`

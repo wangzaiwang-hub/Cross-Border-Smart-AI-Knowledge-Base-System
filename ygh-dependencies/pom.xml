@@ -24,6 +24,7 @@
         <bouncycastle.version>1.81.1</bouncycastle.version>
         <apache-tika.version>3.3.1</apache-tika.version>
         <rocketmq-client.version>5.3.1</rocketmq-client.version>
+        <langchain4j.version>1.17.2</langchain4j.version>
     </properties>
 
     <dependencyManagement>
@@ -95,6 +96,8 @@
             <dependency><groupId>org.apache.tika</groupId><artifactId>tika-core</artifactId><version>${apache-tika.version}</version></dependency>
             <dependency><groupId>org.apache.tika</groupId><artifactId>tika-parsers-standard-package</artifactId><version>${apache-tika.version}</version></dependency>
             <dependency><groupId>org.apache.rocketmq</groupId><artifactId>rocketmq-client</artifactId><version>${rocketmq-client.version}</version></dependency>
+            <dependency><groupId>dev.langchain4j</groupId><artifactId>langchain4j</artifactId><version>${langchain4j.version}</version></dependency>
+            <dependency><groupId>dev.langchain4j</groupId><artifactId>langchain4j-open-ai</artifactId><version>${langchain4j.version}</version></dependency>
 
             <dependency>
                 <groupId>com.yuegang.zhihui</groupId>

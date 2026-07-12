@@ -65,6 +65,8 @@ management:
       enabled: true
 
 ygh:
+  notification:
+    internal-base-url: ${YGH_NOTIFICATION_INTERNAL_BASE_URL:http://notification:8092}
   system:
     internal-base-url: ${YGH_SYSTEM_INTERNAL_BASE_URL}
   internal-request:

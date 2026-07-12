@@ -246,10 +246,31 @@ class AuthSecurityConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    PasswordResetNotificationClient passwordResetNotificationClient(
+            @org.springframework.beans.factory.annotation.Value("${ygh.notification.internal-base-url}") String baseUrl,
+            @org.springframework.beans.factory.annotation.Value("${ygh.internal-request.hmac-base64}") String encoded,
+            Clock clock) {
+        byte[] secret = Base64.getDecoder().decode(encoded);
+        try { return new PasswordResetNotificationClient(baseUrl, secret, clock); }
+        finally { Arrays.fill(secret, (byte) 0); }
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    PasswordResetService passwordResetService(LoginAccountRepository accounts, CaptchaService captchas,
+            PasswordPolicy passwordPolicy, Argon2PasswordHasher passwordHasher,
+            PasswordResetNotificationClient notifications, DataSource dataSource, Clock clock) {
+        return new PasswordResetService(accounts, captchas, passwordPolicy, passwordHasher,
+                notifications, dataSource, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
     AuthCommandService operationalAuthCommandService(LoginUseCase loginUseCase,
             RegistrationUseCase registrationUseCase, TokenLifecycleUseCase tokenLifecycle,
-            CaptchaService captchas, AccessTokenVerificationService accessTokenVerifier) {
+            CaptchaService captchas, AccessTokenVerificationService accessTokenVerifier,
+            PasswordResetService passwordResetService) {
         return new OperationalAuthCommandService(loginUseCase, registrationUseCase, tokenLifecycle,
-                captchas, accessTokenVerifier);
+                captchas, accessTokenVerifier, passwordResetService);
     }
 }
