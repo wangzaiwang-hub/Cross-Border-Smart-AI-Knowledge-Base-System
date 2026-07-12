@@ -165,6 +165,23 @@ export interface FeatureFlag {
     rulesJson: string;
     version: number;
 }
+export interface Inventory {
+    skuId: string;
+    available: number;
+    locked: number;
+    sold: number;
+    version: number;
+}
+export interface WalletTransaction {
+    transactionId: string;
+    userId: string;
+    type: string;
+    status: string;
+    amount: string;
+    currency: string;
+    referenceId: string;
+    createdAt: string;
+}
 export const getDashboard = async (): Promise<Dashboard> =>
     apiData(await useHttp().get("/api/v1/admin/dashboard"));
 export const listAccounts = async (
@@ -268,3 +285,15 @@ export const listDictionaries = async (): Promise<Dictionary[]> =>
     apiData(await useHttp().get("/api/v1/system/dictionaries"));
 export const listFeatureFlags = async (): Promise<FeatureFlag[]> =>
     apiData(await useHttp().get("/api/v1/system/feature-flags"));
+export const listAdminInventory = async (): Promise<Inventory[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/inventory", {
+            params: { limit: 500 },
+        }),
+    );
+export const listWalletTransactions = async (): Promise<WalletTransaction[]> =>
+    apiData(
+        await useHttp().get("/api/v1/admin/wallet/transactions", {
+            params: { limit: 500 },
+        }),
+    );

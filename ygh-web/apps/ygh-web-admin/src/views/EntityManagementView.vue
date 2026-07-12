@@ -5,8 +5,10 @@ import { Search } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import {
     listAccounts,
+    listAdminInventory,
     listAdminOrders,
     listAdminProducts,
+    listWalletTransactions,
 } from "@/api/operations";
 type Row = Record<string, unknown>;
 const route = useRoute();
@@ -53,13 +55,26 @@ const configs: Record<
         ],
     },
     inventory: {
-        description: "库存服务目前只暴露受签名保护的内部交易接口。",
-        columns: [],
+        description:
+            "查看库存领域服务公开的只读管理视图；调整仍必须形成库存业务流水。",
+        columns: [
+            { key: "skuId", label: "SKU ID" },
+            { key: "available", label: "可用" },
+            { key: "locked", label: "锁定" },
+            { key: "sold", label: "已售" },
+            { key: "version", label: "版本" },
+        ],
     },
     wallet: {
-        description:
-            "钱包服务目前只允许本人查询，不向 Admin 暴露全量资金流水。",
-        columns: [],
+        description: "审计虚拟充值、支付和退款流水；不接入任何真实支付渠道。",
+        columns: [
+            { key: "transactionId", label: "流水 ID" },
+            { key: "userId", label: "用户 ID" },
+            { key: "type", label: "类型" },
+            { key: "amount", label: "金额" },
+            { key: "status", label: "状态" },
+            { key: "createdAt", label: "发生时间" },
+        ],
     },
 };
 const entity = computed(() => String(route.meta.entity));
@@ -77,11 +92,23 @@ async function load() {
     unsupported.value = "";
     try {
         if (entity.value === "user")
-            rows.value = (await listAccounts(keyword.value, status.value)) as unknown as Row[];
+            rows.value = (await listAccounts(
+                keyword.value,
+                status.value,
+            )) as unknown as Row[];
         else if (entity.value === "product")
-            rows.value = (await listAdminProducts(keyword.value, status.value)) as unknown as Row[];
+            rows.value = (await listAdminProducts(
+                keyword.value,
+                status.value,
+            )) as unknown as Row[];
         else if (entity.value === "order")
-            rows.value = (await listAdminOrders(status.value)) as unknown as Row[];
+            rows.value = (await listAdminOrders(
+                status.value,
+            )) as unknown as Row[];
+        else if (entity.value === "inventory")
+            rows.value = (await listAdminInventory()) as unknown as Row[];
+        else if (entity.value === "wallet")
+            rows.value = (await listWalletTransactions()) as unknown as Row[];
         else {
             rows.value = [];
             unsupported.value = config.value.description;
