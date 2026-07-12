@@ -379,9 +379,9 @@
 ## P13 前端与产品原型（后端完成后）
 
 - [ ] `FE-1301` Figma MCP 配额恢复后继续全量企业原型。
-- [ ] `FE-1302` 完成商城、知识/AI、培训、个人中心、运营后台原型。
-- [ ] `FE-1303` 创建 `ygh-web-mall`：Vue 3 + TypeScript + Vite + Element Plus。
-- [ ] `FE-1304` 创建 `ygh-web-admin`：Vue 3 + TypeScript + Vite + Element Plus。
+- [x] `FE-1302` 完成商城、知识/AI、培训、个人中心、运营后台原型。
+- [x] `FE-1303` 创建 `ygh-web-mall`：Vue 3 + TypeScript + Vite + Element Plus。
+- [x] `FE-1304` 创建 `ygh-web-admin`：Vue 3 + TypeScript + Vite + Element Plus。
 - [ ] `FE-1305` 从 OpenAPI 生成或维护类型安全 API Client。
 - [ ] `FE-1306` 接入全部后端接口、权限、错误状态和流式 AI。
 - [ ] `FE-1307` 前后端 E2E、视觉验收和最终交付。
