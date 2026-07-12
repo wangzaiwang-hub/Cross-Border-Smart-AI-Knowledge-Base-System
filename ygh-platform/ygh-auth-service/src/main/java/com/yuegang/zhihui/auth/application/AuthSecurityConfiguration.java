@@ -266,6 +266,13 @@ class AuthSecurityConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
+    PasswordChangeService passwordChangeService(LoginAccountRepository accounts, PasswordPolicy passwordPolicy,
+            Argon2PasswordHasher passwordHasher, DataSource dataSource, SessionStateStore sessions, Clock clock) {
+        return new PasswordChangeService(accounts, passwordPolicy, passwordHasher, dataSource, sessions, clock);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "ygh.security.jwt", name = "enabled", havingValue = "true")
     AuthCommandService operationalAuthCommandService(LoginUseCase loginUseCase,
             RegistrationUseCase registrationUseCase, TokenLifecycleUseCase tokenLifecycle,
             CaptchaService captchas, AccessTokenVerificationService accessTokenVerifier,

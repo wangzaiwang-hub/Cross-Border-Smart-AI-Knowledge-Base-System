@@ -10,8 +10,10 @@ import java.time.Duration;
 /** 豆包 OpenAI-compatible endpoint adapter implemented through LangChain4j. */
 public final class DoubaoModelGateway implements ModelGateway {
     private final ChatModel model;
+    private final String modelName;
     public DoubaoModelGateway(String baseUrl,String apiKey,String modelName){
         if(apiKey==null||apiKey.isBlank())throw new IllegalStateException("Doubao key missing");
+        this.modelName=modelName;
         model=OpenAiChatModel.builder().baseUrl(baseUrl).apiKey(apiKey).modelName(modelName)
                 .temperature(0.2).timeout(Duration.ofSeconds(60)).maxRetries(1)
                 .logRequests(false).logResponses(false).build();
@@ -23,4 +25,5 @@ public final class DoubaoModelGateway implements ModelGateway {
             throw new IllegalStateException("empty model response");
         return response.aiMessage().text();
     }
+    @Override public String modelName(){return modelName;}
 }

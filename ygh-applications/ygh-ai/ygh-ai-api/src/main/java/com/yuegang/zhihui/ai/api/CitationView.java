@@ -1,1 +1,1 @@
-package com.yuegang.zhihui.ai.api;public record CitationView(String sourceType,String sourceId,String title,String excerpt,String url){}
+package com.yuegang.zhihui.ai.api;import java.time.OffsetDateTime;public record CitationView(String sourceType,String sourceId,String title,String excerpt,String url,long documentVersion,OffsetDateTime sourceUpdatedAt){public CitationView(String sourceType,String sourceId,String title,String excerpt,String url){this(sourceType,sourceId,title,excerpt,url,0,null);}}
