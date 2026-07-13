@@ -126,6 +126,18 @@ MySQL / Redis / Elasticsearch / PostgreSQL + PGVector / 文件存储 / 豆包模
 
 粤港甄选跨境智汇 AI 知识库系统总体架构图
 
+### 已生成 PNG 素材
+
+![粤港甄选跨境智汇 AI 知识库系统手绘总体架构图](architecture-images/ygh-handdrawn-overall-architecture.png)
+
+文件路径：
+
+```text
+docs/architecture-images/ygh-handdrawn-overall-architecture.png
+```
+
+说明：该图已按参考图片的手绘白板风格生成，可直接放入企业汇报 PPT。图中包含访问端、统一入口层、微服务层、服务治理层、数据与 AI 基础设施层、商城交易链路、AI RAG 问答链路、运维与质量门禁和图例说明。
+
 ### 画法
 
 采用从上到下的五层结构：
