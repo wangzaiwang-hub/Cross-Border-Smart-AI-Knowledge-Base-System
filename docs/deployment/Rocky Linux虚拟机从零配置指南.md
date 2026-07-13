@@ -1,47 +1,17 @@
 # Rocky Linux 虚拟机从零配置指南
 
-## 先确认哪些东西在虚拟机里，哪些不在虚拟机里
-
-| 内容 | 位置 | 说明 |
-|---|---|---|
-| Rocky Linux 9 | VMware 虚拟机里 | 虚拟机的操作系统 |
-| OpenSSH Server | Rocky Linux 虚拟机里 | Windows 通过 SSH 连接虚拟机 |
-| Docker Engine | Rocky Linux 虚拟机里 | 用来启动虚拟机内的 MySQL、Redis、Nacos、PGVector |
-| Docker Compose Plugin | Rocky Linux 虚拟机里 | 使用 `docker compose` 命令 |
-| firewalld | Rocky Linux 虚拟机里 | 限制只有 Windows VMnet8 地址能访问端口 |
-| MySQL 8.4.10 | 虚拟机 Docker 容器里 | 不在 Linux 里手工安装 MySQL |
-| Redis 8.4.4 | 虚拟机 Docker 容器里 | 不安装到 `/usr/local/redis` |
-| Nacos 3.1.1 | 虚拟机 Docker 容器里 | 不安装到 `/opt/nacos` |
-| PostgreSQL 17 + PGVector 0.8.5 | 虚拟机 Docker 容器里 | 不手工编译 PGVector |
-| JDK 25 | Windows 本机电脑 | 给 IDEA 和 Maven 使用，虚拟机里不装 |
-| IntelliJ IDEA | Windows 本机电脑 | 后端 Java 服务在 IDEA 里启动 |
-| Node.js / pnpm | Windows 本机电脑 | 前端项目在 Windows 里启动 |
-| RocketMQ / Seata / Elasticsearch | Windows 本机 Docker Desktop 里 | 不放到这台 Rocky 虚拟机里常驻 |
-| WSL2 | Windows 本机电脑里 | 只给 Docker Desktop 使用，不在 WSL2 里部署本项目 |
-
-本虚拟机只负责：
-
-```text
-1. 提供固定 IP：192.168.154.10
-2. 运行 Docker Engine
-3. 通过 Docker Compose 启动 MySQL、Redis、Nacos、PGVector
-4. 通过防火墙只允许 Windows 本机访问这些端口
-```
-
-本虚拟机不负责：
-
-```text
-1. 不安装 JDK
-2. 不安装 IDEA
-3. 不运行 Java 后端服务
-4. 不运行前端项目
-5. 不在 WSL2 里部署项目
-6. 不手工解压安装 Redis、Nacos、MySQL、PostgreSQL
-```
-
 ## 第一部分：配置 VMware NAT 网络
 
 ### 第一步：打开虚拟网络编辑器
+
+操作位置：
+
+```text
+在 Windows 本机电脑操作。
+软件：VMware Workstation Pro。
+默认安装路径示例：C:\Program Files (x86)\VMware\VMware Workstation
+这一步不是在 Rocky Linux、Docker 或 WSL2 里操作。
+```
 
 在 Windows 桌面打开 VMware Workstation Pro。
 
@@ -181,6 +151,14 @@ Ethernet adapter VMware Network Adapter VMnet8:
 
 ### 第一步：下载 VMware Workstation Pro
 
+下载和安装位置：
+
+```text
+下载安装到 Windows 本机电脑。
+默认安装路径示例：C:\Program Files (x86)\VMware\VMware Workstation
+不要安装到虚拟机里，不要安装到 WSL2 里。
+```
+
 浏览器打开：
 
 ```text
@@ -208,6 +186,14 @@ VMware-workstation-full-xx.x.x.exe
 文件名以客户实际下载版本为准。
 
 ### 第二步：安装 VMware Workstation Pro
+
+安装位置：
+
+```text
+安装到 Windows 本机电脑。
+安装完成后，Windows 上出现 VMware Workstation Pro。
+后续 Rocky Linux 会作为 VMware 里的虚拟机运行。
+```
 
 双击安装包。
 
@@ -237,6 +223,14 @@ VMware Workstation Pro
 
 ### 第三步：下载 Rocky Linux Minimal ISO
 
+下载位置：
+
+```text
+ISO 文件下载到 Windows 本机电脑。
+建议保存路径：D:\ISO\Rocky-9.6-x86_64-minimal.iso
+ISO 只是安装镜像，不是项目运行目录。
+```
+
 浏览器打开：
 
 ```text
@@ -264,6 +258,14 @@ D:\ISO\Rocky-9.6-x86_64-minimal.iso
 ISO 文件名以客户实际下载为准。不要下载 Live 镜像，建议下载 Minimal ISO。
 
 ### 第四步：创建虚拟机
+
+创建位置：
+
+```text
+虚拟机创建在 Windows 本机 VMware 里。
+虚拟机文件建议保存路径：D:\VMs\ygh-rocky-dev
+Rocky Linux 系统会安装到这个虚拟机的 40GB 虚拟硬盘中。
+```
 
 在 VMware Workstation Pro 点击：
 
@@ -322,6 +324,15 @@ ygh-rocky-dev
 如果客户电脑内存大于 32GB，可以把 Memory 改成 `4096 MB`。
 
 ### 第五步：安装 Rocky Linux
+
+安装位置：
+
+```text
+安装到 VMware 虚拟机内部。
+不是安装到 Windows 本机程序目录。
+安装完成后，Rocky Linux 的系统目录在虚拟机内部，例如 /、/home、/opt。
+后续项目部署目录使用：/opt/ygh/constrained-dev
+```
 
 启动虚拟机。
 
@@ -499,6 +510,15 @@ sudo nmcli connection up ens160
 
 ### 第一步：安装并启动 SSH
 
+安装位置：
+
+```text
+安装到 Rocky Linux 虚拟机里。
+服务名：sshd
+用途：Windows PowerShell 通过 ssh 连接虚拟机。
+不安装到 Windows Docker Desktop 或 WSL2。
+```
+
 输入：
 
 ```bash
@@ -618,6 +638,15 @@ sudo systemctl restart sshd
 
 本项目 Java 服务由客户在 Windows IDEA 里启动，虚拟机里不安装 JDK。
 
+安装位置：
+
+```text
+虚拟机里只安装：Rocky Linux、OpenSSH Server、Docker Engine、Docker Compose Plugin、firewalld。
+Windows 本机安装：JDK 25、IDEA、Node.js、pnpm、Docker Desktop、WSL2。
+虚拟机 Docker 容器运行：MySQL、Redis、Nacos、PGVector。
+Windows Docker Desktop 运行：RocketMQ、Seata、Elasticsearch。
+```
+
 虚拟机只安装：
 
 ```text
@@ -646,6 +675,14 @@ Windows IDEA 启动 Java 服务，Java 服务连接虚拟机里的 MySQL、Redis
 不要在虚拟机里手工安装 JDK，不要把 JDK 上传到 `/opt/software/jdk`。
 
 ### 第二步：打开部署目录
+
+操作位置：
+
+```text
+在 Windows 本机 PowerShell 操作。
+Windows 项目目录：F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev
+后面会复制到虚拟机目录：/opt/ygh/constrained-dev
+```
 
 在 Windows PowerShell 输入：
 
@@ -676,6 +713,14 @@ scripts
 如果客户项目解压路径不是 `F:\跨境智汇AI知识库系统`，把命令里的路径换成客户实际项目路径。
 
 ### 第三步：手动创建 .env
+
+文件位置：
+
+```text
+先在 Windows 本机创建：F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev\.env
+再复制到 Rocky Linux 虚拟机：/opt/ygh/constrained-dev/.env
+这个文件不是 Docker 镜像，不放到 WSL2，不提交 Git。
+```
 
 输入：
 
@@ -916,6 +961,14 @@ postgres
 
 ### 第一步：卸载冲突组件
 
+操作位置：
+
+```text
+在 Rocky Linux 虚拟机里操作。
+目的：清理虚拟机里可能自带或冲突的容器组件。
+不影响 Windows 本机 Docker Desktop。
+```
+
 登录 Rocky Linux，输入：
 
 ```bash
@@ -980,6 +1033,17 @@ curl -I https://download.docker.com/linux/centos/docker-ce.repo
 
 ### 第四步：安装 Docker Engine 和 Compose 插件
 
+安装位置：
+
+```text
+安装到 Rocky Linux 虚拟机里。
+Docker 命令路径：/usr/bin/docker
+Docker Compose 插件路径通常为：/usr/libexec/docker/cli-plugins/docker-compose
+Docker 配置文件：/etc/docker/daemon.json
+Docker 数据目录：/var/lib/docker
+不安装到 Windows Docker Desktop，也不安装到 WSL2。
+```
+
 输入：
 
 ```bash
@@ -1009,6 +1073,14 @@ docker-compose
 ```
 
 ### 第五步：手动写入 Docker 配置
+
+配置位置：
+
+```text
+写入 Rocky Linux 虚拟机：/etc/docker/daemon.json
+该配置只影响虚拟机里的 Docker Engine。
+不影响 Windows 本机 Docker Desktop。
+```
 
 输入：
 
@@ -1344,6 +1416,14 @@ pgvector/pgvector             0.8.5-pg17-bookworm
 
 ### 第一步：启动 firewalld
 
+安装和运行位置：
+
+```text
+firewalld 运行在 Rocky Linux 虚拟机里。
+它控制虚拟机端口访问。
+不控制 Windows Docker Desktop，也不控制 WSL2。
+```
+
 在 Rocky Linux 输入：
 
 ```bash
@@ -1395,6 +1475,15 @@ ipconfig
 
 ### 第三步：开放 MySQL 端口
 
+端口位置：
+
+```text
+MySQL 容器运行在 Rocky Linux 虚拟机 Docker 里。
+容器端口：3306
+虚拟机对 Windows 暴露：192.168.154.10:3306
+只允许 Windows VMnet8 地址访问，不对所有网段开放。
+```
+
 在 Rocky Linux 输入：
 
 ```bash
@@ -1415,6 +1504,14 @@ success
 
 ### 第四步：开放 Redis 端口
 
+端口位置：
+
+```text
+Redis 容器运行在 Rocky Linux 虚拟机 Docker 里。
+容器端口：6379
+虚拟机对 Windows 暴露：192.168.154.10:6379
+```
+
 输入：
 
 ```bash
@@ -1430,6 +1527,16 @@ success
 ```
 
 ### 第五步：开放 Nacos 端口
+
+端口位置：
+
+```text
+Nacos 容器运行在 Rocky Linux 虚拟机 Docker 里。
+控制台端口：8080
+服务端口：8848
+客户端 gRPC 端口：9848
+虚拟机对 Windows 暴露：192.168.154.10:8080、8848、9848
+```
 
 输入：
 
@@ -1458,6 +1565,14 @@ success
 ```
 
 ### 第六步：开放 PGVector 端口
+
+端口位置：
+
+```text
+PGVector 容器运行在 Rocky Linux 虚拟机 Docker 里。
+容器端口：5432
+虚拟机对 Windows 暴露：192.168.154.10:5432
+```
 
 输入：
 
@@ -1514,6 +1629,19 @@ sudo firewall-cmd --reload
 ---
 
 ## 第八部分：手动启动 MySQL、Redis、Nacos
+
+运行位置：
+
+```text
+MySQL、Redis、Nacos 不安装到 Linux 系统目录。
+它们运行在 Rocky Linux 虚拟机的 Docker 容器里。
+Compose 文件：/opt/ygh/constrained-dev/vm-compose.yml
+环境变量文件：/opt/ygh/constrained-dev/.env
+Docker 数据卷目录由 Docker 管理，底层在：/var/lib/docker/volumes
+MySQL 数据卷：ygh-mysql-data
+Redis 数据卷：ygh-redis-data
+Nacos 数据存在 MySQL 的 nacos_config 库里。
+```
 
 ### 第一步：进入部署目录
 
@@ -1855,6 +1983,17 @@ TcpTestSucceeded : True
 
 ## 第九部分：手动启动 PGVector
 
+运行位置：
+
+```text
+PGVector 不安装到 Linux 系统目录。
+它运行在 Rocky Linux 虚拟机的 Docker 容器里。
+Compose 文件：/opt/ygh/constrained-dev/vm-compose.yml
+数据卷：ygh-pgvector-data
+底层数据卷目录由 Docker 管理，位于：/var/lib/docker/volumes
+不运行在 Windows Docker Desktop、WSL2 或 IDEA。
+```
+
 ### 第一步：确认是否需要启动 PGVector
 
 PGVector 用于 AI 向量数据场景。
@@ -2131,6 +2270,15 @@ POSTGRES_PASSWORD
 ### 第一步：确认 JDK 安装位置
 
 JDK 25 安装在 Windows，不安装在虚拟机。
+
+安装位置：
+
+```text
+Windows 本机：C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
+IDEA 使用这个 JDK 启动后端服务。
+Rocky Linux 虚拟机里不安装 JDK。
+Docker 容器里也不安装项目开发用 JDK。
+```
 
 在 Windows PowerShell 输入：
 
