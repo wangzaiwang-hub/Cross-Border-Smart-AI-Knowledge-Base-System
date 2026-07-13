@@ -33,4 +33,12 @@ public final class KnowledgeIndexJobController {
         users.resolve(request, true);
         return ApiResponse.success(service.retry(id), TraceIdResolver.resolve(request));
     }
+
+    @PostMapping("/rebuild")
+    ApiResponse<RebuildKnowledgeIndexResponse> rebuild(
+            @jakarta.validation.Valid @RequestBody RebuildKnowledgeIndexRequest command,
+            HttpServletRequest request) {
+        users.resolve(request, true);
+        return ApiResponse.success(service.rebuild(command.version()), TraceIdResolver.resolve(request));
+    }
 }

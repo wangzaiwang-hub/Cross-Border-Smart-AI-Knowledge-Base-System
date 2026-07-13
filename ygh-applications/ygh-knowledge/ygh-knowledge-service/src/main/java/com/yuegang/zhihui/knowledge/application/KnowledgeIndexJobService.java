@@ -3,10 +3,12 @@ package com.yuegang.zhihui.knowledge.application;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.core.ErrorCode;
 import com.yuegang.zhihui.knowledge.api.KnowledgeIndexJobView;
+import com.yuegang.zhihui.knowledge.api.RebuildKnowledgeIndexResponse;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -50,6 +52,28 @@ public final class KnowledgeIndexJobService {
                 }, jobId);
     }
 
+    /** Queues an idempotent full rebuild from the authoritative published-document set. */
+    public RebuildKnowledgeIndexResponse rebuild(String version) {
+        if (version == null || !version.matches("[a-z0-9][a-z0-9._-]{1,63}")) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        List<Long> documents = jdbc.queryForList("""
+                SELECT d.id FROM knowledge_document d
+                WHERE d.status='PUBLISHED'
+                  AND (d.expires_at IS NULL OR d.expires_at>NOW(6))
+                  AND NOT EXISTS (
+                    SELECT 1 FROM knowledge_index_job j
+                    WHERE j.document_id=d.id AND j.index_version=? AND j.job_type='UPSERT'
+                  )
+                ORDER BY d.id
+                """, Long.class, version);
+        for (Long document : documents) {
+            jdbc.update("INSERT INTO knowledge_index_job(id,document_id,index_version,job_type,status) VALUES(?,?,?,'UPSERT','PENDING')",
+                    nextId(), document, version);
+        }
+        return new RebuildKnowledgeIndexResponse(version, documents.size());
+    }
+
     private static KnowledgeIndexJobView view(long id, long documentId, String version, String type,
                                                String status, int retries, String failure, Timestamp updatedAt) {
         int progress = switch (status) {
@@ -71,5 +95,9 @@ public final class KnowledgeIndexJobService {
         } catch (RuntimeException failure) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+    }
+
+    private static long nextId() {
+        return UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
     }
 }
