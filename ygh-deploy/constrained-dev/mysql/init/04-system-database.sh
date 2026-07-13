@@ -14,14 +14,19 @@ REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'ygh_system_migration'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,DROP,REFERENCES,INDEX,ALTER ON system_db.* TO 'ygh_system_migration'@'%';
 FLUSH PRIVILEGES;
 EOSQL
-count=$(MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot -Nse "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='system_db' AND TABLE_NAME IN ('system_role','system_permission','system_role_permission','system_user_authorization','system_user_role','system_authorization_audit')")
-if [ "$count" -eq 6 ];then MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot <<-EOSQL
+count=$(MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot -Nse "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='system_db' AND TABLE_NAME IN ('system_role','system_permission','system_role_permission','system_user_authorization','system_user_role','system_authorization_audit','system_dictionary_type','system_dictionary_item','system_setting','system_feature_flag','system_configuration_audit')")
+if [ "$count" -eq 11 ];then MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot <<-EOSQL
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_role TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_permission TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_role_permission TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_user_authorization TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_user_role TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_authorization_audit TO 'ygh_system_app'@'%';
+GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_dictionary_type TO 'ygh_system_app'@'%';
+GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_dictionary_item TO 'ygh_system_app'@'%';
+GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_setting TO 'ygh_system_app'@'%';
+GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_feature_flag TO 'ygh_system_app'@'%';
+GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_configuration_audit TO 'ygh_system_app'@'%';
 FLUSH PRIVILEGES;
 EOSQL
 fi

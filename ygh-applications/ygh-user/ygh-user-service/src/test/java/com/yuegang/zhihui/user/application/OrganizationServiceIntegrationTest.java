@@ -9,7 +9,6 @@ import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import com.yuegang.zhihui.user.api.CreateDepartmentRequest;
 import com.yuegang.zhihui.user.api.CreateEmployeeRequest;
 import com.yuegang.zhihui.user.api.CreatePositionRequest;
-import java.sql.DriverManager;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Set;
@@ -23,9 +22,6 @@ class OrganizationServiceIntegrationTest {
         try (var mysql = YghTestContainerFactory.mysql().start()) {
             Flyway.configure().dataSource(mysql.jdbcUrl(), mysql.username(), mysql.credential())
                     .locations("classpath:db/migration").load().migrate();
-            try (var connection = DriverManager.getConnection(mysql.jdbcUrl(), mysql.username(), mysql.credential())) {
-                connection.createStatement().executeUpdate("INSERT INTO user_profile(user_id,display_name) VALUES(1,'Employee')");
-            }
             var dataSource = new DriverManagerDataSource(mysql.jdbcUrl(), mysql.username(), mysql.credential());
             var service = new OrganizationService(dataSource, new UserIdGenerator(7, Clock.systemUTC()));
 
@@ -40,6 +36,13 @@ class OrganizationServiceIntegrationTest {
 
             var employee = service.createEmployee(new CreateEmployeeRequest(
                     "1", "E001", child.id(), Set.of(developer.id(), reviewer.id()), LocalDate.of(2026, 7, 1)));
+            assertThat(dataSource.getConnection()).satisfies(connection -> {
+                try (connection; var statement = connection.prepareStatement(
+                        "SELECT display_name FROM user_profile WHERE user_id=1"); var rows = statement.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isEqualTo("新用户");
+                }
+            });
             assertThat(employee.positionIds()).containsExactlyInAnyOrder(developer.id(), reviewer.id());
             assertThat(service.replacePositions(employee.id(), null).positionIds()).isEmpty();
             assertThat(service.replacePositions(employee.id(), Set.of(reviewer.id())).positionIds()).containsExactly(reviewer.id());

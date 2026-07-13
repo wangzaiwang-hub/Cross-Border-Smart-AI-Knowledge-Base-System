@@ -6,12 +6,14 @@ import {
     createDepartment,
     createEmployee,
     createPosition,
+    listAccounts,
     listDepartments,
     listEmployees,
     listPositions,
     replaceEmployeePositions,
     type Department,
     type Employee,
+    type AdminAccount,
     type Position,
 } from "@/api/operations";
 import EnterpriseTable from "@/components/EnterpriseTable.vue";
@@ -22,7 +24,15 @@ const loading = ref(true),
 const dialog = ref<"department" | "position" | "employee" | "">("");
 const departments = ref<Department[]>([]),
     positions = ref<Position[]>([]),
-    employees = ref<Employee[]>([]);
+    employees = ref<Employee[]>([]),
+    accounts = ref<AdminAccount[]>([]);
+const availableAccounts = computed(() => {
+    const employeeUserIds = new Set(employees.value.map((item) => item.userId));
+    return accounts.value.filter(
+        (account) =>
+            account.status === "ACTIVE" && !employeeUserIds.has(account.userId),
+    );
+});
 const departmentForm = reactive({
     parentId: "",
     code: "",
@@ -47,11 +57,12 @@ const positionNames = computed(() =>
 async function load() {
     loading.value = true;
     try {
-        [departments.value, positions.value, employees.value] =
+        [departments.value, positions.value, employees.value, accounts.value] =
             await Promise.all([
                 listDepartments(),
                 listPositions(),
                 listEmployees(),
+                listAccounts(undefined, "ACTIVE"),
             ]);
     } catch {
         ElMessage.error("组织数据加载失败");
@@ -273,8 +284,16 @@ onMounted(load);
                         type="textarea" /></el-form-item
             ></el-form>
             <el-form v-else label-position="top"
-                ><el-form-item label="用户 ID"
-                    ><el-input v-model="employeeForm.userId" /></el-form-item
+                ><el-form-item label="平台账号"
+                    ><el-select
+                        v-model="employeeForm.userId"
+                        filterable
+                        placeholder="请选择尚未转为员工的真实账号"
+                        ><el-option
+                            v-for="account in availableAccounts"
+                            :key="account.userId"
+                            :label="`${account.principal}（${account.userId}）`"
+                            :value="account.userId" /></el-select></el-form-item
                 ><el-form-item label="工号"
                     ><el-input
                         v-model="employeeForm.employeeNo" /></el-form-item
