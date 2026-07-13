@@ -156,11 +156,14 @@ async function refreshSessionOnce() {
 
 router.beforeEach(async (to) => {
     const session = useSessionStore();
-    if (to.path === "/403" && session.renewal) {
+    if (to.path === "/403") {
+        if (!session.renewal) return "/login";
         if (await refreshSessionOnce()) {
             const updated = useSessionStore();
             if (updated.isAdmin) return "/dashboard";
+            return true;
         }
+        return "/login";
     }
     if (to.meta.requiresAuth && !session.authenticated)
         return { path: "/login", query: { redirect: to.fullPath } };

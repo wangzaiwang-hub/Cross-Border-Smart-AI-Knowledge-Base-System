@@ -13,10 +13,14 @@ const route = useRoute()
 
 async function login() {
   loading.value = true
+  // A role change invalidates old refresh tokens. Never let an earlier browser
+  // session influence a new credential login.
+  session.clear()
   try {
     const result = await authenticate(useHttp(), { principal: form.username, password: form.password })
     const user = sessionUserFromAuthentication(result, form.username)
     if (!user.roles.includes('ADMIN')) {
+      session.clear()
       ElMessage.error('当前账号没有运营后台访问权限')
       return
     }

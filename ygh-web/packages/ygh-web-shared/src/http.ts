@@ -50,7 +50,10 @@ export function createHttpClient(baseURL: string, hooks: HttpHooks): AxiosInstan
         }
       }
       if (status === 401) hooks.clearSession()
-      if (status === 403) hooks.onForbidden?.()
+      // Authentication failures belong on the authentication page. Redirecting a
+      // rejected login/refresh request to the application's forbidden page traps
+      // users in a 403 loop with a stale session.
+      if (status === 403 && !path.startsWith('/api/v1/auth/')) hooks.onForbidden?.()
       return Promise.reject(error)
     },
   )
