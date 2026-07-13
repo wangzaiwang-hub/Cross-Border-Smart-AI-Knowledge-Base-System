@@ -201,7 +201,12 @@ onMounted(async () => {
 .admin-shell nav {
     flex: 1;
     overflow: auto;
+    scrollbar-width: none;
     padding: 12px;
+}
+.admin-shell nav::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 .admin-shell nav p {
     margin: 16px 11px 7px;
