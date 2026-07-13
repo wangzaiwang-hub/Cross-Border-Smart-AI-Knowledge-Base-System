@@ -9,6 +9,8 @@ x-app: &app
   logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
 
 x-env: &common-env
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
   YGH_NACOS_SERVER_ADDR: ${YGH_NACOS_SERVER_ADDR:-192.168.154.10:8848}
   YGH_NACOS_USERNAME: ${YGH_NACOS_USERNAME:-nacos}
   YGH_NACOS_PASSWORD: ${NACOS_ADMIN_PASSWORD:-nacos}
@@ -40,6 +42,8 @@ services:
       YGH_AUTH_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/auth_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       YGH_AUTH_DB_APP_PASSWORD: ${AUTH_DB_APP_PASSWORD:?required}
       YGH_AUTH_DB_MIGRATION_PASSWORD: ${AUTH_DB_MIGRATION_PASSWORD:?required}
+      YGH_AUTH_DB_POOL_MAX_SIZE: 2
+      YGH_AUTH_DB_POOL_MIN_IDLE: 0
       YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
       YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
       YGH_SYSTEM_INTERNAL_BASE_URL: http://system:8083
@@ -63,6 +67,8 @@ services:
       YGH_USER_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/user_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       YGH_USER_DB_APP_PASSWORD: ${USER_DB_APP_PASSWORD:?required}
       YGH_USER_DB_MIGRATION_PASSWORD: ${USER_DB_MIGRATION_PASSWORD:?required}
+      YGH_USER_DB_POOL_MAX_SIZE: 2
+      YGH_USER_DB_POOL_MIN_IDLE: 0
       YGH_USER_PII_KEY_BASE64: ${USER_PII_KEY_BASE64:?required}
   system:
     <<: *app
@@ -73,6 +79,8 @@ services:
       YGH_SYSTEM_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/system_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       YGH_SYSTEM_DB_APP_PASSWORD: ${SYSTEM_DB_APP_PASSWORD:?required}
       YGH_SYSTEM_DB_MIGRATION_PASSWORD: ${SYSTEM_DB_MIGRATION_PASSWORD:?required}
+      YGH_SYSTEM_DB_POOL_MAX_SIZE: 2
+      YGH_SYSTEM_DB_POOL_MIN_IDLE: 0
   product:
     <<: *app
     profiles: [mall]

@@ -5,8 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuegang.zhihui.admin.api.AuditLogView;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.core.ErrorCode;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.util.*;
 import java.util.regex.*;
@@ -32,9 +30,15 @@ public final class AuditQueryService {
         if (!start.isBefore(end) || Duration.between(start, end).toDays() > 31) throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         StringBuilder query = new StringBuilder("{job=~\".+\"} |= \"business_mutation\"");
         append(query, "userId", user); append(query, "method", action);
-        String uri = "/loki/api/v1/query_range?query=" + encode(query.toString()) + "&start=" + start.toInstant().toEpochMilli() * 1_000_000L + "&end=" + end.toInstant().toEpochMilli() * 1_000_000L + "&limit=" + Math.max(1, Math.min(limit, 500)) + "&direction=backward";
         try {
-            String body = loki.get().uri(uri).retrieve().body(String.class);
+            String body = loki.get().uri(builder -> builder
+                    .path("/loki/api/v1/query_range")
+                    .queryParam("query", "{logql}")
+                    .queryParam("start", start.toInstant().toEpochMilli() * 1_000_000L)
+                    .queryParam("end", end.toInstant().toEpochMilli() * 1_000_000L)
+                    .queryParam("limit", Math.max(1, Math.min(limit, 500)))
+                    .queryParam("direction", "backward")
+                    .build(Map.of("logql", query.toString()))).retrieve().body(String.class);
             JsonNode root = body == null || body.isBlank() ? null : json.readTree(body);
             List<AuditLogView> records = new ArrayList<>();
             if (root == null) return records;
@@ -66,6 +70,5 @@ public final class AuditQueryService {
 
     private static void append(StringBuilder query, String field, String value) { if (value != null && !value.isBlank()) query.append(" |= \"").append(field).append("=").append(safe(value)).append("\""); }
     private static String safe(String value) { if (!value.matches("[A-Za-z0-9_./:-]{1,128}")) throw new BusinessException(ErrorCode.VALIDATION_ERROR); return value; }
-    private static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
     private static int parse(String value) { try { return Integer.parseInt(value); } catch (Exception ignored) { return 0; } }
 }
