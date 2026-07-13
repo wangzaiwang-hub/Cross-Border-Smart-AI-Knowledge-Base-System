@@ -21,12 +21,9 @@ const knowledgeArticles = ref<KnowledgeDocument[]>([]);
 const session = useSessionStore();
 async function load() {
     try {
-        const [rawProducts, categories, documents] = await Promise.all([
+        const [rawProducts, categories] = await Promise.all([
             listProducts({ limit: 4 }),
             listCategories(),
-            session.authenticated
-                ? listKnowledge(undefined, 3)
-                : Promise.resolve([]),
         ]);
         const names = Object.fromEntries(
             categories.map((category) => [category.id, category.name]),
@@ -34,9 +31,17 @@ async function load() {
         products.value = rawProducts.map((product) =>
             productSummary(product, names[product.categoryId] || "跨境甄选"),
         );
-        knowledgeArticles.value = documents;
     } catch {
         ElMessage.error("首页推荐内容加载失败");
+    }
+    if (!session.authenticated) {
+        knowledgeArticles.value = [];
+        return;
+    }
+    try {
+        knowledgeArticles.value = await listKnowledge(undefined, 3);
+    } catch {
+        knowledgeArticles.value = [];
     }
 }
 async function add(product: ProductSummary) {

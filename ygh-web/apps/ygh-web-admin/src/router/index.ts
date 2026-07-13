@@ -3,7 +3,12 @@ import {
     createWebHistory,
     type RouteRecordRaw,
 } from "vue-router";
-import { useSessionStore } from "@ygh/web-shared";
+import {
+    createHttpClient,
+    refresh,
+    useSessionStore,
+    type TokenPair,
+} from "@ygh/web-shared";
 import AdminLayout from "@/layouts/AdminLayout.vue";
 const routes: RouteRecordRaw[] = [
     {
@@ -120,13 +125,54 @@ const routes: RouteRecordRaw[] = [
     { path: "/:pathMatch(.*)*", redirect: "/dashboard" },
 ];
 const router = createRouter({ history: createWebHistory(), routes });
-router.beforeEach((to) => {
+
+let authorityRefreshHttp: ReturnType<typeof createHttpClient> | undefined;
+
+function useAuthorityRefreshHttp() {
+    const session = useSessionStore();
+    authorityRefreshHttp ??= createHttpClient(
+        import.meta.env.VITE_GATEWAY_URL || "",
+        {
+            accessToken: () => session.bearer,
+            refreshToken: () => session.renewal,
+            updateTokens: (tokens: TokenPair) => session.rotate(tokens),
+            clearSession: () => session.clear(),
+        },
+    );
+    return authorityRefreshHttp;
+}
+
+async function refreshSessionOnce() {
+    const session = useSessionStore();
+    if (!session.renewal) return false;
+    try {
+        session.restore(await refresh(useAuthorityRefreshHttp(), session.renewal));
+        return true;
+    } catch {
+        session.clear();
+        return false;
+    }
+}
+
+router.beforeEach(async (to) => {
     const session = useSessionStore();
     if (to.meta.requiresAuth && !session.authenticated)
         return { path: "/login", query: { redirect: to.fullPath } };
-    if (to.meta.requiresAdmin && !session.isAdmin) return "/403";
+    if (to.meta.requiresAdmin && !session.isAdmin) {
+        if (await refreshSessionOnce()) {
+            const updated = useSessionStore();
+            if (updated.isAdmin) return true;
+        }
+        return "/403";
+    }
     const permission = to.meta.permission as string | undefined;
-    if (permission && !session.can(permission)) return "/403";
+    if (permission && !session.can(permission)) {
+        if (await refreshSessionOnce()) {
+            const updated = useSessionStore();
+            if (updated.can(permission)) return true;
+        }
+        return "/403";
+    }
     if (to.meta.guest && session.authenticated) return "/dashboard";
     return true;
 });

@@ -33,6 +33,20 @@ const conversations = ref<Conversation[]>([]);
 const conversationId = ref<string>();
 const feedbackMessages = ref(new Set<string>());
 let controller: AbortController | undefined;
+
+function httpStatus(error: unknown) {
+    if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { status?: unknown } }).response
+            ?.status === "number"
+    ) {
+        return (error as { response: { status: number } }).response.status;
+    }
+    return undefined;
+}
+
 async function loadConversations() {
     if (session.authenticated)
         try {
@@ -40,8 +54,15 @@ async function loadConversations() {
                 ...x,
                 time: new Date(x.updatedAt).toLocaleString("zh-CN"),
             }));
-        } catch {
-            ElMessage.error("历史会话加载失败");
+        } catch (error) {
+            conversations.value = [];
+            const status = httpStatus(error);
+            if (status === 401 || !session.authenticated) return;
+            if (status === 404 || status === 502 || status === 503 || status === 504) {
+                ElMessage.warning("AI 服务暂未启动，历史会话稍后再试");
+                return;
+            }
+            ElMessage.error("历史会话加载失败，请稍后重试");
         }
 }
 async function openConversation(id: string) {

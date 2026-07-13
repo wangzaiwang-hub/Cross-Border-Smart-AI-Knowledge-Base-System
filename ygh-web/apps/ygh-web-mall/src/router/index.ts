@@ -3,7 +3,12 @@ import {
     createWebHistory,
     type RouteRecordRaw,
 } from "vue-router";
-import { useSessionStore } from "@ygh/web-shared";
+import {
+    createHttpClient,
+    refresh,
+    useSessionStore,
+    type TokenPair,
+} from "@ygh/web-shared";
 import PublicLayout from "@/layouts/PublicLayout.vue";
 import WorkspaceLayout from "@/layouts/WorkspaceLayout.vue";
 
@@ -156,17 +161,51 @@ const router = createRouter({
     routes,
     scrollBehavior: () => ({ top: 0 }),
 });
-router.beforeEach((to) => {
+
+let authorityRefreshHttp: ReturnType<typeof createHttpClient> | undefined;
+
+function useAuthorityRefreshHttp() {
+    const session = useSessionStore();
+    authorityRefreshHttp ??= createHttpClient(
+        import.meta.env.VITE_GATEWAY_URL || "",
+        {
+            accessToken: () => session.bearer,
+            refreshToken: () => session.renewal,
+            updateTokens: (tokens: TokenPair) => session.rotate(tokens),
+            clearSession: () => session.clear(),
+        },
+    );
+    return authorityRefreshHttp;
+}
+
+function isInternalEmployee() {
+    return (
+        useSessionStore().user?.roles.some(
+            (role) => role === "EMPLOYEE" || role === "ADMIN",
+        ) ?? false
+    );
+}
+
+async function refreshSessionOnce() {
+    const session = useSessionStore();
+    if (!session.renewal) return false;
+    try {
+        session.restore(await refresh(useAuthorityRefreshHttp(), session.renewal));
+        return true;
+    } catch {
+        session.clear();
+        return false;
+    }
+}
+
+router.beforeEach(async (to) => {
     const session = useSessionStore();
     if (to.meta.requiresAuth && !session.authenticated)
         return { path: "/login", query: { redirect: to.fullPath } };
-    if (
-        to.meta.requiresInternalEmployee &&
-        !session.user?.roles.some(
-            (role) => role === "EMPLOYEE" || role === "ADMIN",
-        )
-    )
+    if (to.meta.requiresInternalEmployee && !isInternalEmployee()) {
+        if (await refreshSessionOnce() && isInternalEmployee()) return true;
         return "/403";
+    }
     if (to.meta.guest && session.authenticated) return "/workspace/profile";
     return true;
 });
