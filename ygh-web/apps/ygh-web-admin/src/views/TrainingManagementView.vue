@@ -22,6 +22,7 @@ import {
     type TrainingGate,
     type LearningPath,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const tab = ref("courses");
 const loading = ref(true);
 const data = ref<TrainingAnalytics>();
@@ -137,8 +138,13 @@ async function openContent(course: TrainingCourse) {
     contentDialog.value = true;
 }
 async function loadGates() {
+    const courseGates = selectedCourse.value
+        ? await listTrainingGates(selectedCourse.value.id)
+        : [];
     gates.value = selectedChapterId.value
-        ? await listTrainingGates(selectedChapterId.value)
+        ? courseGates.filter(
+              (gate) => gate.chapterId === selectedChapterId.value,
+          )
         : [];
     selectedGateId.value = gates.value[0]?.id ?? "";
 }
@@ -284,7 +290,13 @@ onMounted(load);
         </div>
         <el-tabs v-model="tab" class="panel training"
             ><el-tab-pane label="课程管理" name="courses"
-                ><el-table :data="courses"
+                ><EnterpriseTable
+                    :items="courses"
+                    :search-fields="['title', 'status']"
+                    status-field="status"
+                    search-placeholder="检索课程名称或状态"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
                     ><el-table-column
                         prop="title"
                         label="课程名称"
@@ -314,10 +326,15 @@ onMounted(load);
                                 >发布</el-button
                             ></template
                         ></el-table-column
-                    ></el-table
+                    ></el-table></EnterpriseTable
                 ></el-tab-pane
             ><el-tab-pane label="岗位学习路径" name="paths"
-                ><el-table :data="paths"
+                ><EnterpriseTable
+                    :items="paths"
+                    :search-fields="['positionCode', 'name']"
+                    search-placeholder="检索岗位编码或路径名称"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
                     ><el-table-column
                         prop="positionCode"
                         label="岗位编码"
@@ -340,15 +357,20 @@ onMounted(load);
                                 >添加课程</el-button
                             ></template
                         ></el-table-column
-                    ></el-table
+                    ></el-table></EnterpriseTable
                 ></el-tab-pane
             ><el-tab-pane label="学习分析" name="analytics"
-                ><el-table :data="data?.weakKnowledge || []"
+                ><EnterpriseTable
+                    :items="data?.weakKnowledge || []"
+                    :search-fields="['knowledgeCode']"
+                    search-placeholder="检索知识点编码"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
                     ><el-table-column
                         prop="knowledgeCode"
                         label="知识点编码" /><el-table-column
                         prop="wrongCount"
-                        label="错误次数" /></el-table></el-tab-pane></el-tabs
+                        label="错误次数" /></el-table></EnterpriseTable></el-tab-pane></el-tabs
         ><el-dialog v-model="courseDialog" title="新建培训课程" width="540"
             ><el-form label-position="top"
                 ><el-form-item label="课程名称"

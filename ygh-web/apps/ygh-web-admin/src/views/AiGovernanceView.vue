@@ -14,6 +14,7 @@ import {
     type EvaluationRun,
     type PromptConfig,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const tab = ref("prompt");
 const loading = ref(true);
 const running = ref(false);
@@ -138,7 +139,13 @@ onMounted(load);
         </div>
         <el-tabs v-model="tab" class="panel ai-config"
             ><el-tab-pane label="提示词版本" name="prompt"
-                ><el-table :data="prompts"
+                ><EnterpriseTable
+                    :items="prompts"
+                    :search-fields="['code', 'modelName', 'knowledgeScope']"
+                    status-field="enabled"
+                    search-placeholder="检索编码、模型或知识范围"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
                     ><el-table-column
                         prop="code"
                         label="编码"
@@ -163,10 +170,16 @@ onMounted(load);
                                 }}</el-tag
                             ></template
                         ></el-table-column
-                    ></el-table
+                    ></el-table></EnterpriseTable
                 ></el-tab-pane
             ><el-tab-pane label="评测集" name="evaluation"
-                ><el-table :data="cases"
+                ><EnterpriseTable
+                    :items="cases"
+                    :search-fields="['category', 'question', 'expectedEvidence']"
+                    status-field="enabled"
+                    search-placeholder="检索分类、问题或预期证据"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
                     ><el-table-column
                         prop="category"
                         label="分类"
@@ -190,7 +203,7 @@ onMounted(load);
                                 v-model="scope.row.enabled"
                                 @change="changeCaseStatus(scope.row)" /></template
                         ></el-table-column
-                    ></el-table
+                    ></el-table></EnterpriseTable
                 ><el-button
                     type="primary"
                     :loading="running"
@@ -199,7 +212,13 @@ onMounted(load);
                     >运行全量评测</el-button
                 ></el-tab-pane
             ><el-tab-pane label="最近运行" name="runs"
-                ><el-table :data="runs"
+                ><EnterpriseTable
+                    :items="runs"
+                    :search-fields="['caseId', 'failureReason']"
+                    status-field="passed"
+                    search-placeholder="检索用例 ID 或失败原因"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
                     ><el-table-column
                         prop="caseId"
                         label="用例 ID" /><el-table-column
@@ -219,7 +238,7 @@ onMounted(load);
                         ></el-table-column
                     ><el-table-column
                         prop="failureReason"
-                        label="失败原因" /></el-table></el-tab-pane></el-tabs
+                        label="失败原因" /></el-table></EnterpriseTable></el-tab-pane></el-tabs
         ><el-dialog v-model="promptDialog" title="新建提示词版本" width="700"
             ><el-form label-position="top"
                 ><div class="form-grid">

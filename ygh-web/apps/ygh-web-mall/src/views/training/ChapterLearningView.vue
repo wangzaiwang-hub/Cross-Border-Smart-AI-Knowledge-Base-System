@@ -10,11 +10,13 @@ import {
 } from "@element-plus/icons-vue";
 import {
     heartbeat,
+    getTrainingDocumentContent,
     listChapterDocuments,
     recordPosition,
     type Progress,
     type TrainingDocument,
 } from "@/api/training";
+import { useBinaryDocumentPreview } from "@/composables/useBinaryDocumentPreview";
 const route = useRoute();
 const router = useRouter();
 const chapterId = String(route.params.id);
@@ -25,7 +27,19 @@ const unsaved = ref(0);
 const documents = ref<TrainingDocument[]>([]);
 const progress = ref<Progress>();
 const saving = ref(false);
+const preview = useBinaryDocumentPreview();
 let timer = 0;
+async function openDocument(item: TrainingDocument) {
+    try {
+        await preview.open({
+            fileName: item.fileName,
+            mediaType: item.mediaType,
+            load: () => getTrainingDocumentContent(item.id),
+        });
+    } catch {
+        ElMessage.error("培训文档读取失败或当前账号无权访问");
+    }
+}
 async function save() {
     if (!assignmentId || unsaved.value <= 0) return;
     saving.value = true;
@@ -120,12 +134,44 @@ onBeforeUnmount(() => {
                                 KB</small
                             >
                         </div>
-                        <el-tag>{{ item.status }}</el-tag>
+                        <div class="document-actions">
+                            <el-tag>{{ item.status }}</el-tag>
+                            <el-button size="small" @click="openDocument(item)"
+                                >查看</el-button
+                            >
+                        </div>
                     </article>
                     <el-empty
                         v-if="!documents.length"
                         description="本章暂未上传培训文档"
                     />
+                </div>
+                <div v-if="preview.mode.value !== 'empty'" class="document-preview">
+                    <header>
+                        <div>
+                            <b>{{ preview.fileName.value }}</b>
+                            <small>{{ preview.mediaType.value }}</small>
+                        </div>
+                        <el-button
+                            v-if="preview.mode.value !== 'loading'"
+                            size="small"
+                            @click="preview.download"
+                            >下载原文件</el-button
+                        >
+                    </header>
+                    <el-skeleton v-if="preview.mode.value === 'loading'" :rows="6" animated />
+                    <iframe
+                        v-else-if="preview.mode.value === 'pdf'"
+                        :src="preview.objectUrl.value"
+                        :title="preview.fileName.value"
+                    />
+                    <pre v-else-if="preview.mode.value === 'text'">{{ preview.text.value }}</pre>
+                    <el-empty
+                        v-else
+                        description="该格式需下载后使用本机办公软件查看"
+                    >
+                        <el-button type="primary" @click="preview.download">下载文档</el-button>
+                    </el-empty>
                 </div>
             </section>
         </main>
@@ -212,6 +258,46 @@ onBeforeUnmount(() => {
     align-items: center;
     padding: 16px;
     border: 1px solid var(--line);
+}
+.document-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.document-preview {
+    margin-top: 22px;
+    border: 1px solid var(--line);
+    background: #f9f8f3;
+}
+.document-preview > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+}
+.document-preview > header b,
+.document-preview > header small {
+    display: block;
+}
+.document-preview > header small {
+    color: var(--muted);
+    font-size: 11px;
+}
+.document-preview iframe {
+    width: 100%;
+    height: 520px;
+    border: 0;
+}
+.document-preview pre {
+    max-height: 520px;
+    margin: 0;
+    padding: 24px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 14px/1.8 "Noto Sans SC", sans-serif;
 }
 .documents b,
 .documents small {

@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useSessionStore } from "@ygh/web-shared";
+import { logout as revokeSession, useSessionStore } from "@ygh/web-shared";
 import {
     Bell,
     Box,
     ChatDotRound,
     Collection,
-    Connection,
     Document,
     Goods,
     Grid,
@@ -17,13 +16,13 @@ import {
     Menu,
     Message,
     Money,
-    Operation,
     Reading,
     Setting,
     SwitchButton,
     User,
 } from "@element-plus/icons-vue";
 import { getDashboard } from "@/api/operations";
+import { useHttp } from "@/api/client";
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
@@ -65,9 +64,14 @@ const groups = [
         ],
     },
 ];
-function logout() {
-    session.clear();
-    router.replace("/login");
+async function logout() {
+    const refreshToken = session.renewal;
+    try {
+        if (refreshToken) await revokeSession(useHttp(), refreshToken);
+    } finally {
+        session.clear();
+        await router.replace("/login");
+    }
 }
 onMounted(async () => {
     try {

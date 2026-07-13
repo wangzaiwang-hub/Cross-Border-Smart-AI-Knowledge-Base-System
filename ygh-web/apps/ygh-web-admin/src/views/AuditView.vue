@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { listAuditLogs, type AuditLog } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const loading = ref(true);
 const logs = ref<AuditLog[]>([]);
 const filter = reactive({ userId: "", module: "", action: "", result: "" });
@@ -38,7 +39,14 @@ onMounted(load);
         ><el-button type="primary" @click="load">查询</el-button>
     </div>
     <section v-loading="loading" class="panel table-panel">
-        <el-table :data="logs"
+        <EnterpriseTable
+            :items="logs"
+            :search-fields="['userId', 'module', 'action', 'traceId', 'message']"
+            status-field="result"
+            search-placeholder="检索操作人、模块、动作、traceId 或消息"
+            v-slot="{ rows, emptyText }"
+        >
+        <el-table :data="rows" :empty-text="emptyText"
             ><el-table-column label="时间" width="180"
                 ><template #default="scope">{{
                     new Date(scope.row.timestamp).toLocaleString("zh-CN")
@@ -66,6 +74,7 @@ onMounted(load);
                 label="脱敏消息"
                 min-width="260"
         /></el-table>
+        </EnterpriseTable>
     </section>
     <el-alert
         style="margin-top: 14px"

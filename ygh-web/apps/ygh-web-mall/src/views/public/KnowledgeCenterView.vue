@@ -3,20 +3,21 @@ import { computed, onMounted, ref } from "vue";
 import { Search, Reading } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
-import { listKnowledge, type KnowledgeDocument } from "@/api/knowledge";
+import {
+    listKnowledge,
+    searchKnowledge,
+    type KnowledgeDocument,
+    type KnowledgeSearchHit,
+} from "@/api/knowledge";
 const keyword = ref("");
 const category = ref("");
 const loading = ref(true);
 const documents = ref<KnowledgeDocument[]>([]);
+const searchResults = ref<KnowledgeSearchHit[]>([]);
 const categories = ["政策法规", "通关流程", "商品知识"];
-const list = computed(() =>
-    documents.value.filter(
-        (document) =>
-            (!category.value || document.category === category.value) &&
-            (document.title + document.fileName)
-                .toLowerCase()
-                .includes(keyword.value.toLowerCase()),
-    ),
+const searching = computed(() => keyword.value.trim().length > 0);
+const resultCount = computed(() =>
+    searching.value ? searchResults.value.length : documents.value.length,
 );
 async function load() {
     loading.value = true;
@@ -27,6 +28,26 @@ async function load() {
     } finally {
         loading.value = false;
     }
+}
+async function runSearch() {
+    const query = keyword.value.trim();
+    if (!query) {
+        searchResults.value = [];
+        await load();
+        return;
+    }
+    loading.value = true;
+    try {
+        searchResults.value = await searchKnowledge(query, category.value);
+    } catch {
+        ElMessage.error("知识检索失败，请稍后重试");
+    } finally {
+        loading.value = false;
+    }
+}
+async function selectCategory(value: string) {
+    category.value = value;
+    await (searching.value ? runSearch() : load());
 }
 onMounted(load);
 </script>
@@ -45,7 +66,10 @@ onMounted(load);
                 :prefix-icon="Search"
                 placeholder="搜索政策名称、通关环节、商品知识……"
                 clearable
+                @keyup.enter="runSearch"
+                @clear="runSearch"
             />
+            <el-button type="warning" size="large" @click="runSearch">检索知识</el-button>
         </div>
     </div>
     <div class="page-shell">
@@ -55,8 +79,7 @@ onMounted(load);
                 ><button
                     :class="{ active: !category }"
                     @click="
-                        category = '';
-                        load();
+                        selectCategory('');
                     "
                 >
                     全部<span>{{ documents.length }}</span></button
@@ -65,8 +88,7 @@ onMounted(load);
                     :key="c"
                     :class="{ active: category === c }"
                     @click="
-                        category = c;
-                        load();
+                        selectCategory(c);
                     "
                 >
                     {{ c }}
@@ -86,43 +108,66 @@ onMounted(load);
                 <PageHeader
                     eyebrow="PUBLISHED KNOWLEDGE"
                     :title="category || '全部已发布知识'"
-                    :description="`共 ${list.length} 条有效内容，按最近更新排序`"
+                    :description="`共 ${resultCount} 条有效内容，${searching ? '按混合检索相关度' : '按最近更新'}排序`"
                 /><el-empty
-                    v-if="!loading && !list.length"
+                    v-if="!loading && !resultCount"
                     description="没有符合条件的已发布知识"
                 />
                 <div class="article-list">
-                    <RouterLink
-                        v-for="article in list"
-                        :key="article.id"
-                        :to="`/knowledge/${article.id}`"
-                        ><div class="article-mark">
-                            {{ article.category.slice(0, 1) }}
-                        </div>
-                        <div>
-                            <div class="meta">
-                                <el-tag size="small" effect="plain">{{
-                                    article.category
-                                }}</el-tag
-                                ><span>版本 {{ article.version }}</span
-                                ><span>{{ article.mediaType }}</span>
+                    <template v-if="!searching">
+                        <RouterLink
+                            v-for="article in documents"
+                            :key="article.id"
+                            :to="`/knowledge/${article.id}`"
+                            ><div class="article-mark">
+                                {{ article.category.slice(0, 1) }}
                             </div>
-                            <h2 class="serif">{{ article.title }}</h2>
-                            <p>
-                                来源文件：{{ article.fileName }} · 校验摘要
-                                {{ article.sha256.slice(0, 12) }}…
-                            </p>
-                            <small
-                                >更新于
-                                {{
-                                    new Date(article.updatedAt).toLocaleString(
-                                        "zh-CN",
-                                    )
-                                }}
-                                · 已审核发布</small
-                            >
-                        </div></RouterLink
-                    >
+                            <div>
+                                <div class="meta">
+                                    <el-tag size="small" effect="plain">{{
+                                        article.category
+                                    }}</el-tag
+                                    ><span>版本 {{ article.version }}</span
+                                    ><span>{{ article.mediaType }}</span>
+                                </div>
+                                <h2 class="serif">{{ article.title }}</h2>
+                                <p>
+                                    来源文件：{{ article.fileName }} · 校验摘要
+                                    {{ article.sha256.slice(0, 12) }}…
+                                </p>
+                                <small
+                                    >更新于
+                                    {{
+                                        new Date(article.updatedAt).toLocaleString(
+                                            "zh-CN",
+                                        )
+                                    }}
+                                    · 已审核发布</small
+                                >
+                            </div></RouterLink
+                        >
+                    </template>
+                    <template v-else>
+                        <RouterLink
+                            v-for="hit in searchResults"
+                            :key="hit.chunkId"
+                            :to="`/knowledge/${hit.documentId}`"
+                        >
+                            <div class="article-mark">检</div>
+                            <div>
+                                <div class="meta">
+                                    <el-tag size="small" effect="plain">{{ category || "相关知识" }}</el-tag>
+                                    <span>版本 {{ hit.documentVersion }}</span>
+                                    <span>相关度 {{ hit.finalScore.toFixed(3) }}</span>
+                                </div>
+                                <h2 class="serif">{{ hit.title }}</h2>
+                                <p>{{ hit.excerpt }}</p>
+                                <small>
+                                    {{ hit.sourceUpdatedAt ? `来源更新于 ${new Date(hit.sourceUpdatedAt).toLocaleString("zh-CN")}` : "已审核发布" }}
+                                </small>
+                            </div>
+                        </RouterLink>
+                    </template>
                 </div>
             </main>
         </div>
@@ -144,6 +189,9 @@ onMounted(load);
 .knowledge-hero .el-input {
     width: min(680px, 100%);
     margin-top: 22px;
+}
+.knowledge-hero .el-button {
+    margin: 22px 0 0 10px;
 }
 .knowledge-layout {
     display: grid;

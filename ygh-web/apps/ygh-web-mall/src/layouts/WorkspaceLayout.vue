@@ -1,15 +1,28 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useSessionStore } from '@ygh/web-shared'
+import { logout as revokeSession, useSessionStore } from '@ygh/web-shared'
 import { Bell, Collection, CreditCard, Document, Goods, House, Location, Reading, SwitchButton, User } from '@element-plus/icons-vue'
+import { useHttp } from '@/api/client'
 
 const route = useRoute(); const router = useRouter(); const session = useSessionStore()
-const menu = [
+const isInternalEmployee = computed(() =>
+  session.user?.roles.some((role) => role === 'EMPLOYEE' || role === 'ADMIN') ?? false,
+)
+const menu = computed(() => [
   { group:'账户', items:[{to:'/workspace/profile',label:'个人资料',icon:User},{to:'/workspace/addresses',label:'收货地址',icon:Location},{to:'/workspace/notifications',label:'消息中心',icon:Bell}]},
   { group:'商城', items:[{to:'/workspace/cart',label:'购物车',icon:Goods},{to:'/workspace/orders',label:'我的订单',icon:Document},{to:'/workspace/wallet',label:'模拟钱包',icon:CreditCard}]},
-  { group:'成长', items:[{to:'/workspace/training',label:'学习任务',icon:Reading},{to:'/workspace/training/courses',label:'课程中心',icon:Collection},{to:'/workspace/training/progress',label:'学习档案',icon:House}]},
-]
-function logout(){ session.clear(); router.replace('/') }
+  ...(isInternalEmployee.value ? [{ group:'成长', items:[{to:'/workspace/training',label:'学习任务',icon:Reading},{to:'/workspace/training/courses',label:'课程中心',icon:Collection},{to:'/workspace/training/progress',label:'学习档案',icon:House}]}] : []),
+])
+async function logout(){
+  const refreshToken = session.renewal
+  try {
+    if (refreshToken) await revokeSession(useHttp(), refreshToken)
+  } finally {
+    session.clear()
+    await router.replace('/')
+  }
+}
 ;</script>
 <template>
   <header class="workspace-head"><div class="container"><RouterLink to="/" class="workspace-brand"><span>粤</span><b class="serif">粤港甄选 · 个人中心</b></RouterLink><div><el-button text @click="router.push('/')">返回商城</el-button><el-button text :icon="SwitchButton" @click="logout">退出</el-button></div></div></header>

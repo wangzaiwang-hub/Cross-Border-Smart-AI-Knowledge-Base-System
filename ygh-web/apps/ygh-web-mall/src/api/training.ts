@@ -96,6 +96,15 @@ export const listChapterDocuments = async (
     apiData(
         await useHttp().get(`/api/v1/training/chapters/${chapterId}/documents`),
     );
+export const getTrainingDocumentContent = async (
+    documentId: string,
+): Promise<Blob> =>
+    (
+        await useHttp().get<Blob>(
+            `/api/v1/training/documents/${documentId}/content`,
+            { params: { inline: true }, responseType: "blob" },
+        )
+    ).data;
 export const listMyAssignments = async (): Promise<Assignment[]> =>
     apiData(await useHttp().get("/api/v1/training/assignments/mine"));
 export const getProgress = async (assignmentId: string): Promise<Progress> =>

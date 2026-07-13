@@ -13,6 +13,7 @@ export interface AiMessage {
     content: string;
     refused: boolean;
     createdAt: string;
+    citations: Array<BackendCitation & { documentVersion: number; sourceUpdatedAt?: string }>;
 }
 export interface StreamResult {
     conversationId: string;
@@ -25,6 +26,8 @@ interface BackendCitation {
     documentId: string;
     title: string;
     excerpt: string;
+    documentVersion?: number;
+    sourceUpdatedAt?: string;
 }
 export async function listConversations(limit = 20): Promise<Conversation[]> {
     return apiData(

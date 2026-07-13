@@ -8,6 +8,9 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const active = computed(() => route.path.startsWith('/products') ? '/products' : route.path.startsWith('/knowledge') ? '/knowledge' : route.path.startsWith('/ai-service') ? '/ai-service' : '/')
+const isInternalEmployee = computed(() =>
+  session.user?.roles.some((role) => role === 'EMPLOYEE' || role === 'ADMIN') ?? false,
+)
 ;</script>
 
 <template>
@@ -38,7 +41,7 @@ const active = computed(() => route.path.startsWith('/products') ? '/products' :
       <div class="container footer-grid">
         <div><div class="brand footer-brand"><span class="brand-seal">粤</span><b class="serif">粤港甄选</b></div><p>服务跨境消费、知识检索与岗位成长的一体化企业平台。</p></div>
         <div><b>消费者服务</b><RouterLink to="/products">商品选购</RouterLink><RouterLink to="/workspace/orders">我的订单</RouterLink><RouterLink to="/workspace/wallet">模拟钱包</RouterLink></div>
-        <div><b>知识服务</b><RouterLink to="/knowledge">政策法规</RouterLink><RouterLink to="/ai-service">AI 客服</RouterLink><RouterLink to="/workspace/training">员工培训</RouterLink></div>
+        <div><b>知识服务</b><RouterLink to="/knowledge">政策法规</RouterLink><RouterLink to="/ai-service">AI 客服</RouterLink><RouterLink v-if="isInternalEmployee" to="/workspace/training">员工培训</RouterLink></div>
         <div><b>平台声明</b><span>不接入真实支付</span><span>不产生真实物流</span><span>内容引用以发布版本为准</span></div>
       </div>
     </footer>

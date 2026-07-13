@@ -1,10 +1,10 @@
 import axios, { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
-import type { ApiResponse } from './types'
+import type { ApiResponse, TokenPair } from './types'
 
 export interface HttpHooks {
   accessToken: () => string
   refreshToken: () => string
-  updateAccessToken: (token: string) => void
+  updateTokens: (tokens: TokenPair) => void
   clearSession: () => void
   onForbidden?: () => void
 }
@@ -29,14 +29,16 @@ export function createHttpClient(baseURL: string, hooks: HttpHooks): AxiosInstan
     async (error: AxiosError<ApiResponse<unknown>>) => {
       const status = error.response?.status
       const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
-      if (status === 401 && original && !original._retried && hooks.refreshToken()) {
+      const path = original?.url ?? ''
+      const mayRefresh = !path.endsWith('/api/v1/auth/refresh') && !path.endsWith('/api/v1/auth/logout')
+      if (status === 401 && original && !original._retried && hooks.refreshToken() && mayRefresh) {
         original._retried = true
-        refreshing ??= axios.post<ApiResponse<{ accessToken: string }>>(
+        refreshing ??= axios.post<ApiResponse<TokenPair>>(
           `${baseURL}/api/v1/auth/refresh`,
           { refreshToken: hooks.refreshToken(), deviceId: browserDeviceId() },
-          { headers: { 'X-Request-Id': requestId() } },
+          { headers: { 'X-Request-Id': requestId() }, timeout: 15_000 },
         ).then(response => {
-          hooks.updateAccessToken(response.data.data.accessToken)
+          hooks.updateTokens(response.data.data)
           return response.data.data.accessToken
         }).finally(() => { refreshing = null })
         try {

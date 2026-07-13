@@ -333,7 +333,7 @@ export const listAccounts = async (
         }),
     );
 export const listDepartments = async (): Promise<Department[]> =>
-    apiData(await useHttp().get("/api/v1/user/organization/departments"));
+    apiData(await useHttp().get("/api/v1/organization/departments"));
 export const createDepartment = async (command: {
     parentId?: string;
     code: string;
@@ -341,20 +341,20 @@ export const createDepartment = async (command: {
     sortOrder: number;
 }): Promise<Department> =>
     apiData(
-        await useHttp().post("/api/v1/user/organization/departments", command),
+        await useHttp().post("/api/v1/organization/departments", command),
     );
 export const listPositions = async (): Promise<Position[]> =>
-    apiData(await useHttp().get("/api/v1/user/organization/positions"));
+    apiData(await useHttp().get("/api/v1/organization/positions"));
 export const createPosition = async (command: {
     code: string;
     name: string;
     description?: string;
 }): Promise<Position> =>
     apiData(
-        await useHttp().post("/api/v1/user/organization/positions", command),
+        await useHttp().post("/api/v1/organization/positions", command),
     );
 export const listEmployees = async (): Promise<Employee[]> =>
-    apiData(await useHttp().get("/api/v1/user/organization/employees"));
+    apiData(await useHttp().get("/api/v1/organization/employees"));
 export const createEmployee = async (command: {
     userId: string;
     employeeNo: string;
@@ -363,7 +363,7 @@ export const createEmployee = async (command: {
     hiredOn?: string;
 }): Promise<Employee> =>
     apiData(
-        await useHttp().post("/api/v1/user/organization/employees", command),
+        await useHttp().post("/api/v1/organization/employees", command),
     );
 export const replaceEmployeePositions = async (
     employeeId: string,
@@ -371,7 +371,7 @@ export const replaceEmployeePositions = async (
 ): Promise<Employee> =>
     apiData(
         await useHttp().put(
-            `/api/v1/user/organization/employees/${employeeId}/positions`,
+            `/api/v1/organization/employees/${employeeId}/positions`,
             positionIds,
         ),
     );
@@ -381,7 +381,7 @@ export const changeEmployeeStatus = async (
 ): Promise<Employee> =>
     apiData(
         await useHttp().put(
-            `/api/v1/user/organization/employees/${employeeId}/status/${status}`,
+            `/api/v1/organization/employees/${employeeId}/status/${status}`,
         ),
     );
 export const listAdminProducts = async (
@@ -489,13 +489,22 @@ export const listAdminOrders = async (status?: string): Promise<Order[]> =>
 export const advanceSimulatedFulfillment = async (
     order: Order,
 ): Promise<Order> => {
-    const action =
-        order.status === "PAID" ? "simulate-processing" : "simulate-completion";
+    if (order.status === "PAID") {
+        return apiData(
+            await useHttp().post(
+                `/api/v1/admin/orders/${order.orderId}/simulate-processing`,
+                undefined,
+                { params: { version: order.version } },
+            ),
+        );
+    }
     return apiData(
         await useHttp().post(
-            `/api/v1/admin/orders/${order.orderId}/${action}`,
+            `/api/v1/admin/orders/${order.orderId}/simulate-completion`,
             undefined,
-            { params: { version: order.version } },
+            {
+            params: { version: order.version },
+            },
         ),
     );
 };
@@ -736,10 +745,10 @@ export const listTrainingChapters = async (
         await useHttp().get(`/api/v1/training/courses/${courseId}/chapters`),
     );
 export const listTrainingGates = async (
-    chapterId: string,
+    courseId: string,
 ): Promise<TrainingGate[]> =>
     apiData(
-        await useHttp().get(`/api/v1/training/chapters/${chapterId}/gates`),
+        await useHttp().get(`/api/v1/training/courses/${courseId}/gates`),
     );
 export const createTrainingCourse = async (command: {
     title: string;

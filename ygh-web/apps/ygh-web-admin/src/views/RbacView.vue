@@ -12,6 +12,7 @@ import {
     type Role,
     type AuthoritySnapshot,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const active = ref("role");
 const loading = ref(true);
 const roles = ref<Role[]>([]);
@@ -100,7 +101,13 @@ onMounted(async () => {
     </div>
     <el-tabs v-model="active" v-loading="loading" class="panel rbac"
         ><el-tab-pane label="角色管理" name="role"
-            ><el-table :data="roles"
+            ><EnterpriseTable
+                :items="roles"
+                :search-fields="['code', 'name']"
+                status-field="enabled"
+                search-placeholder="检索角色编码或名称"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column
                     prop="code"
                     label="角色编码"
@@ -128,10 +135,16 @@ onMounted(async () => {
                             >配置权限</el-button
                         ></template
                     ></el-table-column
-                ></el-table
+                ></el-table></EnterpriseTable
             ></el-tab-pane
         ><el-tab-pane label="权限目录" name="permission"
-            ><el-table :data="permissions"
+            ><EnterpriseTable
+                :items="permissions"
+                :search-fields="['code', 'name', 'resourceType']"
+                status-field="enabled"
+                search-placeholder="检索权限编码、名称或资源类型"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column
                     prop="code"
                     label="权限编码" /><el-table-column
@@ -144,7 +157,7 @@ onMounted(async () => {
                             v-model="scope.row.enabled"
                             @change="
                                 togglePermission(scope.row)
-                            " /></template></el-table-column></el-table></el-tab-pane
+                            " /></template></el-table-column></el-table></EnterpriseTable></el-tab-pane
         ><el-tab-pane label="用户授权" name="assignment"
             ><div class="assignment">
                 <el-input

@@ -5,12 +5,18 @@ export interface UserProfile {
   userId: string
   displayName: string
   avatarUrl?: string
+  phone?: string
+  email?: string
+  locale: string
+  timezone: string
   version: number
 }
 
 export interface UpdateUserProfileCommand {
   displayName: string
   avatarUrl?: string
+  phone?: string
+  email?: string
   locale: string
   timezone: string
   version: number

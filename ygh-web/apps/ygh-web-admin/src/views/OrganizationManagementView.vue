@@ -14,6 +14,7 @@ import {
     type Employee,
     type Position,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 
 const loading = ref(true),
     saving = ref(false),
@@ -141,7 +142,13 @@ onMounted(load);
         </div>
         <el-tabs v-model="tab" class="panel organization">
             <el-tab-pane label="员工" name="employees"
-                ><el-table :data="employees" stripe
+                ><EnterpriseTable
+                    :items="employees"
+                    :search-fields="['employeeNo', 'userId', 'departmentId', 'status']"
+                    status-field="status"
+                    search-placeholder="检索工号、用户、部门或状态"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText" stripe
                     ><el-table-column
                         prop="employeeNo"
                         label="工号"
@@ -184,11 +191,17 @@ onMounted(load);
                                 >离职</el-button
                             ></template
                         ></el-table-column
-                    ></el-table
+                    ></el-table></EnterpriseTable
                 ></el-tab-pane
             >
             <el-tab-pane label="部门" name="departments"
-                ><el-table :data="departments" stripe
+                ><EnterpriseTable
+                    :items="departments"
+                    :search-fields="['code', 'name', 'parentId']"
+                    status-field="enabled"
+                    search-placeholder="检索部门编码、名称或上级部门"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText" stripe
                     ><el-table-column
                         prop="code"
                         label="编码" /><el-table-column
@@ -201,10 +214,16 @@ onMounted(load);
                         prop="sortOrder"
                         label="排序" /><el-table-column
                         prop="enabled"
-                        label="启用" /></el-table
+                        label="启用" /></el-table></EnterpriseTable
             ></el-tab-pane>
             <el-tab-pane label="岗位" name="positions"
-                ><el-table :data="positions" stripe
+                ><EnterpriseTable
+                    :items="positions"
+                    :search-fields="['code', 'name', 'description']"
+                    status-field="enabled"
+                    search-placeholder="检索岗位编码、名称或说明"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText" stripe
                     ><el-table-column
                         prop="code"
                         label="编码" /><el-table-column
@@ -213,7 +232,7 @@ onMounted(load);
                         prop="description"
                         label="说明" /><el-table-column
                         prop="enabled"
-                        label="启用" /></el-table
+                        label="启用" /></el-table></EnterpriseTable
             ></el-tab-pane>
         </el-tabs>
         <el-dialog

@@ -8,7 +8,7 @@ export function useHttp() {
   client ??= createHttpClient(import.meta.env.VITE_GATEWAY_URL || '', {
     accessToken: () => session.bearer,
     refreshToken: () => session.renewal,
-    updateAccessToken: token => session.updateAccessToken(token),
+    updateTokens: tokens => session.rotate(tokens),
     clearSession: () => session.clear(),
     onForbidden: () => { void router.push('/403') },
   })

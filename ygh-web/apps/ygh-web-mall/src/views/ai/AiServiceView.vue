@@ -56,6 +56,12 @@ async function openConversation(id: string) {
                 content: x.content,
                 createdAt: x.createdAt,
                 refused: x.refused,
+                citations: x.citations.map((citation) => ({
+                    documentId: citation.documentId,
+                    chunkId: citation.sourceId,
+                    title: citation.title,
+                    excerpt: `${citation.excerpt}${citation.documentVersion ? `（版本 ${citation.documentVersion}${citation.sourceUpdatedAt ? `，更新于 ${new Date(citation.sourceUpdatedAt).toLocaleString("zh-CN")}` : ""}）` : ""}`,
+                })),
             })),
         ];
     } catch {

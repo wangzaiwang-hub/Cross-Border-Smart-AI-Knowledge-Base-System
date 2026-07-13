@@ -11,6 +11,7 @@ import {
     type DeadLetter,
     type NotificationTemplate,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const loading = ref(true);
 const dispatching = ref(false);
 const dead = ref<DeadLetter[]>([]);
@@ -103,7 +104,14 @@ onMounted(load);
                 >新增模板</el-button
             >
         </header>
-        <el-table :data="templates"
+        <EnterpriseTable
+            :items="templates"
+            :search-fields="['code', 'titleTemplate', 'channel']"
+            status-field="enabled"
+            search-placeholder="检索模板编码、标题或渠道"
+            v-slot="{ rows, emptyText }"
+        >
+        <el-table :data="rows" :empty-text="emptyText"
             ><el-table-column prop="code" label="模板编码" /><el-table-column
                 prop="titleTemplate"
                 label="标题模板"
@@ -120,15 +128,21 @@ onMounted(load);
                         >编辑</el-button
                     ></template
                 ></el-table-column
-            ></el-table
-        >
+            ></el-table>
+        </EnterpriseTable>
     </section>
     <section v-loading="loading" class="panel table-panel dead">
         <header>
             <b class="serif">死信队列</b
             ><el-tag type="danger">高风险操作需权限</el-tag>
         </header>
-        <el-table :data="dead" empty-text="暂无死信"
+        <EnterpriseTable
+            :items="dead"
+            :search-fields="['id', 'messageId', 'eventId', 'failureReason']"
+            search-placeholder="检索死信、消息、事件或失败原因"
+            v-slot="{ rows, emptyText }"
+        >
+        <el-table :data="rows" :empty-text="emptyText"
             ><el-table-column prop="id" label="死信 ID" /><el-table-column
                 prop="messageId"
                 label="消息 ID"
@@ -154,8 +168,8 @@ onMounted(load);
                         >人工重放</el-button
                     ></template
                 ></el-table-column
-            ></el-table
-        >
+            ></el-table>
+        </EnterpriseTable>
     </section>
     <el-dialog v-model="templateDialog" title="维护通知模板" width="620"
         ><el-form v-if="editingTemplate" label-position="top"

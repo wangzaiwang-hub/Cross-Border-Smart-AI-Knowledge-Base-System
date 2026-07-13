@@ -108,30 +108,36 @@ const routes: RouteRecordRaw[] = [
                 path: "training",
                 component: () =>
                     import("@/views/training/TrainingTasksView.vue"),
+                meta: { requiresInternalEmployee: true },
             },
             {
                 path: "training/courses",
                 component: () =>
                     import("@/views/training/CourseCatalogView.vue"),
+                meta: { requiresInternalEmployee: true },
             },
             {
                 path: "training/courses/:id",
                 component: () =>
                     import("@/views/training/CourseDetailView.vue"),
+                meta: { requiresInternalEmployee: true },
             },
             {
                 path: "training/chapters/:id",
                 component: () =>
                     import("@/views/training/ChapterLearningView.vue"),
+                meta: { requiresInternalEmployee: true },
             },
             {
                 path: "training/quiz/:gateId",
                 component: () => import("@/views/training/QuizView.vue"),
+                meta: { requiresInternalEmployee: true },
             },
             {
                 path: "training/progress",
                 component: () =>
                     import("@/views/training/TrainingProgressView.vue"),
+                meta: { requiresInternalEmployee: true },
             },
         ],
     },
@@ -154,6 +160,13 @@ router.beforeEach((to) => {
     const session = useSessionStore();
     if (to.meta.requiresAuth && !session.authenticated)
         return { path: "/login", query: { redirect: to.fullPath } };
+    if (
+        to.meta.requiresInternalEmployee &&
+        !session.user?.roles.some(
+            (role) => role === "EMPLOYEE" || role === "ADMIN",
+        )
+    )
+        return "/403";
     if (to.meta.guest && session.authenticated) return "/workspace/profile";
     return true;
 });

@@ -18,6 +18,8 @@ const passwordForm = reactive({
 const profile = reactive({
     displayName: "",
     avatarUrl: "",
+    phone: "",
+    email: "",
     locale: "zh-CN",
     timezone: "Asia/Shanghai",
     version: 0,
@@ -96,6 +98,24 @@ onMounted(load);
                 ><el-form-item label="头像 URL"
                     ><el-input v-model="profile.avatarUrl" maxlength="512"
                 /></el-form-item>
+                <div class="two">
+                    <el-form-item label="联系手机">
+                        <el-input
+                            v-model="profile.phone"
+                            maxlength="32"
+                            autocomplete="tel"
+                            placeholder="例如 +86 13800138000"
+                        />
+                    </el-form-item>
+                    <el-form-item label="联系邮箱">
+                        <el-input
+                            v-model="profile.email"
+                            maxlength="254"
+                            autocomplete="email"
+                            placeholder="name@example.com"
+                        />
+                    </el-form-item>
+                </div>
                 <div class="two">
                     <el-form-item label="界面语言"
                         ><el-select v-model="profile.locale"

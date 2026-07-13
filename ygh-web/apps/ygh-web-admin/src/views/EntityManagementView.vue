@@ -3,26 +3,36 @@ import { computed, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { Search } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 import {
     changeAccountStatus,
     advanceSimulatedFulfillment,
     changeProductStatus,
+    createEmployee,
     createProduct,
     createProductBatch,
     createProductBrand,
     createProductCategory,
     createProductTraceEvent,
+    assignUserRoles,
+    getUserAuthorities,
     listAccounts,
+    listDepartments,
+    listEmployees,
     listAdminInventory,
     listAdminOrders,
     listAdminProducts,
     listProductBrands,
     listProductCategories,
+    listPositions,
     listWalletTransactions,
     listWalletAccounts,
     runCommerceReconciliation,
     updateProduct,
     type AdminAccount,
+    type Department,
+    type Employee,
+    type Position,
     type Product,
     type ProductBrand,
     type ProductCategory,
@@ -36,11 +46,25 @@ const keyword = ref("");
 const status = ref("");
 const loading = ref(true);
 const rows = ref<Row[]>([]);
+const pageNo = ref(1);
+const pageSize = ref(20);
 const unsupported = ref("");
 const reconciliation = ref<CommerceReconciliation>();
 const reconciliationDialog = ref(false);
 const walletAccounts = ref<WalletAccount[]>([]);
 const walletAccountsDialog = ref(false);
+const employeeDialog = ref(false);
+const savingEmployee = ref(false);
+const selectedAccount = ref<AdminAccount>();
+const departments = ref<Department[]>([]);
+const positions = ref<Position[]>([]);
+const employees = ref<Employee[]>([]);
+const employeeForm = reactive({
+    employeeNo: "",
+    departmentId: "",
+    positionIds: [] as string[],
+    hiredOn: "",
+});
 const productDialog = ref(false);
 const savingProduct = ref(false);
 const editingProduct = ref<Product>();
@@ -92,6 +116,7 @@ const configs: Record<
             { key: "userId", label: "用户 ID" },
             { key: "principal", label: "登录账号" },
             { key: "accountType", label: "账号类型" },
+            { key: "employeeStatus", label: "员工身份" },
             { key: "status", label: "状态" },
             { key: "failedLoginCount", label: "失败次数" },
             { key: "lastLoginAt", label: "最近登录" },
@@ -152,15 +177,29 @@ const visible = computed(() =>
             .includes(keyword.value.toLowerCase()),
     ),
 );
+const pagedRows = computed(() =>
+    visible.value.slice((pageNo.value - 1) * pageSize.value, pageNo.value * pageSize.value),
+);
 async function load() {
+    pageNo.value = 1;
     loading.value = true;
     unsupported.value = "";
     try {
-        if (entity.value === "user")
-            rows.value = (await listAccounts(
-                keyword.value,
-                status.value,
-            )) as unknown as Row[];
+        if (entity.value === "user") {
+            const [accounts, employeeRecords] = await Promise.all([
+                listAccounts(keyword.value, status.value),
+                listEmployees(),
+            ]);
+            employees.value = employeeRecords;
+            const employeesByUserId = new Map(
+                employeeRecords.map((employee) => [employee.userId, employee]),
+            );
+            rows.value = accounts.map((account) => ({
+                ...account,
+                employeeStatus:
+                    employeesByUserId.get(account.userId)?.status ?? "非员工",
+            })) as unknown as Row[];
+        }
         else if (entity.value === "product") {
             const [products, categoryOptions, brandOptions] = await Promise.all(
                 [
@@ -398,6 +437,80 @@ async function openWalletAccounts() {
         loading.value = false;
     }
 }
+async function openEmployeePromotion(account: AdminAccount) {
+    selectedAccount.value = account;
+    savingEmployee.value = true;
+    try {
+        const [departmentOptions, positionOptions, employeeRecords] =
+            await Promise.all([
+                listDepartments(),
+                listPositions(),
+                listEmployees(),
+            ]);
+        departments.value = departmentOptions.filter((item) => item.enabled);
+        positions.value = positionOptions.filter((item) => item.enabled);
+        employees.value = employeeRecords;
+        const existing = employeeRecords.find(
+            (employee) => employee.userId === account.userId,
+        );
+        Object.assign(employeeForm, {
+            employeeNo:
+                existing?.employeeNo ?? `YG${account.userId.slice(-10)}`,
+            departmentId: existing?.departmentId ?? "",
+            positionIds: existing?.positionIds ?? [],
+            hiredOn: existing?.hiredOn ?? new Date().toISOString().slice(0, 10),
+        });
+        employeeDialog.value = true;
+    } catch {
+        ElMessage.error("员工转换信息加载失败，请检查组织服务状态");
+    } finally {
+        savingEmployee.value = false;
+    }
+}
+async function promoteToEmployee() {
+    const account = selectedAccount.value;
+    if (!account || !employeeForm.employeeNo.trim()) {
+        ElMessage.warning("请填写唯一工号");
+        return;
+    }
+    savingEmployee.value = true;
+    let employeeCreated = false;
+    try {
+        let employee = employees.value.find(
+            (item) => item.userId === account.userId,
+        );
+        if (!employee) {
+            employee = await createEmployee({
+                userId: account.userId,
+                employeeNo: employeeForm.employeeNo.trim(),
+                departmentId: employeeForm.departmentId || undefined,
+                positionIds: employeeForm.positionIds,
+                hiredOn: employeeForm.hiredOn || undefined,
+            });
+            employees.value.push(employee);
+            employeeCreated = true;
+        }
+        const authority = await getUserAuthorities(account.userId);
+        if (!authority.roles.includes("EMPLOYEE")) {
+            await assignUserRoles(
+                authority,
+                [...new Set([...authority.roles, "EMPLOYEE"])],
+                `管理员将账号 ${account.principal} 转为内部员工`,
+            );
+        }
+        employeeDialog.value = false;
+        ElMessage.success("已转为内部员工；该用户重新登录后可访问培训功能");
+        await load();
+    } catch {
+        ElMessage.error(
+            employeeCreated
+                ? "员工档案已创建，但角色授权失败；请再次点击“员工设置”重试"
+                : "转为员工失败，请检查工号、部门、岗位及角色版本",
+        );
+    } finally {
+        savingEmployee.value = false;
+    }
+}
 watch(() => route.fullPath, load, { immediate: true });
 </script>
 <template>
@@ -458,7 +571,7 @@ watch(() => route.fullPath, load, { immediate: true });
         style="margin-bottom: 14px"
     />
     <section v-loading="loading" class="panel table-panel">
-        <el-table :data="visible" stripe empty-text="暂无真实数据"
+        <el-table :data="pagedRows" stripe empty-text="暂无真实数据"
             ><el-table-column
                 v-for="col in config.columns"
                 :key="col.key"
@@ -478,7 +591,7 @@ watch(() => route.fullPath, load, { immediate: true });
             ><el-table-column
                 v-if="['user', 'product', 'order'].includes(entity)"
                 label="操作"
-                width="190"
+                width="270"
                 ><template #default="scope"
                     ><el-button
                         v-if="
@@ -509,6 +622,17 @@ watch(() => route.fullPath, load, { immediate: true });
                         >批次/溯源</el-button
                     >
                     ><el-button
+                        v-if="entity === 'user'"
+                        link
+                        type="success"
+                        :loading="savingEmployee"
+                        @click="openEmployeePromotion(scope.row as AdminAccount)"
+                        >{{
+                            scope.row.employeeStatus === "非员工"
+                                ? "转为员工"
+                                : "员工设置"
+                        }}</el-button
+                    ><el-button
                         v-if="entity !== 'order'"
                         link
                         type="primary"
@@ -527,11 +651,77 @@ watch(() => route.fullPath, load, { immediate: true });
             ></el-table
         ><el-pagination
             background
-            layout="total"
+            v-model:current-page="pageNo"
+            v-model:page-size="pageSize"
+            layout="total, sizes, prev, pager, next"
+            :page-sizes="[10, 20, 50, 100]"
             :total="visible.length"
             style="margin-top: 16px; justify-content: flex-end"
         />
     </section>
+    <el-dialog
+        v-model="employeeDialog"
+        title="转为内部员工"
+        width="600px"
+        destroy-on-close
+    >
+        <el-alert
+            title="完成后将同时建立员工档案并授予 EMPLOYEE 角色"
+            description="该用户需要重新登录，培训课程、学习任务和学习档案才会显示。重复操作会检查已有档案，可用于补全中断的授权步骤。"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 18px"
+        />
+        <el-descriptions :column="1" border style="margin-bottom: 18px">
+            <el-descriptions-item label="登录账号">{{
+                selectedAccount?.principal
+            }}</el-descriptions-item>
+            <el-descriptions-item label="用户 ID">{{
+                selectedAccount?.userId
+            }}</el-descriptions-item>
+        </el-descriptions>
+        <el-form label-position="top">
+            <el-form-item label="员工工号" required>
+                <el-input v-model="employeeForm.employeeNo" maxlength="32" />
+            </el-form-item>
+            <el-form-item label="所属部门">
+                <el-select v-model="employeeForm.departmentId" clearable filterable>
+                    <el-option
+                        v-for="item in departments"
+                        :key="item.id"
+                        :label="item.name"
+                        :value="item.id"
+                    />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="岗位">
+                <el-select v-model="employeeForm.positionIds" multiple filterable>
+                    <el-option
+                        v-for="item in positions"
+                        :key="item.id"
+                        :label="item.name"
+                        :value="item.id"
+                    />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="入职日期">
+                <el-date-picker
+                    v-model="employeeForm.hiredOn"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                />
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <el-button @click="employeeDialog = false">取消</el-button>
+            <el-button
+                type="primary"
+                :loading="savingEmployee"
+                @click="promoteToEmployee"
+                >确认转为员工</el-button
+            >
+        </template>
+    </el-dialog>
     <el-dialog
         v-model="productDialog"
         :title="editingProduct ? '编辑商品' : '新增商品'"
@@ -722,7 +912,12 @@ watch(() => route.fullPath, load, { immediate: true });
                 ><b>{{ reconciliation.discrepancies.length }}</b>
             </div>
         </div>
-        <el-table :data="reconciliation?.discrepancies || []"
+        <EnterpriseTable
+            :items="reconciliation?.discrepancies || []"
+            :search-fields="['orderId', 'orderStatus', 'dimension', 'expected', 'actual']"
+            search-placeholder="检索订单或差异维度"
+            v-slot="{ rows: dialogRows, emptyText }"
+        ><el-table :data="dialogRows" :empty-text="emptyText"
             ><el-table-column prop="orderId" label="订单 ID" /><el-table-column
                 prop="orderStatus"
                 label="订单状态" /><el-table-column
@@ -731,13 +926,19 @@ watch(() => route.fullPath, load, { immediate: true });
                 prop="expected"
                 label="预期" /><el-table-column
                 prop="actual"
-                label="实际" /></el-table
+                label="实际" /></el-table></EnterpriseTable
     ></el-dialog>
     <el-dialog v-model="walletAccountsDialog" title="虚拟钱包账户" width="820"
         ><el-alert
             title="全部金额均为模拟资金，不产生真实交易"
             type="warning"
-            :closable="false" /><el-table :data="walletAccounts"
+            :closable="false" /><EnterpriseTable
+            :items="walletAccounts"
+            :search-fields="['userId', 'currency', 'status']"
+            status-field="status"
+            search-placeholder="检索用户、币种或状态"
+            v-slot="{ rows: dialogRows, emptyText }"
+        ><el-table :data="dialogRows" :empty-text="emptyText"
             ><el-table-column prop="userId" label="用户 ID" /><el-table-column
                 prop="availableBalance"
                 label="可用余额" /><el-table-column
@@ -748,7 +949,7 @@ watch(() => route.fullPath, load, { immediate: true });
                 prop="status"
                 label="状态" /><el-table-column
                 prop="version"
-                label="版本" /></el-table
+                label="版本" /></el-table></EnterpriseTable
     ></el-dialog>
 </template>
 

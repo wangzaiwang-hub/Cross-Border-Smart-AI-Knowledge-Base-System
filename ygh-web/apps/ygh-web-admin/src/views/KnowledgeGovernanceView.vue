@@ -15,6 +15,7 @@ import {
     type KnowledgeDocument,
     type KnowledgeJob,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const tab = ref("documents");
 const loading = ref(true);
 const documents = ref<KnowledgeDocument[]>([]);
@@ -158,7 +159,13 @@ onMounted(load);
     </div>
     <el-tabs v-model="tab" v-loading="loading" class="panel governance"
         ><el-tab-pane label="全部知识" name="documents"
-            ><el-table :data="documents"
+            ><EnterpriseTable
+                :items="documents"
+                :search-fields="['id', 'title', 'category', 'version']"
+                status-field="status"
+                search-placeholder="检索文档 ID、标题、分类或版本"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column prop="id" label="文档 ID" /><el-table-column
                     prop="title"
                     label="标题"
@@ -193,10 +200,16 @@ onMounted(load);
                             >下线</el-button
                         ></template
                     ></el-table-column
-                ></el-table
+                ></el-table></EnterpriseTable
             ></el-tab-pane
         ><el-tab-pane label="解析任务" name="processing"
-            ><el-table :data="processing"
+            ><EnterpriseTable
+                :items="processing"
+                :search-fields="['id', 'documentId', 'taskType', 'failureReason']"
+                status-field="status"
+                search-placeholder="检索任务、文档、类型或失败原因"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column prop="id" label="任务 ID" /><el-table-column
                     prop="documentId"
                     label="文档 ID"
@@ -216,10 +229,16 @@ onMounted(load);
                             >重试</el-button
                         ></template
                     ></el-table-column
-                ></el-table
+                ></el-table></EnterpriseTable
             ></el-tab-pane
         ><el-tab-pane label="索引任务" name="index"
-            ><el-table :data="indexing"
+            ><EnterpriseTable
+                :items="indexing"
+                :search-fields="['id', 'documentId', 'indexVersion', 'failureReason']"
+                status-field="status"
+                search-placeholder="检索任务、文档、索引版本或失败原因"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column prop="id" label="任务 ID" /><el-table-column
                     prop="documentId"
                     label="文档 ID"
@@ -239,7 +258,7 @@ onMounted(load);
                             >重试</el-button
                         ></template
                     ></el-table-column
-                ></el-table
+                ></el-table></EnterpriseTable
             ></el-tab-pane
         ></el-tabs
     ><el-dialog v-model="uploadDialog" title="上传知识文档" width="520"

@@ -96,6 +96,13 @@ export async function refresh(
     );
 }
 
+export async function logout(
+    client: AxiosInstance,
+    refreshToken: string,
+): Promise<void> {
+    await client.post("/api/v1/auth/logout", { refreshToken });
+}
+
 export function identityFromAccessToken(accessToken: string): JwtIdentity {
     const segments = accessToken.split(".");
     if (segments.length !== 3) throw new Error("Access token is not a JWT");

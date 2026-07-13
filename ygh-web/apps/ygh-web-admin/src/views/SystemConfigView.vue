@@ -13,6 +13,7 @@ import {
     type FeatureFlag,
     type SystemSetting,
 } from "@/api/operations";
+import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const tab = ref("dictionary");
 const loading = ref(true);
 const dictionaries = ref<DictionaryAdmin[]>([]);
@@ -136,7 +137,13 @@ onMounted(async () => {
     </div>
     <el-tabs v-model="tab" v-loading="loading" class="panel config"
         ><el-tab-pane label="数据字典" name="dictionary"
-            ><el-table :data="dictionaries"
+            ><EnterpriseTable
+                :items="dictionaries"
+                :search-fields="['code', 'name']"
+                status-field="enabled"
+                search-placeholder="检索字典编码或名称"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column
                     prop="code"
                     label="字典编码"
@@ -161,10 +168,15 @@ onMounted(async () => {
                             >新增字典项</el-button
                         ></template
                     ></el-table-column
-                ></el-table
+                ></el-table></EnterpriseTable
             ></el-tab-pane
         ><el-tab-pane label="业务参数" name="parameters"
-            ><el-table :data="settings"
+            ><EnterpriseTable
+                :items="settings"
+                :search-fields="['key', 'valueType']"
+                search-placeholder="检索参数键或类型"
+                v-slot="{ rows, emptyText }"
+            ><el-table :data="rows" :empty-text="emptyText"
                 ><el-table-column prop="key" label="参数键" /><el-table-column
                     label="参数值"
                     ><template #default="scope">{{
@@ -186,7 +198,7 @@ onMounted(async () => {
                             >编辑</el-button
                         ></template
                     ></el-table-column
-                ></el-table
+                ></el-table></EnterpriseTable
             ></el-tab-pane
         ><el-tab-pane label="功能开关" name="switches"
             ><div v-for="flag in flags" :key="flag.key" class="switch">
