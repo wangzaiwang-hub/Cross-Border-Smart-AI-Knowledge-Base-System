@@ -96,6 +96,139 @@ MySQL / Redis / Elasticsearch / PostgreSQL + PGVector / 文件存储 / 豆包模
 
 ---
 
+## 04-1 架构图怎么画？
+
+### 页面标题
+
+汇报 PPT 中建议放 5 类架构图
+
+### 页面内容
+
+建议不要只画一张“大而全”的图。企业汇报中可以拆成 5 张图，分别服务不同讲解目的：
+
+| 架构图 | 放置位置 | 主要回答的问题 |
+|---|---|---|
+| 总体架构图 | 第 04 页 | 系统整体由哪些层组成？ |
+| 微服务职责与调用图 | 第 07 页后 | 服务怎么拆？服务之间怎么协作？ |
+| 数据架构图 | 第 08 页 | 数据分别存在哪里？谁是事实来源？ |
+| AI/RAG 流程图 | 第 09 页 | AI 如何基于知识库回答？ |
+| 部署拓扑图 | 第 22 页 | 当前 DEV 和企业部署如何落地？ |
+
+### 讲解词
+
+架构图不要追求一次性塞满所有细节。管理层需要先看懂系统分层和价值，技术团队再看服务边界、数据流和部署方式。因此建议按汇报节奏拆成多张图，每张图只解决一个问题。
+
+---
+
+## 04-2 总体架构图绘制说明
+
+### 图名
+
+粤港甄选跨境智汇 AI 知识库系统总体架构图
+
+### 画法
+
+采用从上到下的五层结构：
+
+```text
+第 1 层：访问端
+商城前台 / 员工学习端 / 统一管理后台
+
+第 2 层：统一入口层
+Spring Cloud Gateway
+
+第 3 层：业务服务层
+Auth / User / Product / Inventory / Order / Wallet
+Knowledge / AI / Training / Search / Notification / Admin / System
+
+第 4 层：服务治理层
+Nacos / Sentinel / OpenFeign / RocketMQ / Seata
+
+第 5 层：数据与 AI 基础设施层
+MySQL / Redis / Elasticsearch / PostgreSQL + PGVector / 文件存储 / 豆包模型
+```
+
+### 箭头规则
+
+- 访问端统一指向 Gateway。
+- Gateway 指向业务服务层。
+- 业务服务层向下连接服务治理层和数据基础设施层。
+- AI 服务单独连到 PGVector、Elasticsearch、Knowledge、Product 和豆包模型。
+- RocketMQ 用虚线连接订单、库存、钱包、知识、搜索、通知等服务，表示异步事件。
+- OpenFeign 用细实线连接服务之间的同步调用。
+
+### PPT 视觉建议
+
+- 每一层使用横向浅色带状区域。
+- Gateway 使用醒目的中心节点。
+- 业务服务用小矩形分组，不要画成复杂网状。
+- 数据组件放底部，用数据库圆柱或基础设施图标。
+- 同步调用用实线，异步消息用虚线，外部模型调用用高亮线。
+
+### 可直接给制图人员的 Mermaid 草图
+
+```mermaid
+flowchart TB
+    subgraph Client[访问端]
+        Mall[商城前台]
+        Learning[员工学习端]
+        AdminUI[统一管理后台]
+    end
+
+    Client --> Gateway[Spring Cloud Gateway<br/>统一入口 / 路由 / 鉴权 / 限流]
+
+    subgraph Services[业务微服务层]
+        Auth[Auth 认证服务]
+        User[User 用户服务]
+        Product[Product 商品服务]
+        Inventory[Inventory 库存服务]
+        Order[Order 订单服务]
+        Wallet[Wallet 钱包服务]
+        Knowledge[Knowledge 知识服务]
+        AI[AI 智能客服服务]
+        Training[Training 培训服务]
+        Search[Search 搜索服务]
+        Notice[Notification 通知服务]
+        System[System 权限配置服务]
+        Admin[Admin 后台聚合服务]
+    end
+
+    Gateway --> Services
+
+    subgraph Governance[服务治理层]
+        Nacos[Nacos<br/>注册中心 / 配置中心]
+        Sentinel[Sentinel<br/>限流 / 熔断 / 降级]
+        Feign[OpenFeign<br/>同步服务调用]
+        MQ[RocketMQ<br/>异步事件]
+        Seata[Seata<br/>短链路分布式事务]
+    end
+
+    Services --> Nacos
+    Services --> Sentinel
+    Services --> Feign
+    Services -.事件.-> MQ
+    Services --> Seata
+
+    subgraph Data[数据与 AI 基础设施层]
+        MySQL[(MySQL 8<br/>核心事实数据)]
+        Redis[(Redis<br/>缓存 / 会话 / 幂等)]
+        ES[(Elasticsearch 8<br/>全文检索)]
+        PG[(PostgreSQL + PGVector<br/>向量检索)]
+        Files[(文件存储<br/>知识原文 / 附件)]
+        Doubao[豆包模型<br/>生成式 AI]
+    end
+
+    Services --> MySQL
+    Services --> Redis
+    Knowledge --> Files
+    Search --> ES
+    AI --> PG
+    AI --> ES
+    AI --> Doubao
+```
+
+---
+
 ## 05 为什么选择微服务架构？
 
 ### 页面标题
@@ -718,3 +851,377 @@ Redis 在本系统中不是事实数据库，而是性能和安全辅助组件�
 
 通过本系统，企业可以从业务靠人工经验驱动，逐步升级为业务流程数字化、知识资产结构化、AI 服务可控化、员工培训可追踪化的综合平台能力。这也是本项目架构设计的根本目标。
 
+---
+
+## 附录 A：微服务职责与调用图怎么画
+
+### 图名
+
+业务微服务职责与协作关系图
+
+### 适合放在
+
+第 07 页“核心业务服务职责”之后。
+
+### 画法
+
+将服务按业务域分成 5 组：
+
+| 分组 | 服务 | 说明 |
+|---|---|---|
+| 平台基础 | Gateway、Auth、User、System | 入口、认证、用户、权限 |
+| 商城交易 | Product、Inventory、Order、Wallet | 商品、库存、订单、虚拟支付 |
+| 知识与 AI | Knowledge、AI、Search | 文档、检索、RAG、智能客服 |
+| 培训运营 | Training、Notification | 课程、任务、通知 |
+| 后台管理 | Admin | 跨域只读聚合与运营看板 |
+
+### 箭头重点
+
+- Gateway 指向所有业务服务，表示统一入口。
+- Order 同步调用 Product、Inventory、Wallet，表示下单、库存、支付协作。
+- Knowledge 发布事件到 Search 和 AI，表示索引构建。
+- Training 发布事件到 Notification，表示学习任务通知。
+- Admin 调用多个只读接口，表示后台聚合，不直接访问业务数据库。
+
+### Mermaid 草图
+
+```mermaid
+flowchart LR
+    Gateway[Gateway<br/>统一入口]
+
+    subgraph Platform[平台基础]
+        Auth[Auth<br/>认证]
+        User[User<br/>用户]
+        System[System<br/>权限 / 字典 / 参数]
+    end
+
+    subgraph Mall[商城交易]
+        Product[Product<br/>商品]
+        Inventory[Inventory<br/>库存]
+        Order[Order<br/>订单]
+        Wallet[Wallet<br/>虚拟钱包]
+    end
+
+    subgraph KnowledgeAI[知识与 AI]
+        Knowledge[Knowledge<br/>知识库]
+        Search[Search<br/>全文检索]
+        AI[AI<br/>智能客服 / RAG]
+    end
+
+    subgraph TrainingOps[培训与通知]
+        Training[Training<br/>培训]
+        Notice[Notification<br/>通知]
+    end
+
+    Admin[Admin<br/>后台聚合]
+
+    Gateway --> Auth
+    Gateway --> User
+    Gateway --> Product
+    Gateway --> Order
+    Gateway --> Knowledge
+    Gateway --> AI
+    Gateway --> Training
+    Gateway --> Admin
+
+    Order --> Product
+    Order --> Inventory
+    Order --> Wallet
+    Wallet -.支付成功事件.-> Order
+    Wallet -.支付成功事件.-> Inventory
+    Product -.商品变更事件.-> Search
+    Knowledge -.知识发布事件.-> Search
+    Knowledge -.知识发布事件.-> AI
+    Training -.课程分配事件.-> Notice
+    Admin --> Product
+    Admin --> Order
+    Admin --> Knowledge
+    Admin --> Training
+```
+
+### 讲解词
+
+这张图重点说明服务不是随意拆分，而是按业务领域拆分。商城交易、知识 AI、培训运营都有各自边界，后台只做聚合查询，不越过服务边界直接操作其他服务数据库。
+
+---
+
+## 附录 B：数据架构图怎么画
+
+### 图名
+
+企业数据分层与事实来源架构图
+
+### 适合放在
+
+第 08 页“数据架构设计”。
+
+### 画法
+
+采用三层结构：
+
+```text
+上层：业务服务
+Auth / User / Product / Inventory / Order / Wallet / Knowledge / AI / Training / Search
+
+中层：数据类型
+事实数据 / 缓存数据 / 全文索引 / 向量索引 / 文件附件
+
+底层：数据组件
+MySQL / Redis / Elasticsearch / PostgreSQL + PGVector / 文件存储
+```
+
+### 关键标注
+
+- MySQL 标注：核心事实来源。
+- Redis 标注：缓存、会话、幂等，不作为交易事实。
+- Elasticsearch 标注：可重建全文索引。
+- PGVector 标注：可重建向量索引。
+- 文件存储标注：知识原文和附件。
+
+### Mermaid 草图
+
+```mermaid
+flowchart TB
+    subgraph Services[业务服务]
+        Auth[Auth]
+        User[User]
+        Product[Product]
+        Inventory[Inventory]
+        Order[Order]
+        Wallet[Wallet]
+        Knowledge[Knowledge]
+        AI[AI]
+        Training[Training]
+        Search[Search]
+    end
+
+    subgraph DataLayer[数据分层]
+        Fact[核心事实数据]
+        Cache[缓存 / 会话 / 幂等]
+        FullText[全文检索索引]
+        Vector[语义向量索引]
+        FileData[知识原文 / 附件]
+    end
+
+    subgraph Storage[数据组件]
+        MySQL[(MySQL 8)]
+        Redis[(Redis)]
+        ES[(Elasticsearch 8)]
+        PG[(PostgreSQL + PGVector)]
+        Files[(文件存储卷)]
+    end
+
+    Auth --> Fact
+    User --> Fact
+    Product --> Fact
+    Inventory --> Fact
+    Order --> Fact
+    Wallet --> Fact
+    Knowledge --> Fact
+    Training --> Fact
+
+    Services --> Cache
+    Product --> FullText
+    Knowledge --> FullText
+    Knowledge --> Vector
+    AI --> Vector
+    Knowledge --> FileData
+
+    Fact --> MySQL
+    Cache --> Redis
+    FullText --> ES
+    Vector --> PG
+    FileData --> Files
+```
+
+### 讲解词
+
+这张图要讲清楚一个原则：核心业务事实只在 MySQL，Redis、Elasticsearch 和 PGVector 都是辅助能力或派生索引。这样即使缓存失效、索引损坏，也可以从事实数据恢复。
+
+---
+
+## 附录 C：AI/RAG 流程图怎么画
+
+### 图名
+
+AI 智能客服 RAG 问答流程图
+
+### 适合放在
+
+第 09 页“AI 与知识库架构”。
+
+### 画法
+
+从左到右画一条问答主链路，再在下方画知识入库链路。
+
+### 主链路
+
+```text
+用户问题
+→ AI 服务
+→ 意图识别与权限过滤
+→ 关键词检索 Elasticsearch
+→ 语义检索 PGVector
+→ 融合排序
+→ 受控上下文
+→ LangChain4j
+→ 豆包模型
+→ 带引用答案
+```
+
+### 知识入库链路
+
+```text
+文档上传
+→ 解析切片
+→ 审核发布
+→ 全文索引
+→ 向量索引
+```
+
+### Mermaid 草图
+
+```mermaid
+flowchart LR
+    UserQ[用户问题] --> AIService[AI 服务]
+    AIService --> Intent[意图识别<br/>身份与权限过滤]
+    Intent --> ESQuery[Elasticsearch<br/>关键词检索]
+    Intent --> VectorQuery[PGVector<br/>语义检索]
+    ESQuery --> Rank[融合排序]
+    VectorQuery --> Rank
+    Rank --> Context[受控上下文<br/>引用 / 版本 / 权限]
+    Context --> LC4J[LangChain4j<br/>AI 编排]
+    LC4J --> Doubao[豆包模型]
+    Doubao --> Answer[带引用答案<br/>拒答 / 反馈 / 追踪]
+
+    Product[Product 服务<br/>价格 / 库存 / 商品状态] --> LC4J
+    Order[Order 服务<br/>本人订单状态] --> LC4J
+
+    subgraph Ingest[知识入库与索引]
+        Upload[文档上传]
+        Parse[解析 / 切片]
+        Review[审核 / 发布]
+        IndexES[全文索引]
+        IndexVector[向量索引]
+    end
+
+    Upload --> Parse --> Review
+    Review --> IndexES --> ESQuery
+    Review --> IndexVector --> VectorQuery
+```
+
+### 讲解词
+
+这张图要突出 AI 回答不是模型直接生成，而是先检索、再排序、再带着受控上下文生成。商品价格、库存、订单状态不从模型记忆里拿，而是通过业务服务实时查询。
+
+---
+
+## 附录 D：部署拓扑图怎么画
+
+### 图名
+
+资源受限 DEV 与企业目标部署拓扑图
+
+### 适合放在
+
+第 22 页“部署架构设计”。
+
+### 画法
+
+建议画成左右对比：
+
+| 左侧 | 右侧 |
+|---|---|
+| 当前资源受限 DEV | 企业目标部署 |
+| Windows 开发机 + Rocky Linux 虚拟机 | 服务器完整部署 |
+| 按场景 profile 启停 | 全组件服务器部署 |
+| 本机 Docker 承载重型依赖 | 统一服务器 Compose / 后续 K8s 演进 |
+
+### 当前 DEV 拓扑重点
+
+- Windows 开发机：IDEA、前端、本机 Docker。
+- 本机 Docker：RocketMQ、Seata、Elasticsearch 按需运行。
+- Rocky Linux VM：MySQL、Redis、Nacos、PGVector、核心 Java 服务。
+- 场景 profile：core、mall、ai-apps、training。
+
+### 企业目标部署重点
+
+- Gateway 与全部 Java 微服务部署在服务器。
+- MySQL、Redis、Nacos、RocketMQ、Seata、PGVector、Elasticsearch 在服务器统一编排。
+- Secret、配置、监控、备份、健康检查独立治理。
+
+### Mermaid 草图
+
+```mermaid
+flowchart LR
+    subgraph Dev[当前资源受限 DEV]
+        subgraph Host[Windows 开发机]
+            IDE[IDEA / 前端]
+            LocalDocker[本机 Docker<br/>RocketMQ / Seata / Elasticsearch]
+        end
+
+        subgraph VM[Rocky Linux 虚拟机]
+            Core[Core Profile<br/>MySQL / Redis / Nacos]
+            BaseApps[Gateway / Auth / User]
+            MallApps[Mall Profile<br/>Product / Inventory / Order / Wallet]
+            AIApps[AI Profile<br/>Knowledge / AI / Search / PGVector]
+            TrainingApps[Training Profile<br/>Training / Notification / Admin]
+        end
+
+        IDE --> VM
+        VM --> LocalDocker
+    end
+
+    subgraph Enterprise[企业目标部署]
+        ServerGateway[Gateway 集群]
+        ServerApps[全部 Java 微服务]
+        ServerGovernance[Nacos / Sentinel / RocketMQ / Seata]
+        ServerData[MySQL / Redis / PGVector / Elasticsearch / 文件存储]
+        Observe[日志 / 指标 / 追踪 / 备份]
+
+        ServerGateway --> ServerApps
+        ServerApps --> ServerGovernance
+        ServerApps --> ServerData
+        ServerApps --> Observe
+    end
+```
+
+### 讲解词
+
+这张图要明确区分当前开发演示能力和企业目标部署能力。当前 DEV 是资源受限下的场景化运行方案，不代表生产容量；企业目标部署才是完整服务器部署方案。
+
+---
+
+## 附录 E：PPT 架构图统一视觉规范
+
+### 配色建议
+
+- 访问端：浅蓝色。
+- 网关入口：深蓝色或品牌主色。
+- 业务服务：浅绿色或浅青色。
+- 服务治理：浅紫色。
+- 数据组件：浅橙色。
+- AI 与模型：金色或高亮色。
+- 安全与审计：灰色或红色强调。
+
+### 图形建议
+
+- 服务使用圆角矩形。
+- 数据库使用圆柱体。
+- 外部模型使用云形或独立高亮矩形。
+- 同步调用使用实线箭头。
+- 异步消息使用虚线箭头。
+- 数据写入使用粗实线。
+- 派生索引使用虚线或细线。
+
+### 排版建议
+
+- 一张图最多表达一个主题。
+- 每张图控制在 8 到 15 个主要节点。
+- 不要在管理层汇报图里画所有类名、表名和接口名。
+- 技术评审版本可以保留 Mermaid 或 Visio 源图。
+- 企业汇报版本优先使用简洁图标、分层色块和关键箭头。
+
+### 讲解词
+
+架构图的目标不是证明系统复杂，而是让听众迅速理解系统为什么这样设计。汇报版架构图要清晰表达分层、边界、数据流和价值，细节可以放到技术评审材料中。
