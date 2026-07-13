@@ -26,8 +26,13 @@ async function login() {
     }
     session.establish(result.tokens, user)
     await router.replace(String(route.query.redirect || '/dashboard'))
-  } catch {
-    ElMessage.error('登录失败，请核对工作账号与密码')
+  } catch (error) {
+    const response = typeof error === 'object' && error !== null && 'response' in error
+      ? (error as { response?: { data?: { message?: string; traceId?: string } } }).response?.data
+      : undefined
+    const detail = response?.message || (error instanceof Error ? error.message : '未知错误')
+    const trace = response?.traceId ? `（traceId: ${response.traceId}）` : ''
+    ElMessage.error({ message: `登录失败：${detail}${trace}`, duration: 8000, showClose: true })
   } finally {
     loading.value = false
   }

@@ -29,7 +29,7 @@ services:
       YGH_JWT_ISSUER: ${YGH_JWT_ISSUER:-https://auth.dev.ygh.internal}
       YGH_JWT_AUDIENCE: ygh-api
       YGH_REDIS_ENVIRONMENT: dev
-      YGH_GATEWAY_CORS_ALLOWED_ORIGINS: ${YGH_GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      YGH_GATEWAY_CORS_ALLOWED_ORIGINS: ${YGH_GATEWAY_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174}
     ports: ["8080:8080"]
   auth:
     <<: *app
