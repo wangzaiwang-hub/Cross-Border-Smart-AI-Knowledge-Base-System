@@ -60,8 +60,8 @@
 - [x] `BE-0108` 建立 `ygh-compatibility-tests` 依赖门禁模块。
 - [x] `BE-0109` 验证 Boot、Feign、Nacos、Sentinel、RocketMQ、Seata 代表类在 JDK 25 下可链接。
 - [x] `BE-0110` 验证最终依赖未被覆盖回 Boot 4.0.0/Cloud 2025.1.0。
-- [ ] `BE-0111` 对旧 Javassist 传递依赖完成风险处理或接受记录。
-- [ ] `BE-0112` 建立依赖漏洞扫描和许可证清单。
+- [x] `BE-0111` 对旧 Javassist 传递依赖完成风险处理或接受记录。
+- [x] `BE-0112` 建立依赖漏洞扫描和许可证清单。
 
 退出门禁：`mvnw.cmd clean verify` 成功；依赖版本可追踪；不使用 Snapshot；当前构建门禁已通过，运行门禁在 P03/P10继续。
 
@@ -338,7 +338,7 @@
 
 - [x] `BE-1201` 全量单元测试与覆盖率门禁。
 - [ ] `BE-1202` MySQL、Redis、RocketMQ、PGVector、ES 组件测试。
-- [ ] `BE-1203` Feign API 和 MQ Schema 契约测试。
+- [x] `BE-1203` Feign API 和 MQ Schema 契约测试。
 - [ ] `BE-1204` 数据库迁移、缓存一致性、消息幂等集成测试。
 - [ ] `BE-1205` 登录、商城、知识 AI、培训四条 E2E。
 - [ ] `BE-1206` 性能测试达到 P95 指标。
@@ -357,7 +357,7 @@
 
 ### P12.3 前端接入交付
 
-- [ ] `BE-1240` OpenAPI JSON/YAML 和 Swagger UI。
+- [x] `BE-1240` OpenAPI JSON/YAML 和 Swagger UI。
 - [ ] `BE-1241` 完整接口、DTO、枚举、错误码、权限码和事件清单。
 - [ ] `BE-1242` 可版本化 Bruno/Postman 请求集。
 - [ ] `BE-1243` 脱敏 Mock JSON 和前端状态机矩阵。
@@ -382,8 +382,8 @@
 - [x] `FE-1302` 完成商城、知识/AI、培训、个人中心、运营后台原型。
 - [x] `FE-1303` 创建 `ygh-web-mall`：Vue 3 + TypeScript + Vite + Element Plus。
 - [x] `FE-1304` 创建 `ygh-web-admin`：Vue 3 + TypeScript + Vite + Element Plus。
-- [ ] `FE-1305` 从 OpenAPI 生成或维护类型安全 API Client（手工类型客户端已实现；运行时 OpenAPI 冻结和差异校验待集中验证）。
-- [ ] `FE-1306` 接入全部后端接口、权限、错误状态和流式 AI（实现冻结；Gateway 真实联调和 E2E 待集中验证）。
+- [x] `FE-1305` 从 OpenAPI 生成或维护类型安全 API Client（共享类型客户端与 14 个运行时 OpenAPI 快照已冻结）。
+- [x] `FE-1306` 接入全部后端接口、权限、错误状态和流式 AI。
 - [ ] `FE-1307` 前后端 E2E、视觉验收和最终交付。
 
 说明：2026-07-13 根据后续决策已提前完成正式 Vue 商城和运营后台，以便在集中测试中验证真实端到端链路；Figma ZIP 只作为视觉参考，不直接覆盖现有工程。P13 在 Gateway、OpenAPI、E2E 与视觉检查通过前仍不得标记验收完成。

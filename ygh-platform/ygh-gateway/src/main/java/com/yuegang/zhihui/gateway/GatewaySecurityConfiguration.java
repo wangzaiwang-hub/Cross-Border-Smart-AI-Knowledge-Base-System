@@ -73,7 +73,10 @@ class GatewaySecurityConfiguration {
                                 "/actuator/health/readiness",
                                 "/actuator/info",
                                 "/livez",
-                                "/readyz").permitAll()
+                                "/readyz",
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**").permitAll()
                         .pathMatchers(HttpMethod.POST,
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
