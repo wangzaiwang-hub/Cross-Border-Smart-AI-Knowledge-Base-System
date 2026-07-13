@@ -28,6 +28,51 @@ docker compose down -v
 
 `-v` 会删除 MySQL、Redis、PGVector 数据卷。
 
+## 0.1 虚拟机里需要安装和运行的组件
+
+虚拟机不是只安装 Rocky Linux。最终虚拟机内会安装 Docker Engine，并通过 Docker Compose 运行以下组件。
+
+| 层级 | 组件 | 安装方式 | 配置文件 | 数据位置 | 是否常驻 |
+|---|---|---|---|---|---|
+| 操作系统 | Rocky Linux 9 Minimal | VMware ISO 安装 | NetworkManager、firewalld、sshd | 虚拟机磁盘 | 是 |
+| 远程登录 | OpenSSH Server | Rocky 自带或 `dnf install` | `~/.ssh/authorized_keys`、`sshd` 服务 | 用户家目录 | 是 |
+| 防火墙 | firewalld | Rocky 自带 | `scripts/configure-vm-firewall.sh` 生成 rich rules | 系统防火墙配置 | 是 |
+| 容器运行时 | Docker Engine | `scripts/install-docker-rocky.sh` | `/etc/docker/daemon.json` | `/var/lib/docker` | 是 |
+| Compose 插件 | Docker Compose Plugin | Docker 官方仓库安装 | Docker CLI 插件 | 系统软件包 | 是 |
+| 数据库 | MySQL 8.4.10 | Docker 镜像 | `vm-compose.yml`、`mysql/conf.d/ygh-low-memory.cnf`、`mysql/init/*.sh` | Docker volume `ygh-mysql-data` | 是 |
+| 缓存 | Redis 8.4.4 | Docker 镜像 | `vm-compose.yml` 中 `redis` 服务 command | Docker volume `ygh-redis-data` | 是 |
+| 注册中心/配置中心 | Nacos 3.1.1 | Docker 镜像 | `vm-compose.yml` 中 `nacos` 服务 environment | MySQL 的 `nacos_config` 库 | 是 |
+| 向量库 | PostgreSQL 17 + PGVector 0.8.5 | Docker 镜像 | `vm-compose.yml`、`postgres/init/01-enable-vector.sql` | Docker volume `ygh-pgvector-data` | 按需 |
+
+虚拟机内不会直接安装 Java 服务、Node.js 前端或 IDEA。Java 服务由客户在 Windows 的 IDEA 中启动；虚拟机只提供后端依赖的基础组件。
+
+## 0.2 组件配置总览
+
+本项目虚拟机组件的配置分散在几个文件里，客户现场必须知道每个文件控制什么。
+
+| 文件 | 作用 | 哪些内容可能需要按客户环境修改 |
+|---|---|---|
+| `.env` | 保存 MySQL、Redis、Nacos、PGVector 等密码和密钥 | 不手写密码；用 `generate-env.ps1` 生成；客户不需要改内容 |
+| `vm-compose.yml` | 定义虚拟机 Docker 组件、镜像版本、端口绑定、内存限制、数据卷 | 如果虚拟机 IP 不是 `192.168.154.10`，必须替换端口绑定 IP |
+| `mysql/conf.d/ygh-low-memory.cnf` | MySQL 低内存参数 | 一般不改；高配机器可由实施人员调大 buffer |
+| `mysql/init/01-nacos-schema.sql` | 初始化 Nacos 数据库表结构 | 不改 |
+| `mysql/init/02-auth-database.sh` | 初始化 Auth 库、账号和权限 | 不改；密码来自 `.env` |
+| `mysql/init/03-user-database.sh` | 初始化 User 库、账号和权限 | 不改；密码来自 `.env` |
+| `mysql/init/04-system-database.sh` | 初始化 System 库、账号和权限 | 不改；密码来自 `.env` |
+| `mysql/init/05-business-databases.sh` | 初始化 Product、Inventory、Order、Wallet、Knowledge、AI、Training、Notification 等业务库 | 不改；密码来自 `.env` |
+| `postgres/init/01-enable-vector.sql` | PGVector 容器首次初始化时启用 `vector` 扩展 | 不改 |
+| `scripts/install-docker-rocky.sh` | 安装 Docker、写入 `/etc/docker/daemon.json` | 如果 Linux 用户不是 `wang`，安装后手工执行 `usermod -aG docker 实际用户名` |
+| `scripts/configure-vm-firewall.sh` | 只允许 Windows NAT 主机访问虚拟机组件端口 | 如果 Windows VMnet8 IP 不是 `192.168.154.1`，必须修改源地址 |
+| `scripts/deploy-core.sh` | 启动 MySQL、Redis、Nacos 并执行健康检查和初始化 | 不改 |
+| `scripts/deploy-ai-data.sh` | 按需启动 PGVector | 不改 |
+
+最容易因为客户环境不同而导致跑不起来的配置只有四类：
+
+1. VMware NAT 网段不同：影响 `VM_IP`、`VM_GATEWAY`、`WINDOWS_NAT_IP`。
+2. Linux 网卡连接名不同：影响 `nmcli connection modify ...` 命令。
+3. Linux 用户名不是 `wang`：影响 SSH、目录权限、Docker 用户组。
+4. 虚拟机 IP 不是 `192.168.154.10`：必须同步修改 `vm-compose.yml`、IDEA 环境变量和 Windows 验证命令。
+
 ## 1. 下载 VMware Workstation Pro 和 Rocky Linux ISO
 
 这一步没有命令，使用浏览器下载。
@@ -110,6 +155,89 @@ WINDOWS_NAT_IP=192.168.154.1
 VM_IP=192.168.154.10
 VM_GATEWAY=192.168.154.2
 ```
+
+## 2.1 在 VMware 图形界面配置 NAT 网络
+
+这一步非常重要。只执行 `ipconfig` 是确认现状；如果客户 VMware NAT 网络不是我们要求的网段，可以在 VMware 图形界面改。
+
+输入内容：
+
+```text
+VMware Workstation Pro → Edit → Virtual Network Editor
+```
+
+执行后的结果：
+
+打开 VMware 虚拟网络编辑器，能看到 `VMnet8`。
+
+需要修改的内容：
+
+- `VMnet8` 必须是 NAT 模式。
+- `Subnet IP` 默认建议为 `192.168.154.0`。
+- `Subnet mask` 默认建议为 `255.255.255.0`。
+- `NAT Settings` 里的 `Gateway IP` 默认建议为 `192.168.154.2`。
+- `DHCP Settings` 建议避开 `192.168.154.10`，避免 DHCP 把同一个 IP 分给别的虚拟机。
+
+具体配置方法：
+
+1. 关闭正在运行的虚拟机。
+2. 打开 VMware Workstation Pro。
+3. 点击顶部菜单 `Edit → Virtual Network Editor`。
+4. 点击右下角 `Change Settings`，允许管理员权限。
+5. 选择 `VMnet8`。
+6. 勾选或确认：
+
+```text
+NAT: Used to share the host's IP address
+Connect a host virtual adapter to this network
+Use local DHCP service to distribute IP address to VMs
+```
+
+7. 将 `Subnet IP` 设置为：
+
+```text
+192.168.154.0
+```
+
+8. 将 `Subnet mask` 设置为：
+
+```text
+255.255.255.0
+```
+
+9. 点击 `NAT Settings`，确认 `Gateway IP` 为：
+
+```text
+192.168.154.2
+```
+
+10. 点击 `OK` 回到上一页。
+11. 点击 `DHCP Settings`，建议设置 DHCP 地址池，不包含 `.10`。例如：
+
+```text
+Start IP address: 192.168.154.128
+End IP address:   192.168.154.254
+```
+
+12. 点击 `OK` 保存。
+13. 回到 Windows PowerShell 执行：
+
+```powershell
+ipconfig
+```
+
+确认 `VMware Network Adapter VMnet8` 的 IPv4 是：
+
+```text
+192.168.154.1
+```
+
+如果客户不能修改 VMware NAT 网段，也可以沿用客户自己的网段，但必须在后续步骤同步修改：
+
+- 第 6 步虚拟机固定 IP 和网关。
+- 第 12 步 `vm-compose.yml` 端口绑定 IP。
+- 第 17 步防火墙允许的 Windows NAT 主机地址。
+- 第 28 步交付给 IDEA 的连接信息。
 
 ## 3. 创建 VMware 虚拟机
 
@@ -911,6 +1039,273 @@ Set-Location 'F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev'
 scp -r .\* wang@192.168.154.10:/opt/ygh/constrained-dev/
 scp .\.env wang@192.168.154.10:/opt/ygh/constrained-dev/.env
 ```
+
+## 18.1 逐项确认组件配置
+
+启动组件前，建议按本节逐项确认配置。这里写的是“组件配置”，不是只写启动命令。
+
+### 18.1.1 Docker Engine 配置
+
+输入命令 `Rocky Linux`：
+
+```bash
+sudo cat /etc/docker/daemon.json
+docker info --format 'Docker={{.ServerVersion}} Cgroup={{.CgroupVersion}} Driver={{.Driver}}'
+```
+
+执行后的结果：
+
+- `log-driver` 应为 `json-file`。
+- `max-size` 应为 `10m`。
+- `max-file` 应为 `3`。
+- `live-restore` 应为 `true`。
+- `storage-driver` 应为 `overlay2`。
+- `default-address-pools` 应使用 `172.30.0.0/16`，避免和 VMware NAT 网段冲突。
+
+需要修改的内容：
+
+- 客户公司如有 Docker 镜像代理，修改 `registry-mirrors`。
+- 不要把 Docker 地址池改成 `192.168.154.0/24`，否则可能和虚拟机 NAT 网段冲突。
+
+具体配置方法：
+
+```bash
+sudo vi /etc/docker/daemon.json
+sudo systemctl restart docker
+docker info
+```
+
+### 18.1.2 MySQL 配置
+
+输入命令 `Rocky Linux`：
+
+```bash
+cd /opt/ygh/constrained-dev
+cat mysql/conf.d/ygh-low-memory.cnf
+grep -n 'mysql:' -A 45 vm-compose.yml
+ls -lah mysql/init
+```
+
+执行后的结果：
+
+应看到 MySQL 低内存参数：
+
+```text
+innodb_buffer_pool_size=256M
+max_connections=80
+performance_schema=OFF
+skip_name_resolve=ON
+```
+
+应看到初始化脚本：
+
+```text
+01-nacos-schema.sql
+02-auth-database.sh
+03-user-database.sh
+04-system-database.sh
+05-business-databases.sh
+```
+
+需要修改的内容：
+
+- 一般不修改 MySQL 初始化脚本。
+- 如果客户内存比当前方案高很多，可以由实施人员评估调大 `innodb_buffer_pool_size`，但不要超过虚拟机可用内存。
+- `MYSQL_ROOT_PASSWORD`、各业务库密码都来自 `.env`，不要写死到配置文件。
+
+具体配置方法：
+
+MySQL 端口绑定在 `vm-compose.yml`：
+
+```text
+192.168.154.10:3306:3306
+```
+
+如果虚拟机实际 IP 是 `192.168.80.10`，必须改成：
+
+```text
+192.168.80.10:3306:3306
+```
+
+MySQL 数据保存在 Docker volume：
+
+```text
+ygh-mysql-data
+```
+
+查看数据卷：
+
+```bash
+docker volume inspect ygh-mysql-data
+```
+
+### 18.1.3 Redis 配置
+
+输入命令 `Rocky Linux`：
+
+```bash
+cd /opt/ygh/constrained-dev
+grep -n 'redis:' -A 35 vm-compose.yml
+```
+
+执行后的结果：
+
+应看到 Redis 命令参数：
+
+```text
+--appendonly yes
+--appendfsync everysec
+--maxmemory 96mb
+--maxmemory-policy noeviction
+--requirepass "$${REDIS_PASSWORD}"
+```
+
+需要修改的内容：
+
+- 一般不修改。
+- Redis 密码来自 `.env` 的 `REDIS_PASSWORD`。
+- 低配虚拟机中 `maxmemory` 固定为 `96mb`，不要随意调大。
+
+具体配置方法：
+
+Redis 端口绑定在 `vm-compose.yml`：
+
+```text
+192.168.154.10:6379:6379
+```
+
+如果虚拟机实际 IP 变了，同样要替换前面的 IP。
+
+Redis 数据保存在 Docker volume：
+
+```text
+ygh-redis-data
+```
+
+### 18.1.4 Nacos 配置
+
+输入命令 `Rocky Linux`：
+
+```bash
+cd /opt/ygh/constrained-dev
+grep -n 'nacos:' -A 70 vm-compose.yml
+```
+
+执行后的结果：
+
+应看到关键配置：
+
+```text
+MODE: standalone
+SPRING_DATASOURCE_PLATFORM: mysql
+MYSQL_SERVICE_HOST: mysql
+MYSQL_SERVICE_DB_NAME: nacos_config
+NACOS_AUTH_ENABLE: "true"
+NACOS_AUTH_ADMIN_ENABLE: "true"
+JVM_XMS: 384m
+JVM_XMX: 384m
+```
+
+需要修改的内容：
+
+- 一般不修改。
+- Nacos 管理员密码来自 `.env` 的 `NACOS_ADMIN_PASSWORD`，由 `scripts/initialize-nacos-admin.sh` 初始化。
+- `NACOS_AUTH_TOKEN`、`NACOS_AUTH_IDENTITY_KEY`、`NACOS_AUTH_IDENTITY_VALUE` 都来自 `.env`，不要手写固定值。
+
+具体配置方法：
+
+Nacos 端口绑定在 `vm-compose.yml`：
+
+```text
+192.168.154.10:8080:8080
+192.168.154.10:8848:8848
+192.168.154.10:9848:9848
+```
+
+如果虚拟机实际 IP 变了，三个端口绑定都要替换。
+
+Nacos 数据不单独放 volume，而是存入 MySQL 的：
+
+```text
+nacos_config
+```
+
+### 18.1.5 PGVector 配置
+
+输入命令 `Rocky Linux`：
+
+```bash
+cd /opt/ygh/constrained-dev
+grep -n 'pgvector:' -A 45 vm-compose.yml
+cat postgres/init/01-enable-vector.sql
+```
+
+执行后的结果：
+
+应看到：
+
+```text
+POSTGRES_DB: ygh_vector
+POSTGRES_USER: ygh_vector
+shared_buffers=64MB
+max_connections=30
+work_mem=2MB
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+需要修改的内容：
+
+- 一般不修改。
+- PGVector 密码来自 `.env` 的 `POSTGRES_PASSWORD`。
+- PGVector 按需启动，不需要长期常驻。
+
+具体配置方法：
+
+PGVector 端口绑定在 `vm-compose.yml`：
+
+```text
+192.168.154.10:5432:5432
+```
+
+如果虚拟机实际 IP 变了，也要替换。
+
+PGVector 数据保存在 Docker volume：
+
+```text
+ygh-pgvector-data
+```
+
+### 18.1.6 防火墙配置
+
+输入命令 `Rocky Linux`：
+
+```bash
+sudo firewall-cmd --state
+sudo firewall-cmd --list-rich-rules
+sudo firewall-cmd --list-ports
+```
+
+执行后的结果：
+
+应看到 `running`，并且 rich rules 只允许 Windows NAT 主机访问：
+
+```text
+3306/tcp
+5432/tcp
+6379/tcp
+8080/tcp
+8848/tcp
+9848/tcp
+```
+
+需要修改的内容：
+
+- 只改源地址，不要把数据库端口开放给 `0.0.0.0/0`。
+- 如果 Windows NAT 主机 IP 是 `192.168.80.1`，规则源地址必须是 `192.168.80.1/32`。
+
+具体配置方法：
+
+回第 17 步修改 `scripts/configure-vm-firewall.sh` 后重新执行。
 
 ## 19. 拉取虚拟机核心组件镜像
 
