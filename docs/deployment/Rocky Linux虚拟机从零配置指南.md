@@ -1,55 +1,6 @@
 # Rocky Linux 虚拟机从零配置指南
 
-> 本文按“第一步、第二步、第三步”的方式写。客户不使用我们提供的虚拟机时，照本文从零创建并配置虚拟机。  
-> 默认环境：Windows + VMware Workstation Pro + Rocky Linux 9 Minimal。  
-> 默认网络：Windows VMnet8 为 `192.168.154.1`，虚拟机为 `192.168.154.10`，网关为 `192.168.154.2`。  
-> 默认 Linux 用户：`wang`。如果客户用户名不是 `wang`，所有命令里的 `wang` 都要替换成客户实际用户名。
-
----
-
-## 第一部分：先确认虚拟机要安装什么
-
-虚拟机里不是直接运行 Java 服务。Java 服务在 Windows IDEA 里启动，虚拟机只负责运行后端依赖组件。
-
-虚拟机需要安装和运行：
-
-1. Rocky Linux 9 Minimal。
-2. OpenSSH Server：用于 Windows 远程登录虚拟机。
-3. firewalld：用于限制 MySQL、Redis、Nacos、PGVector 只给 Windows 主机访问。
-4. Docker Engine。
-5. Docker Compose Plugin。
-6. MySQL 8.4.10。
-7. Redis 8.4.4。
-8. Nacos 3.1.1。
-9. PostgreSQL 17 + PGVector 0.8.5，按需启动。
-
-组件配置文件对应关系：
-
-```text
-ygh-deploy/constrained-dev/.env                         保存随机密码，不提交 Git
-ygh-deploy/constrained-dev/vm-compose.yml               配置 MySQL、Redis、Nacos、PGVector 容器
-ygh-deploy/constrained-dev/mysql/conf.d/ygh-low-memory.cnf
-                                                        配置 MySQL 低内存参数
-ygh-deploy/constrained-dev/mysql/init/*.sh              初始化业务数据库和账号
-ygh-deploy/constrained-dev/postgres/init/01-enable-vector.sql
-                                                        启用 PGVector vector 扩展
-ygh-deploy/constrained-dev/scripts/install-docker-rocky.sh
-                                                        安装 Docker
-ygh-deploy/constrained-dev/scripts/configure-vm-firewall.sh
-                                                        配置虚拟机防火墙
-```
-
-最容易出错的地方：
-
-1. VMware NAT 网段和文档不一致。
-2. 虚拟机网卡名不是 `ens160`。
-3. 虚拟机用户名不是 `wang`。
-4. `vm-compose.yml` 里的绑定 IP 没改成客户虚拟机 IP。
-5. 防火墙脚本里的 Windows NAT 主机 IP 没改成客户真实 IP。
-
----
-
-## 第二部分：配置 VMware NAT 网络
+## 第一部分：配置 VMware NAT 网络
 
 ### 第一步：打开 VMware 虚拟网络编辑器
 
@@ -155,7 +106,7 @@ Ethernet adapter VMware Network Adapter VMnet8:
 
 ---
 
-## 第三部分：创建 Rocky Linux 虚拟机
+## 第二部分：创建 Rocky Linux 虚拟机
 
 ### 第一步：下载软件和系统镜像
 
@@ -240,7 +191,7 @@ Rocky Linux 安装完成，重启后可以登录 `wang`。
 
 ---
 
-## 第四部分：配置 Rocky Linux 网络
+## 第三部分：配置 Rocky Linux 网络
 
 ### 第一步：查看网卡名称
 
@@ -344,7 +295,7 @@ sudo nmcli connection up ens160
 
 ---
 
-## 第五部分：配置 SSH
+## 第四部分：配置 SSH
 
 ### 第一步：启动 SSH 服务
 
@@ -429,7 +380,7 @@ sudo systemctl restart sshd
 
 ---
 
-## 第六部分：生成并复制项目配置
+## 第五部分：生成并复制项目配置
 
 ### 第一步：在 Windows 生成 .env
 
@@ -528,7 +479,7 @@ postgres
 
 ---
 
-## 第七部分：安装 Docker
+## 第六部分：安装 Docker
 
 ### 第一步：清理旧版本
 
@@ -694,7 +645,7 @@ docker compose version
 
 ---
 
-## 第八部分：配置虚拟机防火墙
+## 第七部分：配置虚拟机防火墙
 
 ### 第一步：查看 Windows NAT 主机 IP
 
@@ -777,7 +728,7 @@ VM_FIREWALL_OK
 
 ---
 
-## 第九部分：启动虚拟机组件
+## 第八部分：启动虚拟机组件
 
 ### 第一步：校验配置文件
 
@@ -888,7 +839,7 @@ TcpTestSucceeded : True
 
 ---
 
-## 第十部分：启动 PGVector
+## 第九部分：启动 PGVector
 
 ### 第一步：启动 PGVector
 
@@ -954,7 +905,7 @@ AI_DATA_STOPPED_VOLUME_PRESERVED
 
 ---
 
-## 第十一部分：组件配置说明
+## 第十部分：组件配置说明
 
 ### MySQL 配置
 
@@ -1051,7 +1002,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 ---
 
-## 第十二部分：备份数据
+## 第十一部分：备份数据
 
 ### 第一步：执行备份
 
@@ -1085,7 +1036,7 @@ find /opt/ygh/backups -maxdepth 2 -type f -name 'SHA256SUMS' -print
 
 ---
 
-## 第十三部分：常见问题处理
+## 第十二部分：常见问题处理
 
 ### 问题一：Docker 镜像拉不下来
 
@@ -1168,7 +1119,7 @@ docker compose --env-file .env -f vm-compose.yml --profile core logs --tail 200 
 
 ---
 
-## 第十四部分：最终验收
+## 第十三部分：最终验收
 
 全部通过才算虚拟机配置完成：
 
