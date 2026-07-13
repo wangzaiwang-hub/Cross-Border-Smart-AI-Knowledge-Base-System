@@ -30,5 +30,10 @@
     <modules>
         <module>ygh-compatibility-tests</module>
         <module>ygh-api-compatibility-tests</module>
+        <module>ygh-contract-tests</module>
+        <module>ygh-integration-tests</module>
+        <module>ygh-e2e-tests</module>
+        <module>ygh-security-tests</module>
+        <module>ygh-performance-tests</module>
     </modules>
 </project>

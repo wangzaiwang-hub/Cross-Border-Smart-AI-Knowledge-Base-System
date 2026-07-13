@@ -25,6 +25,18 @@ jobs:
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
       - name: Generate CycloneDX SBOM
         run: ./mvnw --batch-mode --no-transfer-progress -Prelease-sbom package -DskipTests
+      - name: Audit SBOM licenses
+        shell: pwsh
+        run: ./ygh-deploy/scripts/audit-sbom.ps1
+      - name: Scan repository dependencies and configuration
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret,license
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
       - uses: actions/upload-artifact@v4
         with:
           name: backend-verification
@@ -40,7 +52,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate compose manifests
         env:
-          MYSQL_ROOT_PASSWORD: ${PLACEHOLDER}
-          POSTGRES_PASSWORD: ${PLACEHOLDER}
-          ELASTIC_PASSWORD: ${PLACEHOLDER}
+          MYSQL_ROOT_PASSWORD: change-me
+          POSTGRES_PASSWORD: change-me
+          ELASTIC_PASSWORD: change-me
         run: docker compose -f ygh-deploy/enterprise-server/compose.yml config --quiet
