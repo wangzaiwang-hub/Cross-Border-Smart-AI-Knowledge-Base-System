@@ -1,6 +1,7 @@
 package com.yuegang.zhihui.ai.api;
 
 import com.yuegang.zhihui.ai.application.ChatService;
+import com.yuegang.zhihui.ai.domain.ModelProviderException;
 import com.yuegang.zhihui.ai.security.AiUserContext;
 import com.yuegang.zhihui.ai.security.AiUserResolver;
 import com.yuegang.zhihui.common.core.ApiResponse;
@@ -52,11 +53,21 @@ public final class ChatController {
                 emitter.send(SseEmitter.event().name("done").data(Map.of("refused", response.refused())));
                 emitter.complete();
             } catch (Exception exception) {
-                LOGGER.warn("ai_stream_failed type={}", exception.getClass().getSimpleName());
+                String errorCode = "AI_RESPONSE_UNAVAILABLE";
+                String userMessage = "AI 模型暂不可用，请在后台检查对话模型或 Endpoint ID";
+                if (exception instanceof ModelProviderException provider) {
+                    errorCode = provider.providerCode();
+                    userMessage = provider.userMessage();
+                    LOGGER.warn("ai_stream_failed type={} status={} providerCode={} providerMessage={}",
+                            exception.getClass().getSimpleName(), provider.httpStatus(), provider.providerCode(),
+                            provider.providerMessage());
+                } else {
+                    LOGGER.warn("ai_stream_failed type={}", exception.getClass().getSimpleName());
+                }
                 try {
                     emitter.send(SseEmitter.event().name("error").data(Map.of(
-                            "code", "AI_RESPONSE_UNAVAILABLE",
-                            "message", "AI 模型暂不可用，请在后台检查对话模型或 Endpoint ID")));
+                            "code", errorCode,
+                            "message", userMessage)));
                     emitter.complete();
                 } catch (Exception sendException) {
                     LOGGER.debug("ai_stream_error_event_failed type={}",
