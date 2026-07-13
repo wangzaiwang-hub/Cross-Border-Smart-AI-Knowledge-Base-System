@@ -20,6 +20,7 @@ final class GatewaySecurityHeadersFilter implements WebFilter, Ordered {
             headers.set("X-Content-Type-Options", "nosniff");
             headers.set("X-Frame-Options", "DENY");
             headers.set("Referrer-Policy", "no-referrer");
+            headers.set("Cross-Origin-Resource-Policy", "same-origin");
             headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
             headers.set("Content-Security-Policy",
                     "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");

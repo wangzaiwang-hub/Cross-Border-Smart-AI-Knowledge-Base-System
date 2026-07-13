@@ -238,6 +238,7 @@ class GatewayEdgeProtectionTest {
             assertThat(headers.getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
             assertThat(headers.getFirst("X-Frame-Options")).isEqualTo("DENY");
             assertThat(headers.getFirst("Referrer-Policy")).isEqualTo("no-referrer");
+            assertThat(headers.getFirst("Cross-Origin-Resource-Policy")).isEqualTo("same-origin");
             assertThat(headers.getFirst("Permissions-Policy"))
                     .isEqualTo("camera=(), microphone=(), geolocation=()");
             assertThat(headers.getFirst("Content-Security-Policy"))
