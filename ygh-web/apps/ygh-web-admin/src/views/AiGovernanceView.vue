@@ -24,6 +24,7 @@ const summary = ref<AiSummary>();
 const runs = ref<EvaluationRun[]>([]);
 const promptDialog = ref(false);
 const caseDialog = ref(false);
+const providerDialog = ref(false);
 const saving = ref(false);
 const promptForm = reactive({
     code: "CUSTOMS_ASSISTANT",
@@ -114,7 +115,8 @@ onMounted(load);
                 <p>管理提示词版本、评测集与离线评测结果。</p>
             </div>
             <div>
-                <el-button @click="caseDialog = true">新增评测用例</el-button
+                <el-button @click="providerDialog = true">模型 API 配置</el-button
+                ><el-button @click="caseDialog = true">新增评测用例</el-button
                 ><el-button type="primary" @click="promptDialog = true"
                     >新建提示词版本</el-button
                 ><el-tag :type="summary?.activePrompt ? 'success' : 'danger'">{{
@@ -239,6 +241,54 @@ onMounted(load);
                     ><el-table-column
                         prop="failureReason"
                         label="失败原因" /></el-table></EnterpriseTable></el-tab-pane></el-tabs
+        ><el-dialog
+            v-model="providerDialog"
+            title="豆包模型 API 配置"
+            width="720"
+        >
+            <el-alert
+                type="info"
+                :closable="false"
+                show-icon
+                title="API Key 由服务器 Secret 注入"
+                description="为避免密钥泄漏，企业后台不保存、不回显 API Key。这里提供唯一配置位置与重启方法；提示词版本中的“模型名称”不是 API Key。"
+            />
+            <el-descriptions class="provider-details" :column="1" border>
+                <el-descriptions-item label="服务商">豆包 Ark</el-descriptions-item>
+                <el-descriptions-item label="配置文件">
+                    <code>ygh-deploy/constrained-dev/.env</code>
+                </el-descriptions-item>
+                <el-descriptions-item label="API Key">
+                    <code>YGH_DOUBAO_API_KEY</code>
+                </el-descriptions-item>
+                <el-descriptions-item label="聊天 Endpoint ID">
+                    <code>YGH_DOUBAO_CHAT_MODEL</code>
+                </el-descriptions-item>
+                <el-descriptions-item label="向量 Endpoint ID">
+                    <code>YGH_DOUBAO_EMBEDDING_MODEL</code>
+                </el-descriptions-item>
+                <el-descriptions-item label="默认接口地址">
+                    <code>https://ark.cn-beijing.volces.com/api/v3</code>
+                </el-descriptions-item>
+            </el-descriptions>
+            <div class="configuration-steps">
+                <b>本机开发环境配置步骤</b>
+                <ol>
+                    <li>用记事本打开上述 <code>.env</code> 文件。</li>
+                    <li>分别填写 API Key、聊天 Endpoint ID 和向量 Endpoint ID。</li>
+                    <li>保存文件后，在该目录执行下面的命令重建 AI 服务。</li>
+                </ol>
+                <pre>docker compose -p ygh-apps --env-file .env -f apps-compose.yml --profile ai-apps up -d --build ai</pre>
+                <p>
+                    如果 AI 返回 <code>MODEL_NOT_CONFIGURED</code>，说明服务仍未读取到
+                    Key 或聊天 Endpoint ID。向量检索还需要按需启动 Elasticsearch 与
+                    Search 服务。
+                </p>
+            </div>
+            <template #footer>
+                <el-button type="primary" @click="providerDialog = false">我知道了</el-button>
+            </template>
+        </el-dialog
         ><el-dialog v-model="promptDialog" title="新建提示词版本" width="700"
             ><el-form label-position="top"
                 ><div class="form-grid">
@@ -332,4 +382,28 @@ onMounted(load);
     gap: 16px;
 }
 .form-hint { margin-left: 10px; color: var(--muted); font-size: 12px; }
+.provider-details {
+    margin-top: 18px;
+}
+.provider-details code,
+.configuration-steps code {
+    color: var(--jade);
+    font-family: Consolas, "Courier New", monospace;
+}
+.configuration-steps {
+    margin-top: 18px;
+    color: var(--muted);
+    line-height: 1.8;
+}
+.configuration-steps b {
+    color: var(--ink);
+}
+.configuration-steps pre {
+    overflow-x: auto;
+    padding: 12px;
+    border-radius: 6px;
+    background: #102d2a;
+    color: #f7f3ea;
+    font: 12px/1.6 Consolas, "Courier New", monospace;
+}
 </style>

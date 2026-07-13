@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { Refresh } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox, type UploadFile } from "element-plus";
 import {
@@ -26,6 +26,17 @@ const uploading = ref(false);
 const rebuilding = ref(false);
 const file = ref<File>();
 const form = reactive({ title: "", category: "政策法规" });
+const pendingCount = computed(
+    () => documents.value.filter((item) => item.status === "PENDING_REVIEW").length,
+);
+const statusLabels: Record<string, string> = {
+    UPLOADED: "等待解析",
+    PROCESSING: "正在解析",
+    PENDING_REVIEW: "待审核",
+    PUBLISHED: "已发布",
+    REJECTED: "已驳回",
+    OFFLINE: "已下线",
+};
 async function load() {
     loading.value = true;
     try {
@@ -58,7 +69,10 @@ async function upload() {
     try {
         await uploadKnowledge(form.title, form.category, file.value);
         uploadDialog.value = false;
-        ElMessage.success("文件已进入安全处理流程");
+        tab.value = "documents";
+        ElMessage.success(
+            "上传成功：解析完成后将进入待审核，点击“通过”发布后才会在前台显示",
+        );
         await load();
     } catch (error) {
         const response = (
@@ -87,7 +101,11 @@ async function review(
     );
     try {
         await reviewKnowledge(document, decision, value);
-        ElMessage.success("审核结果已保存");
+        ElMessage.success(
+            decision === "APPROVE"
+                ? "审核通过并已发布，政策知识前台刷新后可见"
+                : "文档已驳回，不会进入前台知识目录",
+        );
         await load();
     } catch {
         ElMessage.error("审核失败，状态或版本可能已变化");
@@ -148,6 +166,15 @@ onMounted(load);
             ><el-button :icon="Refresh" @click="load">刷新</el-button>
         </div>
     </div>
+    <el-alert
+        v-if="pendingCount"
+        class="review-alert"
+        type="warning"
+        :closable="false"
+        show-icon
+        :title="`有 ${pendingCount} 篇文档等待审核`"
+        description="上传与解析成功不等于发布。请在“全部知识”表格中找到待审核文档，点击“通过”并填写审核意见；发布后才会出现在 5173 政策知识页面。"
+    />
     <div class="metric-grid">
         <div class="metric panel">
             <span>文档总数</span><b>{{ documents.length }}</b>
@@ -186,7 +213,22 @@ onMounted(load);
                 /><el-table-column
                     prop="version"
                     label="版本"
-                /><el-table-column prop="status" label="状态" /><el-table-column
+                /><el-table-column label="状态"
+                    ><template #default="scope"
+                        ><el-tag
+                            :type="
+                                scope.row.status === 'PUBLISHED'
+                                    ? 'success'
+                                    : scope.row.status === 'PENDING_REVIEW'
+                                      ? 'warning'
+                                      : scope.row.status === 'REJECTED'
+                                        ? 'danger'
+                                        : 'info'
+                            "
+                            >{{ statusLabels[scope.row.status] || scope.row.status }}</el-tag
+                        ></template
+                    ></el-table-column
+                ><el-table-column
                     label="操作"
                     width="180"
                     ><template #default="scope"
@@ -306,5 +348,8 @@ onMounted(load);
 .governance {
     margin-top: 14px;
     padding: 16px;
+}
+.review-alert {
+    margin: 14px 0;
 }
 </style>

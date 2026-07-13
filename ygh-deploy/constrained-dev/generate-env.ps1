@@ -96,6 +96,9 @@ NACOS_ADMIN_PASSWORD=$(New-Secret 24)
 POSTGRES_PASSWORD=$(New-Secret 24)
 ELASTIC_PASSWORD=$(New-Secret 24)
 SEATA_PASSWORD=$(New-Secret 24)
+YGH_DOUBAO_API_KEY=
+YGH_DOUBAO_CHAT_MODEL=
+YGH_DOUBAO_EMBEDDING_MODEL=
 "@ | Set-Content -LiteralPath $envPath -Encoding UTF8NoBOM
 
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value

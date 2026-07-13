@@ -109,7 +109,16 @@ onMounted(load);
                     eyebrow="PUBLISHED KNOWLEDGE"
                     :title="category || '全部已发布知识'"
                     :description="`共 ${resultCount} 条有效内容，${searching ? '按混合检索相关度' : '按最近更新'}排序`"
-                /><el-empty
+                />
+                <el-alert
+                    class="publish-notice"
+                    type="info"
+                    :closable="false"
+                    show-icon
+                    title="这里只展示已审核发布的知识"
+                    description="刚上传的文件会先进行安全校验和内容解析，然后进入运营后台待审核；管理员审核通过后，才会在此处显示。"
+                />
+                <el-empty
                     v-if="!loading && !resultCount"
                     description="没有符合条件的已发布知识"
                 />
@@ -246,6 +255,9 @@ onMounted(load);
 .article-list {
     display: grid;
     gap: 12px;
+}
+.publish-notice {
+    margin-bottom: 16px;
 }
 .article-list > a {
     display: grid;
