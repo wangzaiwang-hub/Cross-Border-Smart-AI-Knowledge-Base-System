@@ -29,7 +29,8 @@ jobs:
         shell: pwsh
         run: ./ygh-deploy/scripts/audit-sbom.ps1
       - name: Scan repository dependencies and configuration
-        uses: aquasecurity/trivy-action@0.33.1
+        # v0.36.0; pin the verified commit to reduce third-party action supply-chain risk.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           scan-type: fs
           scan-ref: .
@@ -52,7 +53,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate compose manifests
         env:
-          MYSQL_ROOT_PASSWORD: change-me
-          POSTGRES_PASSWORD: change-me
-          ELASTIC_PASSWORD: change-me
-        run: docker compose -f ygh-deploy/enterprise-server/compose.yml config --quiet
+          YGH_VERSION: ci
+        run: docker compose --env-file ygh-deploy/enterprise-server/.env.example -f ygh-deploy/enterprise-server/compose.yml config --quiet
