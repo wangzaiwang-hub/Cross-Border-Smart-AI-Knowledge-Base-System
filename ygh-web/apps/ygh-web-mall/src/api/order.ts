@@ -32,9 +32,15 @@ export async function requestOrderRefund(order: Order): Promise<Order> {
   return apiData(await useHttp().post(`/api/v1/orders/${order.orderId}/refund`, undefined, { params: { version: order.version } }))
 }
 
-export async function payOrder(order: Order): Promise<void> {
+export async function payOrder(order: Order): Promise<Order> {
+  try {
+    return apiData(await useHttp().post(`/api/v1/orders/${order.orderId}/confirm-wallet-payment`))
+  } catch {
+    // No successful wallet transaction exists yet; continue with a simulated wallet payment.
+  }
   const requestId = crypto.randomUUID()
   await useHttp().post('/api/v1/wallet/payments', { requestId, referenceId: order.orderId, amount: order.totalAmount, currency: order.currency })
+  return apiData(await useHttp().post(`/api/v1/orders/${order.orderId}/confirm-wallet-payment`))
 }
 export async function previewOrder(command:CreateOrderCommand):Promise<OrderPreview>{return apiData(await useHttp().post('/api/v1/orders/preview',command))}
 export async function createOrder(command:CreateOrderCommand):Promise<Order>{return apiData(await useHttp().post('/api/v1/orders',command))}

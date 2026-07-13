@@ -7,7 +7,7 @@ import { useHttp } from '@/api/client'
 
 const route = useRoute(); const router = useRouter(); const session = useSessionStore()
 const isInternalEmployee = computed(() =>
-  session.user?.roles.some((role) => role === 'EMPLOYEE' || role === 'ADMIN') ?? false,
+  session.user?.roles.includes('EMPLOYEE') ?? false,
 )
 const menu = computed(() => [
   { group:'账户', items:[{to:'/workspace/profile',label:'个人资料',icon:User},{to:'/workspace/addresses',label:'收货地址',icon:Location},{to:'/workspace/notifications',label:'消息中心',icon:Bell}]},

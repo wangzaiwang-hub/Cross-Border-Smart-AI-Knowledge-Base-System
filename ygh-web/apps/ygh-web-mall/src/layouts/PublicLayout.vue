@@ -9,7 +9,7 @@ const router = useRouter()
 const session = useSessionStore()
 const active = computed(() => route.path.startsWith('/products') ? '/products' : route.path.startsWith('/knowledge') ? '/knowledge' : route.path.startsWith('/ai-service') ? '/ai-service' : '/')
 const isInternalEmployee = computed(() =>
-  session.user?.roles.some((role) => role === 'EMPLOYEE' || role === 'ADMIN') ?? false,
+  session.user?.roles.includes('EMPLOYEE') ?? false,
 )
 ;</script>
 

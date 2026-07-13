@@ -179,11 +179,7 @@ function useAuthorityRefreshHttp() {
 }
 
 function isInternalEmployee() {
-    return (
-        useSessionStore().user?.roles.some(
-            (role) => role === "EMPLOYEE" || role === "ADMIN",
-        ) ?? false
-    );
+    return useSessionStore().user?.roles.includes("EMPLOYEE") ?? false;
 }
 
 async function refreshSessionOnce() {
