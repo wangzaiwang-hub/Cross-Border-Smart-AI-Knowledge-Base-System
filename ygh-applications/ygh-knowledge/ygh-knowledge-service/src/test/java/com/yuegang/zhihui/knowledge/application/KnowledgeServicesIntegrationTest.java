@@ -47,7 +47,7 @@ class KnowledgeServicesIntegrationTest {
             var metadata = new KnowledgeMetadataService(dataSource, new ObjectMapper());
             var jdbc = new JdbcTemplate(dataSource);
 
-            var uploaded = documents.upload(42, "跨境通关政策", "POLICY", text("policy.md", "跨境商品通关需要完成申报、查验与放行。"));
+            var uploaded = documents.upload(42, "跨境通关政策", "政策法规", text("policy.md", "跨境商品通关需要完成申报、查验与放行。"));
             assertThat(uploaded.status()).isEqualTo(KnowledgeStatus.PENDING_REVIEW);
             assertThat(storage.resolve(uploaded.id() + ".bin")).exists();
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_chunk WHERE document_id=?", Integer.class, Long.parseLong(uploaded.id()))).isPositive();
@@ -64,7 +64,7 @@ class KnowledgeServicesIntegrationTest {
 
             var published = documents.review(7, uploaded.id(), new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.APPROVE, "审核通过", uploaded.version()));
             assertThat(published.status()).isEqualTo(KnowledgeStatus.PUBLISHED);
-            assertThat(lifecycle.list(null, "POLICY", true, 0)).containsExactly(published);
+            assertThat(lifecycle.list(null, "政策法规", true, 0)).containsExactly(published);
             assertBusinessError(() -> documents.review(7, uploaded.id(), new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.APPROVE, null, uploaded.version())), ErrorCode.BUSINESS_CONFLICT);
 
             var receivedPaths = new ArrayList<String>();

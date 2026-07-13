@@ -60,8 +60,18 @@ async function upload() {
         uploadDialog.value = false;
         ElMessage.success("文件已进入安全处理流程");
         await load();
-    } catch {
-        ElMessage.error("上传失败，请检查文件类型和大小");
+    } catch (error) {
+        const response = (
+            error as {
+                response?: { data?: { message?: string; traceId?: string } };
+            }
+        ).response?.data;
+        const trace = response?.traceId ? `（追踪号：${response.traceId}）` : "";
+        ElMessage.error(
+            response?.message
+                ? `上传失败：${response.message}${trace}`
+                : "上传失败，请确认文件为 PDF、DOCX、TXT 或 Markdown，且不超过 50MB",
+        );
     } finally {
         uploading.value = false;
     }
