@@ -22,6 +22,7 @@ export interface StreamResult {
 }
 interface BackendCitation {
     sourceId: string;
+    documentId: string;
     title: string;
     excerpt: string;
 }
@@ -81,7 +82,7 @@ export async function streamChat(
             } else if (event.event === "citations") {
                 const values = JSON.parse(event.data) as BackendCitation[];
                 result.citations = values.map((x) => ({
-                    documentId: x.sourceId,
+                    documentId: x.documentId,
                     chunkId: x.sourceId,
                     title: x.title,
                     excerpt: x.excerpt,
