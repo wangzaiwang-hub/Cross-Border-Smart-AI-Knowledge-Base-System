@@ -27,6 +27,9 @@ public final class ModelProviderException extends RuntimeException {
 
     public String userMessage() {
         String normalized = providerCode.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("modelnotopen")) {
+            return "豆包模型尚未开通，请先在火山方舟控制台开通当前对话模型，或在后台填写已开通的 Endpoint ID";
+        }
         if (normalized.contains("modelnotfound") || normalized.contains("endpointnotfound")) {
             return "豆包未找到当前模型，请在后台填写此 API Key 已开通的模型 ID 或 Endpoint ID";
         }
@@ -46,7 +49,9 @@ public final class ModelProviderException extends RuntimeException {
         if (value == null || value.isBlank()) return fallback;
         String sanitized = value.replaceAll("[\\r\\n\\t]", " ")
                 .replaceAll("(?i)bearer\\s+[a-z0-9._-]+", "Bearer [REDACTED]")
-                .replaceAll("(?i)\\bsk-[a-z0-9_-]+", "[REDACTED]");
+                .replaceAll("(?i)\\bsk-[a-z0-9_-]+", "[REDACTED]")
+                .replaceAll("(?i)account\\s+\\d+", "account [REDACTED]")
+                .replaceAll("(?i)request\\s*id\\s*:\\s*[a-z0-9_-]+", "Request id: [REDACTED]");
         return sanitized.length() > 300 ? sanitized.substring(0, 300) : sanitized;
     }
 }

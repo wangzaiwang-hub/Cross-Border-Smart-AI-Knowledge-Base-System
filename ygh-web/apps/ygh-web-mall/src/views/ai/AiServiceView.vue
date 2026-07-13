@@ -151,7 +151,10 @@ async function send() {
     } catch (error) {
         if ((error as Error).name !== "AbortError") {
             const detail = error instanceof Error ? error.message : "";
-            const message = detail.startsWith("AI 模型")
+            const isSafeProviderMessage = ["AI 模型", "豆包"].some(
+                (prefix) => detail.startsWith(prefix),
+            );
+            const message = isSafeProviderMessage
                 ? detail
                 : "AI 服务暂不可用，请稍后重试";
             answer.content = message;
