@@ -7,12 +7,17 @@ const writeLatency = new Trend("ygh_write_latency", true);
 const searchLatency = new Trend("ygh_search_latency", true);
 const errors = new Rate("ygh_api_errors");
 
+const allScenarios = {
+  query: { ordinary_queries: { executor: "constant-vus", exec: "query", vus: 5, duration: "60s" } },
+  write: { ordinary_writes: { executor: "constant-arrival-rate", exec: "write", rate: 1, timeUnit: "1s", duration: "60s", preAllocatedVUs: 2 } },
+  search: { product_search: { executor: "constant-vus", exec: "search", vus: 3, duration: "60s" } },
+};
+const selected = __ENV.YGH_SCENARIO;
+
 export const options = {
-  scenarios: {
-    ordinary_queries: { executor: "constant-vus", exec: "query", vus: 5, duration: "60s" },
-    ordinary_writes: { executor: "constant-arrival-rate", exec: "write", rate: 1, timeUnit: "1s", duration: "60s", preAllocatedVUs: 2 },
-    product_search: { executor: "constant-vus", exec: "search", vus: 3, duration: "60s" },
-  },
+  scenarios: selected && allScenarios[selected]
+    ? allScenarios[selected]
+    : { ...allScenarios.query, ...allScenarios.write, ...allScenarios.search },
   thresholds: {
     ygh_api_errors: ["rate<0.01"],
     ygh_query_latency: ["p(95)<500"],
@@ -21,11 +26,12 @@ export const options = {
   },
 };
 
-const base = __ENV.YGH_GATEWAY_URL || "http://127.0.0.1:8080";
+const base = __ENV.YGH_GATEWAY_URL || __ENV.YGH_BASE_URL || "http://127.0.0.1:8080";
 const token = __ENV.YGH_ACCESS_TOKEN;
 const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
 export function setup() {
+  if (selected && !allScenarios[selected]) fail(`Unknown YGH_SCENARIO: ${selected}`);
   if (!token) fail("YGH_ACCESS_TOKEN is required; obtain it from the dedicated performance account");
 }
 
