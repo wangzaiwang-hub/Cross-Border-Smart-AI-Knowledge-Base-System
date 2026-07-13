@@ -10,15 +10,17 @@ import org.springframework.web.client.RestClient;
 public final class DoubaoModelGateway implements ModelGateway {
     private final RestClient client;
     private final String modelName;
+    private final String responsesUrl;
     public DoubaoModelGateway(String baseUrl,String apiKey,String modelName){
         if(apiKey==null||apiKey.isBlank())throw new IllegalStateException("Doubao key missing");
         this.modelName=modelName;
-        client=RestClient.builder().baseUrl(trimTrailingSlash(baseUrl))
+        responsesUrl=trimTrailingSlash(baseUrl)+"/responses";
+        client=RestClient.builder()
                 .defaultHeader(HttpHeaders.AUTHORIZATION,"Bearer "+apiKey)
                 .build();
     }
     @Override public String answer(String system,String user){
-        Map<?,?> response=client.post().uri("/responses")
+        Map<?,?> response=client.post().uri(responsesUrl)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("model",modelName,"instructions",system,"input",user))
                 .retrieve().body(Map.class);
