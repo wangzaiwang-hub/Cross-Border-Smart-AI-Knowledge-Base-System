@@ -719,7 +719,7 @@ scripts
 ```text
 先在 Windows 本机创建：F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev\.env
 再复制到 Rocky Linux 虚拟机：/opt/ygh/constrained-dev/.env
-这个文件不是 Docker 镜像，不放到 WSL2，不提交 Git。
+这个文件不是 Docker 镜像，不放到 WSL2，不放进交付压缩包，不截图发给别人。
 ```
 
 输入：
