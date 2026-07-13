@@ -1,5 +1,44 @@
 # Rocky Linux 虚拟机从零配置指南
 
+## 先确认哪些东西在虚拟机里，哪些不在虚拟机里
+
+| 内容 | 位置 | 说明 |
+|---|---|---|
+| Rocky Linux 9 | VMware 虚拟机里 | 虚拟机的操作系统 |
+| OpenSSH Server | Rocky Linux 虚拟机里 | Windows 通过 SSH 连接虚拟机 |
+| Docker Engine | Rocky Linux 虚拟机里 | 用来启动虚拟机内的 MySQL、Redis、Nacos、PGVector |
+| Docker Compose Plugin | Rocky Linux 虚拟机里 | 使用 `docker compose` 命令 |
+| firewalld | Rocky Linux 虚拟机里 | 限制只有 Windows VMnet8 地址能访问端口 |
+| MySQL 8.4.10 | 虚拟机 Docker 容器里 | 不在 Linux 里手工安装 MySQL |
+| Redis 8.4.4 | 虚拟机 Docker 容器里 | 不安装到 `/usr/local/redis` |
+| Nacos 3.1.1 | 虚拟机 Docker 容器里 | 不安装到 `/opt/nacos` |
+| PostgreSQL 17 + PGVector 0.8.5 | 虚拟机 Docker 容器里 | 不手工编译 PGVector |
+| JDK 25 | Windows 本机电脑 | 给 IDEA 和 Maven 使用，虚拟机里不装 |
+| IntelliJ IDEA | Windows 本机电脑 | 后端 Java 服务在 IDEA 里启动 |
+| Node.js / pnpm | Windows 本机电脑 | 前端项目在 Windows 里启动 |
+| RocketMQ / Seata / Elasticsearch | Windows 本机 Docker Desktop 里 | 不放到这台 Rocky 虚拟机里常驻 |
+| WSL2 | Windows 本机电脑里 | 只给 Docker Desktop 使用，不在 WSL2 里部署本项目 |
+
+本虚拟机只负责：
+
+```text
+1. 提供固定 IP：192.168.154.10
+2. 运行 Docker Engine
+3. 通过 Docker Compose 启动 MySQL、Redis、Nacos、PGVector
+4. 通过防火墙只允许 Windows 本机访问这些端口
+```
+
+本虚拟机不负责：
+
+```text
+1. 不安装 JDK
+2. 不安装 IDEA
+3. 不运行 Java 后端服务
+4. 不运行前端项目
+5. 不在 WSL2 里部署项目
+6. 不手工解压安装 Redis、Nacos、MySQL、PostgreSQL
+```
+
 ## 第一部分：配置 VMware NAT 网络
 
 ### 第一步：打开虚拟网络编辑器
