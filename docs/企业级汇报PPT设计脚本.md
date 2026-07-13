@@ -104,39 +104,89 @@ MySQL / Redis / Elasticsearch / PostgreSQL + PGVector / 文件存储 / 豆包模
 
 ### 页面内容
 
-建议不要只画一张“大而全”的图。企业汇报中可以拆成 5 张图，分别服务不同讲解目的：
+根据原始需求文件 `需求-4天.docx`，本项目汇报图应围绕“四大功能”展开，而不是只画一张“大而全”的图。推荐图集为 1 张总体图 + 4 张功能分图：
 
-| 架构图 | 放置位置 | 主要回答的问题 |
+| 架构图 | 对应需求 | 主要回答的问题 |
 |---|---|---|
-| 总体架构图 | 第 04 页 | 系统整体由哪些层组成？ |
-| 微服务职责与调用图 | 第 07 页后 | 服务怎么拆？服务之间怎么协作？ |
-| 数据架构图 | 第 08 页 | 数据分别存在哪里？谁是事实来源？ |
-| AI/RAG 流程图 | 第 09 页 | AI 如何基于知识库回答？ |
-| 部署拓扑图 | 第 22 页 | 当前 DEV 和企业部署如何落地？ |
+| 四大功能总体架构图 | 总体方案 | 系统如何围绕四大功能组织？ |
+| 统一跨境电商知识管理平台图 | 需求 1 | 商品、政策、通关、物流知识如何统一治理？ |
+| AI 智能客服 RAG 架构图 | 需求 2 | AI 如何基于 RAG 提供 7×24 专业问答？ |
+| 内部智能培训系统架构图 | 需求 3 | 新员工如何通过课程、闯关和 AI 助手学习？ |
+| 业务决策支撑与数据分析架构图 | 需求 4 | 数据分析与知识图谱如何辅助管理决策？ |
 
 ### 讲解词
 
-架构图不要追求一次性塞满所有细节。管理层需要先看懂系统分层和价值，技术团队再看服务边界、数据流和部署方式。因此建议按汇报节奏拆成多张图，每张图只解决一个问题。
+架构图不要追求一次性塞满所有细节。原始需求明确提出四个建设目标：统一知识管理、AI 智能客服、内部智能培训、业务决策支撑。因此企业汇报中应先用总体图说明四大功能如何协同，再用四张分图分别展开每个功能的架构、数据流、技术栈和安全边界。
 
 ---
 
-## 04-2 总体架构图绘制说明
+## 04-2 已生成架构图素材
+
+### 图集清单
+
+以下 PNG 已按参考图片的手绘白板风格生成，可直接放入企业汇报 PPT：
+
+| 序号 | 图名 | 文件路径 |
+|---:|---|---|
+| 00 | 四大功能总体架构图 | `docs/architecture-images/00-four-functions-overall-architecture.png` |
+| 01 | 统一跨境电商知识管理平台架构图 | `docs/architecture-images/01-knowledge-management-architecture.png` |
+| 02 | AI 智能客服 RAG 架构图 | `docs/architecture-images/02-ai-customer-service-rag-architecture.png` |
+| 03 | 内部智能培训系统架构图 | `docs/architecture-images/03-internal-training-architecture.png` |
+| 04 | 业务决策支撑与数据分析架构图 | `docs/architecture-images/04-business-decision-architecture.png` |
+
+### 00 四大功能总体架构图
+
+![四大功能总体架构图](architecture-images/00-four-functions-overall-architecture.png)
+
+### 01 统一跨境电商知识管理平台架构图
+
+![统一跨境电商知识管理平台架构图](architecture-images/01-knowledge-management-architecture.png)
+
+### 02 AI 智能客服 RAG 架构图
+
+![AI 智能客服 RAG 架构图](architecture-images/02-ai-customer-service-rag-architecture.png)
+
+### 03 内部智能培训系统架构图
+
+![内部智能培训系统架构图](architecture-images/03-internal-training-architecture.png)
+
+### 04 业务决策支撑与数据分析架构图
+
+![业务决策支撑与数据分析架构图](architecture-images/04-business-decision-architecture.png)
+
+### 技术口径
+
+上述图集按 `需求-4天.docx` 和项目设计文档中的指定技术栈绘制：
+
+- 服务网关：Spring Cloud Gateway。
+- 微服务框架：Spring Boot + Spring Cloud Alibaba。
+- 注册与配置：Nacos。
+- 流量治理：Sentinel。
+- 分布式事务：Seata。
+- 服务调用：OpenFeign。
+- AI 框架与模型：LangChain4j + 豆包 Doubao 1.5 Pro。
+- 向量数据库：PostgreSQL + PGVector。
+- 关系数据库：MySQL 8。
+- 缓存：Redis。
+- 消息队列：RocketMQ。
+- 搜索引擎：Elasticsearch 8。
+- 容器化：Docker + Docker Compose。
+
+不在图中引入未指定的 MongoDB、RabbitMQ、Kafka、Hive、Spark、Flink、Milvus、ChromaDB、Flask、MinIO 等技术，避免与原始需求口径冲突。
+
+---
+
+## 04-3 总体架构图绘制说明
 
 ### 图名
 
 粤港甄选跨境智汇 AI 知识库系统总体架构图
 
-### 已生成 PNG 素材
+### 旧版单张总体图
 
 ![粤港甄选跨境智汇 AI 知识库系统手绘总体架构图](architecture-images/ygh-handdrawn-overall-architecture.png)
 
-文件路径：
-
-```text
-docs/architecture-images/ygh-handdrawn-overall-architecture.png
-```
-
-说明：该图已按参考图片的手绘白板风格生成，可直接放入企业汇报 PPT。图中包含访问端、统一入口层、微服务层、服务治理层、数据与 AI 基础设施层、商城交易链路、AI RAG 问答链路、运维与质量门禁和图例说明。
+说明：这是早先生成的单张总体图，适合做技术补充页。正式企业汇报建议优先使用上面的 5 张“四大功能图集”。
 
 ### 画法
 
