@@ -2274,7 +2274,7 @@ JDK 25 安装在 Windows，不安装在虚拟机。
 安装位置：
 
 ```text
-Windows 本机：C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
+Windows 本机：C:\Program Files\Java\jdk-25
 IDEA 使用这个 JDK 启动后端服务。
 Rocky Linux 虚拟机里不安装 JDK。
 Docker 容器里也不安装项目开发用 JDK。
@@ -2293,14 +2293,30 @@ echo $env:JAVA_HOME
 应该看到：
 
 ```text
-java -version 第一行包含 openjdk version "25
-where java 第一行来自 C:\Program Files\Eclipse Adoptium\jdk-25...\bin\java.exe
-echo $env:JAVA_HOME 输出 C:\Program Files\Eclipse Adoptium\jdk-25...
+java -version 第一行包含 java version "25
+where java 第一行来自 C:\Program Files\Java\jdk-25\bin\java.exe
+echo $env:JAVA_HOME 输出 C:\Program Files\Java\jdk-25
 ```
 
 需要修改的内容：
 
 如果没有 Java 25，在 Windows 安装 JDK 25，然后配置系统环境变量。
+
+JDK 下载地址：
+
+```text
+https://www.oracle.com/java/technologies/downloads/
+```
+
+下载时选择：
+
+```text
+JDK 25
+Windows
+x64 Installer
+```
+
+本项目使用 Oracle JDK 25，不使用 OpenJDK 发行版。
 
 图形界面配置方法：
 
@@ -2318,14 +2334,14 @@ JAVA_HOME
 7. 变量值填写 JDK 25 安装目录，示例：
 
 ```text
-C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
+C:\Program Files\Java\jdk-25
 ```
 
 8. 注意 `JAVA_HOME` 不要带 `\bin`：
 
 ```text
-正确：C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
-错误：C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot\bin
+正确：C:\Program Files\Java\jdk-25
+错误：C:\Program Files\Java\jdk-25\bin
 ```
 
 9. 在“系统变量”里编辑 `Path`。
@@ -2342,7 +2358,7 @@ C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
 管理员 PowerShell 配置方法：
 
 ```powershell
-[Environment]::SetEnvironmentVariable('JAVA_HOME','C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot','Machine')
+[Environment]::SetEnvironmentVariable('JAVA_HOME','C:\Program Files\Java\jdk-25','Machine')
 ```
 
 继续输入：
