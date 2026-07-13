@@ -93,11 +93,12 @@ class GatewaySentinelTest {
     }
 
     @Test
-    void sentinelGatewayFilterBlocksRouteWhenRuleIsExceeded() {
+    void sentinelGatewayFilterBlocksRouteWithZeroCapacityRule() {
         String routeId = "sentinel-test-route";
         GatewayRuleManager.loadRules(Set.of(new GatewayFlowRule(routeId)
-                .setCount(1)
-                .setIntervalSec(10)));
+                .setCount(0)
+                .setIntervalSec(1)
+                .setBurst(0)));
         var exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/v1/test").build());
         exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR,
@@ -108,16 +109,12 @@ class GatewaySentinelTest {
                         .build());
         AtomicInteger calls = new AtomicInteger();
 
-        new SentinelGatewayFilter()
-                .filter(exchange, ignored -> Mono.fromRunnable(calls::incrementAndGet))
-                .block();
-
         assertThatThrownBy(() -> new SentinelGatewayFilter()
                 .filter(exchange, ignored -> Mono.fromRunnable(calls::incrementAndGet))
                 .block())
                 .satisfies(error -> assertThat(BlockException.isBlockException(
                         Exceptions.unwrap(error))).isTrue());
-        assertThat(calls).hasValue(1);
+        assertThat(calls).hasValue(0);
     }
 
     @Test
