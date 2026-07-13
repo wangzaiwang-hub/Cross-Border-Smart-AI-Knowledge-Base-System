@@ -14,10 +14,9 @@ spring:
     namespace: ${YGH_NACOS_NAMESPACE:ygh-dev}
     group: ${YGH_NACOS_DISCOVERY_GROUP:YGH_GROUP}
 ygh.search.elasticsearch-base-url: ${YGH_ELASTICSEARCH_BASE_URL}
-ygh.search.embedding-base-url: ${YGH_DOUBAO_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
-ygh.search.embedding-api-key: ${YGH_DOUBAO_API_KEY}
-ygh.search.embedding-model: ${YGH_DOUBAO_EMBEDDING_MODEL}
+ygh.search.system-base-url: ${YGH_SYSTEM_INTERNAL_BASE_URL}
 ygh.search.index-alias: ${YGH_SEARCH_INDEX_ALIAS:knowledge-active}
+ygh.search.product-index: ${YGH_PRODUCT_SEARCH_INDEX:product-active}
 ygh.internal-request.hmac-base64: ${YGH_INTERNAL_REQUEST_HMAC_BASE64}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 management.endpoint.health.probes.enabled: true

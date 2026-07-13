@@ -11,7 +11,10 @@ import com.yuegang.zhihui.system.api.SaveDictionaryItemRequest;
 import com.yuegang.zhihui.system.api.SaveDictionaryTypeRequest;
 import com.yuegang.zhihui.system.api.UpdateFeatureFlagRequest;
 import com.yuegang.zhihui.system.api.UpdateSystemSettingRequest;
+import com.yuegang.zhihui.system.api.UpdateAiProviderConfigRequest;
 import com.yuegang.zhihui.system.infrastructure.JdbcAuthorizationRepository;
+import com.yuegang.zhihui.system.security.SystemSecretCipher;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -63,6 +66,19 @@ class SystemServicesIntegrationTest {
             assertThat(settings.list()).containsExactly(updated);
             assertBusinessError(() -> settings.update("INVALID", new UpdateSystemSettingRequest("x", "STRING", false, 0), 7), ErrorCode.VALIDATION_ERROR);
             assertBusinessError(() -> settings.update("ai.prompt", new UpdateSystemSettingRequest("x", "STRING", false, 999), 7), ErrorCode.BUSINESS_CONFLICT);
+
+            var providers = new AiProviderConfigService(dataSource, new SystemSecretCipher(
+                    "01234567890123456789012345678901".getBytes(StandardCharsets.UTF_8)));
+            assertThat(providers.view().apiKeyConfigured()).isFalse();
+            var configured = providers.update(new UpdateAiProviderConfigRequest("DOUBAO_ARK",
+                    "https://ark.cn-beijing.volces.com/api/v3", "doubao-chat-test",
+                    "doubao-embedding-test", "ark-api-key-sensitive", 0), 7);
+            assertThat(configured.apiKeyConfigured()).isTrue();
+            assertThat(configured.apiKeyMasked()).doesNotContain("sensitive");
+            assertThat(providers.internal().apiKey()).isEqualTo("ark-api-key-sensitive");
+            assertBusinessError(() -> providers.update(new UpdateAiProviderConfigRequest("DOUBAO_ARK",
+                    "http://insecure.example", "doubao-chat-test", "doubao-embedding-test", null,
+                    configured.version()), 7), ErrorCode.VALIDATION_ERROR);
         }
     }
 

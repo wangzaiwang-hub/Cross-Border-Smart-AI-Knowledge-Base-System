@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import {
@@ -10,10 +10,13 @@ import {
 } from "@element-plus/icons-vue";
 import {
     heartbeat,
+    completeDocument,
     getTrainingDocumentContent,
     listChapterDocuments,
+    listDocumentProgress,
     recordPosition,
     type Progress,
+    type DocumentProgress,
     type TrainingDocument,
 } from "@/api/training";
 import { useBinaryDocumentPreview } from "@/composables/useBinaryDocumentPreview";
@@ -25,19 +28,42 @@ const gateId = String(route.query.gate || "");
 const seconds = ref(0);
 const unsaved = ref(0);
 const documents = ref<TrainingDocument[]>([]);
+const documentProgress = ref<DocumentProgress[]>([]);
 const progress = ref<Progress>();
 const saving = ref(false);
 const preview = useBinaryDocumentPreview();
+const allDocumentsCompleted = computed(() =>
+    documents.value.every((item) => state(item.id) === "COMPLETED"),
+);
 let timer = 0;
 async function openDocument(item: TrainingDocument) {
     try {
         await preview.open({
             fileName: item.fileName,
             mediaType: item.mediaType,
-            load: () => getTrainingDocumentContent(item.id),
+            load: () => getTrainingDocumentContent(item.id, assignmentId),
         });
+        documentProgress.value = await listDocumentProgress(assignmentId, chapterId);
     } catch {
         ElMessage.error("培训文档读取失败或当前账号无权访问");
+    }
+}
+function state(documentId: string) {
+    return documentProgress.value.find((item) => item.documentId === documentId)?.status || "NOT_STARTED";
+}
+function stateText(status: string) {
+    const labels: Record<string, string> = { NOT_STARTED: "未开始", IN_PROGRESS: "未完成", COMPLETED: "已完成" };
+    return labels[status] || status;
+}
+async function markCompleted(item: TrainingDocument) {
+    try {
+        await save();
+        await completeDocument(assignmentId, item.id);
+        documentProgress.value = await listDocumentProgress(assignmentId, chapterId);
+        progress.value = await heartbeat(assignmentId, chapterId, 1);
+        ElMessage.success("文档任务点已完成");
+    } catch {
+        ElMessage.error("请先打开并阅读该文档，再标记完成");
     }
 }
 async function save() {
@@ -59,6 +85,10 @@ async function save() {
     }
 }
 async function finish() {
+    if (!allDocumentsCompleted.value) {
+        ElMessage.warning("请先阅读并完成本章全部文档任务点");
+        return;
+    }
     await save();
     if (gateId)
         await router.push({
@@ -76,7 +106,10 @@ onMounted(async () => {
         return;
     }
     try {
-        documents.value = await listChapterDocuments(chapterId);
+        [documents.value, documentProgress.value] = await Promise.all([
+            listChapterDocuments(chapterId),
+            listDocumentProgress(assignmentId, chapterId),
+        ]);
     } catch {
         ElMessage.error("培训文档加载失败");
     }
@@ -117,7 +150,7 @@ onBeforeUnmount(() => {
                 </p>
                 <el-alert
                     title="完成状态由服务端计算"
-                    description="前端不能直接将章节标记为已完成；有效时长达到课程配置后，服务端才允许进入并通过关卡。"
+                    description="请逐一打开文档阅读并标记完成。服务端会同时校验文档任务点、有效学习时长和闯关结果。"
                     type="warning"
                     :closable="false"
                 />
@@ -135,10 +168,11 @@ onBeforeUnmount(() => {
                             >
                         </div>
                         <div class="document-actions">
-                            <el-tag>{{ item.status }}</el-tag>
+                            <el-tag :type="state(item.id) === 'COMPLETED' ? 'success' : state(item.id) === 'IN_PROGRESS' ? 'warning' : 'info'">{{ stateText(state(item.id)) }}</el-tag>
                             <el-button size="small" @click="openDocument(item)"
                                 >查看</el-button
                             >
+                            <el-button size="small" type="primary" :disabled="state(item.id) !== 'IN_PROGRESS'" @click="markCompleted(item)">标记已完成</el-button>
                         </div>
                     </article>
                     <el-empty
@@ -191,7 +225,7 @@ onBeforeUnmount(() => {
             ><el-button
                 type="primary"
                 :icon="ArrowRight"
-                :disabled="!assignmentId"
+                :disabled="!assignmentId || !allDocumentsCompleted"
                 @click="finish"
                 >保存并进入闯关</el-button
             >

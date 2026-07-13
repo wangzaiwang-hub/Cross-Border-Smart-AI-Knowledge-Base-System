@@ -7,10 +7,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import com.yuegang.zhihui.training.api.*;
+import com.yuegang.zhihui.training.security.TrainingUserContext;
 import java.nio.file.Files;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -45,9 +47,9 @@ class TrainingServicesIntegrationTest {
             assertThat(content.chapters(course.id())).hasSize(1);
             assertThat(content.courses(true)).isEmpty();
             assertThat(content.courses(false)).hasSize(1);
-            assertThat(content.upload(chapter.id(), new MockMultipartFile(
-                    "file", "lesson.txt", "text/plain", "training material".getBytes())).mediaType())
-                    .isEqualTo("text/plain");
+            TrainingDocumentView document = content.upload(chapter.id(), new MockMultipartFile(
+                    "file", "lesson.txt", "text/plain", "training material".getBytes()));
+            assertThat(document.mediaType()).isEqualTo("text/plain");
             assertThatThrownBy(() -> content.upload(chapter.id(), null))
                     .isInstanceOf(BusinessException.class);
             assertThatThrownBy(() -> content.upload(chapter.id(), new MockMultipartFile(
@@ -82,6 +84,16 @@ class TrainingServicesIntegrationTest {
             assertThat(records.analytics().assigned()).isZero();
             AssignmentView assignment = assignments.assign(9, new CreateAssignmentRequest(
                     "42", path.id(), course.id(), OffsetDateTime.now().plusDays(7)));
+            var access = new TrainingAccessGuard(dataSource);
+            var learner = new TrainingUserContext(42, Set.of("EMPLOYEE"), Set.of());
+            access.requireCourse(learner, course.id());
+            access.requireChapter(learner, chapter.id());
+            access.requireGate(learner, gate.id());
+            assertThat(access.assignedCourseIds(learner)).containsExactly(course.id());
+            assertThatThrownBy(() -> access.requireCourse(
+                    new TrainingUserContext(7, Set.of("EMPLOYEE"), Set.of()), course.id()))
+                    .isInstanceOf(BusinessException.class);
+            access.requireCourse(new TrainingUserContext(9, Set.of("ADMIN"), Set.of()), course.id());
             assertThat(assignments.mine(42)).singleElement()
                     .extracting(AssignmentView::assignmentId).isEqualTo(assignment.assignmentId());
             assertThat(assignments.statistics().assigned()).isEqualTo(1);
@@ -90,10 +102,24 @@ class TrainingServicesIntegrationTest {
             assertThat(progress.get(42, assignment.assignmentId()).progressPercent()).isZero();
             ProgressView learned = progress.heartbeat(42, new LearningHeartbeat(
                     assignment.assignmentId(), chapter.id(), 30, "heartbeat-1"));
-            assertThat(learned.progressPercent()).isEqualByComparingTo("100.00");
+            assertThat(learned.progressPercent()).isZero();
             assertThat(progress.heartbeat(42, new LearningHeartbeat(
                     assignment.assignmentId(), chapter.id(), 30, "heartbeat-1")).progressPercent())
-                    .isEqualByComparingTo("100.00");
+                    .isZero();
+
+            var documentProgress = new TrainingDocumentProgressService(dataSource);
+            assertThat(documentProgress.documents(42, assignment.assignmentId(), chapter.id()))
+                    .singleElement().extracting(DocumentProgressView::status).isEqualTo("NOT_STARTED");
+            assertThatThrownBy(() -> documentProgress.complete(42, assignment.assignmentId(), document.id()))
+                    .isInstanceOf(BusinessException.class);
+            documentProgress.recordOpened(42, assignment.assignmentId(), document.id());
+            assertThat(documentProgress.complete(42, assignment.assignmentId(), document.id()).status())
+                    .isEqualTo("COMPLETED");
+            assertThat(progress.get(42, assignment.assignmentId()).progressPercent()).isEqualByComparingTo("100.00");
+            assertThat(documentProgress.employeeProgress()).singleElement().satisfies(item -> {
+                assertThat(item.completedDocuments()).isEqualTo(1);
+                assertThat(item.totalDocuments()).isEqualTo(1);
+            });
 
             records.recordPosition(42, new ReadingPositionRequest(
                     assignment.assignmentId(), chapter.id(), "page=2", "position-1"));

@@ -37,8 +37,9 @@ public final class ProductSearchDispatcher {
                 return new ProductSource(result.getLong(1), result.getString(2), result.getBigDecimal(3), result.getString(4), result.getString(5), result.getString(6), result.getLong(7), result.getTimestamp(8).toInstant().atOffset(ZoneOffset.UTC), result.getString(9), result.getString(10), result.getString(11), result.getString(12));
             }, job);
             String document = "product:" + source.skuId();
-            if (!"PUBLISHED".equals(source.status())) send(DELETE, new DeleteDocumentCommand(document));
-            else {
+            if ("OFF_SHELF".equals(source.status())) {
+                send(DELETE, new DeleteDocumentCommand(document, "product-active"));
+            } else if ("PUBLISHED".equals(source.status())) {
                 String specifications = String.join(" ", jdbc.queryForList("SELECT CONCAT(spec_key,':',spec_value) FROM product_specification WHERE sku_id=? ORDER BY sort_order",String.class,source.skuId()));
                 String content = String.join(" ", source.name(), value(source.description()), source.skuCode(), value(source.brand()), source.category(), value(source.traceabilityCode()), specifications, source.price().toPlainString(), source.currency());
                 send(INDEX, new IndexChunkCommand(document, Long.toString(source.skuId()), source.name(), content, "PRODUCT", "PUBLIC", "product-active", source.version(), source.updatedAt(), true));

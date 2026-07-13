@@ -55,6 +55,10 @@ onMounted(async () => {
 });
 const title = (courseId: string) =>
     courses.value.find((x) => x.id === courseId)?.title || courseId;
+const statusText = (status: string) => {
+    const labels: Record<string, string> = { ASSIGNED: "未开始", IN_PROGRESS: "未完成", COMPLETED: "已完成" };
+    return labels[status] || status;
+};
 </script>
 <template>
     <div v-loading="loading">
@@ -82,7 +86,7 @@ const title = (courseId: string) =>
                 <div>
                     <b>{{ title(item.courseId) }}</b
                     ><small
-                        >{{ item.status }} · 最好成绩
+                        >{{ statusText(item.status) }} · 最好成绩
                         {{ item.bestScore ?? "--" }}</small
                     >
                 </div>
@@ -90,7 +94,7 @@ const title = (courseId: string) =>
                     :percentage="Number(item.progressPercent)"
                 /><el-tag
                     :type="item.status === 'COMPLETED' ? 'success' : 'warning'"
-                    >{{ item.status }}</el-tag
+                    >{{ statusText(item.status) }}</el-tag
                 >
             </article>
             <el-empty v-if="!progress.length" description="暂无学习记录" />

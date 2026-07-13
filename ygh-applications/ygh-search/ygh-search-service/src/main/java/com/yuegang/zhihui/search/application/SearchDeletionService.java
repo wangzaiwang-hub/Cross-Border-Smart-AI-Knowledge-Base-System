@@ -23,15 +23,24 @@ public final class SearchDeletionService {
     }
 
     public void deleteDocument(String document) {
-        long id;
-        try {
-            id = Long.parseLong(document);
-            if (id <= 0) throw new NumberFormatException();
-        } catch (Exception failure) {
+        deleteDocument(document, null);
+    }
+
+    public void deleteDocument(String document, String indexName) {
+        if (document == null || !document.matches("[A-Za-z0-9][A-Za-z0-9:._-]{0,63}")) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
-        jdbc.update("DELETE FROM search_embedding WHERE document_id=?", id);
-        elastic.post().uri("/" + alias + "/_delete_by_query?conflicts=proceed&refresh=true")
+        String target = indexName == null || indexName.isBlank() ? alias : indexName;
+        if (!target.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        jdbc.update("DELETE FROM search_embedding WHERE document_id=?", document);
+        if ("product-active".equals(target) && document.startsWith("product:")) {
+            elastic.delete().uri("/" + target + "/_doc/" + document.substring("product:".length())
+                    + "?refresh=true").retrieve().toBodilessEntity();
+            return;
+        }
+        elastic.post().uri("/" + target + "/_delete_by_query?conflicts=proceed&refresh=true")
                 .body(Map.of("query", Map.of("term", Map.of("documentId", document))))
                 .retrieve().toBodilessEntity();
     }

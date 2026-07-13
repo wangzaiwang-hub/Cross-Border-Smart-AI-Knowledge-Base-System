@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.core.ErrorCode;
 import com.yuegang.zhihui.common.test.YghTestContainerFactory;
@@ -15,18 +16,23 @@ import com.yuegang.zhihui.product.api.SaveProductRequest;
 import com.yuegang.zhihui.product.api.TraceEventRequest;
 import com.yuegang.zhihui.product.api.UpdateProductRequest;
 import java.math.BigDecimal;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class ProductServicesIntegrationTest {
     @Test
-    void managesCatalogProductStatusPriceBatchAndTraceability() {
+    void managesCatalogProductStatusPriceBatchAndTraceability() throws Exception {
         try (var mysql = YghTestContainerFactory.mysql().start()) {
             Flyway.configure().dataSource(mysql.jdbcUrl(), mysql.username(), mysql.credential())
                     .locations("classpath:db/migration").load().migrate();
@@ -65,6 +71,60 @@ class ProductServicesIntegrationTest {
             assertThat(updated.specifications()).containsEntry("包装", "礼盒");
             assertBusinessError(() -> administration.update(created.skuId(), new UpdateProductRequest(snacks.id(), null,
                     "冲突", null, BigDecimal.ONE, "CNY", List.of(), null, 999)), ErrorCode.BUSINESS_CONFLICT);
+
+            var searchRequests = new CopyOnWriteArrayList<String>();
+            var failProductSearch = new AtomicBoolean(false);
+            HttpServer searchServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            searchServer.createContext("/internal/v1/search/index", exchange -> {
+                searchRequests.add("INDEX:" + new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            searchServer.createContext("/internal/v1/search/delete-document", exchange -> {
+                searchRequests.add("DELETE:" + new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            searchServer.createContext("/internal/v1/search/products", exchange -> {
+                if (failProductSearch.get()) {
+                    exchange.sendResponseHeaders(503, -1);
+                    exchange.close();
+                    return;
+                }
+                String response = """
+                        {"code":"00000","message":"成功","data":[{"skuId":"%s","score":3.0},{"skuId":"invalid"}],"traceId":"trace","timestamp":"2026-07-13T08:00:00Z"}
+                        """.formatted(created.skuId());
+                byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
+                exchange.close();
+            });
+            searchServer.start();
+            String searchBase = "http://127.0.0.1:" + searchServer.getAddress().getPort();
+            byte[] searchSecret = "01234567890123456789012345678901".getBytes(StandardCharsets.UTF_8);
+            try {
+                var dispatcher = new ProductSearchDispatcher(new JdbcTemplate(dataSource), searchBase, searchSecret);
+                dispatcher.dispatch();
+                assertThat(searchRequests).anySatisfy(request -> {
+                    assertThat(request).startsWith("INDEX:");
+                    assertThat(request).contains("product:" + created.skuId(), "product-active", "荔枝曲奇礼盒");
+                });
+                var searchedProducts = new ProductService(dataSource, new ProductSearchGateway(searchBase, searchSecret));
+                assertThat(searchedProducts.list(null, "荔枝", 10, true)).containsExactly(updated);
+                failProductSearch.set(true);
+                assertThat(searchedProducts.list(null, "荔枝", 10, true)).containsExactly(updated);
+
+                var offShelf = products.changeStatus(created.skuId(), ProductStatus.OFF_SHELF, updated.version());
+                assertThat(offShelf.status()).isEqualTo(ProductStatus.OFF_SHELF);
+                dispatcher.dispatch();
+                assertThat(searchRequests).anySatisfy(request -> {
+                    assertThat(request).startsWith("DELETE:");
+                    assertThat(request).contains("product:" + created.skuId(), "product-active");
+                });
+            } finally {
+                searchServer.stop(0);
+            }
 
             var batch = administration.batch(created.skuId(), new SaveProductBatchRequest("B202607", "广东",
                     "https://proof/1", LocalDate.of(2026, 7, 1), LocalDate.of(2027, 7, 1), "全链路溯源"));

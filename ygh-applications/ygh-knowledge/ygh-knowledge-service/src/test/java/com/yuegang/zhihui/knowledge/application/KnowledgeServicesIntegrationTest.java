@@ -45,6 +45,7 @@ class KnowledgeServicesIntegrationTest {
             var documents = new KnowledgeDocumentService(dataSource, storage.toString());
             var lifecycle = new KnowledgeLifecycleService(dataSource);
             var metadata = new KnowledgeMetadataService(dataSource, new ObjectMapper());
+            var access = new KnowledgeAccessGuard(dataSource);
             var jdbc = new JdbcTemplate(dataSource);
 
             var uploaded = documents.upload(42, "跨境通关政策", "政策法规", text("policy.md", "跨境商品通关需要完成申报、查验与放行。"));
@@ -64,6 +65,9 @@ class KnowledgeServicesIntegrationTest {
 
             var published = documents.review(7, uploaded.id(), new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.APPROVE, "审核通过", uploaded.version()));
             assertThat(published.status()).isEqualTo(KnowledgeStatus.PUBLISHED);
+            access.requirePublished(Long.parseLong(published.id()), Set.of("PUBLIC"));
+            assertBusinessError(() -> access.requirePublished(Long.parseLong(published.id()), Set.of("INTERNAL")),
+                    ErrorCode.RESOURCE_NOT_FOUND);
             assertThat(lifecycle.list(null, "政策法规", true, 0)).containsExactly(published);
             assertBusinessError(() -> documents.review(7, uploaded.id(), new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.APPROVE, null, uploaded.version())), ErrorCode.BUSINESS_CONFLICT);
 
@@ -96,6 +100,15 @@ class KnowledgeServicesIntegrationTest {
             var rejectedUpload = documents.upload(42, "驳回文档", "PRODUCT", text("reject.txt", "商品资料待修订"));
             assertThat(documents.review(7, rejectedUpload.id(), new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.REJECT, "来源不完整", 0)).status())
                     .isEqualTo(KnowledgeStatus.REJECTED);
+
+            var internalUpload = documents.upload(42, "内部通关指引", "CUSTOMS", text("internal.txt", "内部流程"));
+            metadata.update(42, internalUpload.id(), new UpdateKnowledgeMetadataRequest(null, null, null, "CN",
+                    "INTERNAL", "内部知识库", Set.of("内部"), 0));
+            var internalPublished = documents.review(7, internalUpload.id(),
+                    new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.APPROVE, "内部发布", 0));
+            access.requirePublished(Long.parseLong(internalPublished.id()), Set.of("PUBLIC", "INTERNAL"));
+            assertBusinessError(() -> access.requirePublished(Long.parseLong(internalPublished.id()), Set.of("PUBLIC")),
+                    ErrorCode.RESOURCE_NOT_FOUND);
 
             var expiringUpload = documents.upload(42, "临时政策", "POLICY", text("expire.txt", "临时监管政策"));
             var expiring = documents.review(7, expiringUpload.id(), new ReviewKnowledgeRequest(ReviewKnowledgeRequest.Decision.APPROVE, null, 0));

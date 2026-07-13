@@ -185,6 +185,16 @@ export interface AiSummary {
     enabledEvaluationCases: number;
     activePrompt: boolean;
 }
+export interface AiProviderConfig {
+    provider: "DOUBAO_ARK";
+    baseUrl: string;
+    chatModel: string;
+    embeddingModel: string;
+    apiKeyConfigured: boolean;
+    apiKeyMasked: string;
+    version: number;
+    updatedAt?: string;
+}
 export interface EvaluationRun {
     runId: string;
     caseId: string;
@@ -201,6 +211,19 @@ export interface TrainingAnalytics {
     completionRate: string;
     averageScore: string;
     weakKnowledge: Array<{ knowledgeCode: string; wrongCount: number }>;
+}
+export interface EmployeeLearningProgress {
+    assignmentId: string;
+    userId: string;
+    courseId: string;
+    courseTitle: string;
+    status: string;
+    progressPercent: string;
+    completedDocuments: number;
+    totalDocuments: number;
+    bestScore?: number;
+    dueAt?: string;
+    completedAt?: string;
 }
 export interface TrainingCourse {
     id: string;
@@ -711,10 +734,23 @@ export const setEvaluationCaseEnabled = async (
     );
 export const getAiSummary = async (): Promise<AiSummary> =>
     apiData(await useHttp().get("/api/v1/admin/ai/summary"));
+export const getAiProviderConfig = async (): Promise<AiProviderConfig> =>
+    apiData(await useHttp().get("/api/v1/system/ai-provider-config"));
+export const saveAiProviderConfig = async (command: {
+    provider: "DOUBAO_ARK";
+    baseUrl: string;
+    chatModel: string;
+    embeddingModel: string;
+    apiKey?: string;
+    version: number;
+}): Promise<AiProviderConfig> =>
+    apiData(await useHttp().put("/api/v1/system/ai-provider-config", command));
 export const runAiEvaluations = async (): Promise<EvaluationRun[]> =>
     apiData(await useHttp().post("/api/v1/admin/ai/evaluations/run"));
 export const getTrainingAnalytics = async (): Promise<TrainingAnalytics> =>
     apiData(await useHttp().get("/api/v1/training/learning/admin/analytics"));
+export const listEmployeeLearningProgress = async (): Promise<EmployeeLearningProgress[]> =>
+    apiData(await useHttp().get("/api/v1/training/learning/admin/employee-progress"));
 export const listTrainingCourses = async (): Promise<TrainingCourse[]> =>
     apiData(await useHttp().get("/api/v1/training/courses"));
 export const listLearningPaths = async (): Promise<LearningPath[]> =>

@@ -8,14 +8,23 @@ import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ProductService {
+    private static final Logger LOG = LoggerFactory.getLogger(ProductService.class);
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
+    private final ProductSearchGateway search;
 
     public ProductService(DataSource dataSource) {
+        this(dataSource, null);
+    }
+
+    public ProductService(DataSource dataSource, ProductSearchGateway search) {
         jdbc = new JdbcTemplate(dataSource);
         transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        this.search = search;
     }
 
     public ProductView create(SaveProductRequest command) {
@@ -26,7 +35,6 @@ public final class ProductService {
             int sort = 0;
             for (String url : command.images()) jdbc.update("INSERT INTO product_image(id,spu_id,sku_id,url,sort_order) VALUES(?,?,?,?,?)", next(), spu, sku, url, sort++);
             replaceSpecifications(sku, command.specifications());
-            searchJob(sku);
             return get(Long.toString(sku), false);
         });
     }
@@ -40,11 +48,24 @@ public final class ProductService {
         if ((minimumPrice != null && minimumPrice.signum() < 0) || (maximumPrice != null && maximumPrice.signum() < 0)
                 || (minimumPrice != null && maximumPrice != null && minimumPrice.compareTo(maximumPrice) > 0)) throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         int size = Math.max(1, Math.min(limit, 100));
+        List<String> matchedSkuIds = null;
+        if (publicOnly && keyword != null && !keyword.isBlank() && search != null) {
+            try {
+                matchedSkuIds = search.search(keyword.strip(), 100);
+                if (matchedSkuIds.isEmpty()) return List.of();
+            } catch (RuntimeException unavailable) {
+                LOG.warn("product full-text search unavailable; falling back to transactional database filter");
+            }
+        }
         StringBuilder sql = new StringBuilder("SELECT s.id FROM product_sku s JOIN product_spu p ON p.id=s.spu_id WHERE 1=1");
         List<Object> arguments = new ArrayList<>();
         if (publicOnly) sql.append(" AND s.status='PUBLISHED' AND p.status='PUBLISHED'");
         if (category != null && !category.isBlank()) { sql.append(" AND p.category_id=?"); arguments.add(id(category)); }
-        if (keyword != null && !keyword.isBlank()) {
+        if (matchedSkuIds != null) {
+            sql.append(" AND s.id IN (").append(String.join(",", Collections.nCopies(matchedSkuIds.size(), "?")))
+                    .append(')');
+            matchedSkuIds.stream().map(Long::parseLong).forEach(arguments::add);
+        } else if (keyword != null && !keyword.isBlank()) {
             sql.append(" AND (p.name LIKE ? OR CONVERT(s.sku_code USING utf8mb4) LIKE ?)");
             String query = "%" + keyword.strip() + "%"; arguments.add(query); arguments.add(query);
         }

@@ -8,20 +8,20 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 /** 豆包 OpenAI-compatible embedding adapter implemented through LangChain4j. */
-public final class DoubaoEmbeddingGateway {
+public final class DoubaoEmbeddingGateway implements EmbeddingGateway {
     private final EmbeddingModel model;
     public DoubaoEmbeddingGateway(String baseUrl,String apiKey,String modelName){
         model=apiKey==null||apiKey.isBlank()?null:OpenAiEmbeddingModel.builder().baseUrl(baseUrl).apiKey(apiKey).modelName(modelName)
                 .timeout(Duration.ofSeconds(60)).maxRetries(1).logRequests(false).logResponses(false).build();
     }
-    public List<Double> embed(String text){
+    @Override public List<Double> embed(String text){
         if(model==null)return developmentVector(text);
         float[] vector=model.embed(text).content().vector();
         List<Double> result=new ArrayList<>(vector.length);
         for(float value:vector)result.add((double)value);
         return List.copyOf(result);
     }
-    public boolean configured(){return model!=null;}
+    @Override public boolean configured(){return model!=null;}
     private static List<Double> developmentVector(String text){
         try{
             byte[] digest=MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));

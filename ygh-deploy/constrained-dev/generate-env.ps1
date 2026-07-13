@@ -43,6 +43,7 @@ if (Test-Path $envPath) {
     if ($existing -notmatch '(?m)^USER_ID_WORKER=') { Add-Content -LiteralPath $envPath -Value "USER_ID_WORKER=2" -Encoding UTF8NoBOM; $updated = $true }
     if ($existing -notmatch '(?m)^SYSTEM_DB_APP_PASSWORD=') { Add-Content -LiteralPath $envPath -Value "SYSTEM_DB_APP_PASSWORD=$(New-Secret 24)" -Encoding UTF8NoBOM; $updated = $true }
     if ($existing -notmatch '(?m)^SYSTEM_DB_MIGRATION_PASSWORD=') { Add-Content -LiteralPath $envPath -Value "SYSTEM_DB_MIGRATION_PASSWORD=$(New-Secret 24)" -Encoding UTF8NoBOM; $updated = $true }
+    if ($existing -notmatch '(?m)^SYSTEM_CONFIG_MASTER_KEY_BASE64=') { Add-Content -LiteralPath $envPath -Value "SYSTEM_CONFIG_MASTER_KEY_BASE64=$(New-Base64Secret 32)" -Encoding UTF8NoBOM; $updated = $true }
     foreach ($service in @('PRODUCT','INVENTORY','ORDER','WALLET','KNOWLEDGE','AI','TRAINING','NOTIFICATION')) {
         foreach ($role in @('APP','MIGRATION')) {
             $name = "YGH_${service}_DB_${role}_PASSWORD"
@@ -69,6 +70,7 @@ USER_PII_KEY_VERSION=1
 USER_ID_WORKER=2
 SYSTEM_DB_APP_PASSWORD=$(New-Secret 24)
 SYSTEM_DB_MIGRATION_PASSWORD=$(New-Secret 24)
+SYSTEM_CONFIG_MASTER_KEY_BASE64=$(New-Base64Secret 32)
 YGH_PRODUCT_DB_APP_PASSWORD=$(New-Secret 24)
 YGH_PRODUCT_DB_MIGRATION_PASSWORD=$(New-Secret 24)
 YGH_INVENTORY_DB_APP_PASSWORD=$(New-Secret 24)
@@ -96,9 +98,6 @@ NACOS_ADMIN_PASSWORD=$(New-Secret 24)
 POSTGRES_PASSWORD=$(New-Secret 24)
 ELASTIC_PASSWORD=$(New-Secret 24)
 SEATA_PASSWORD=$(New-Secret 24)
-YGH_DOUBAO_API_KEY=
-YGH_DOUBAO_CHAT_MODEL=
-YGH_DOUBAO_EMBEDDING_MODEL=
 "@ | Set-Content -LiteralPath $envPath -Encoding UTF8NoBOM
 
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value

@@ -40,6 +40,15 @@ public final class TrainingProgressService {
                     "p.version=p.version+1 WHERE p.assignment_id=? AND p.chapter_id=? AND (p.last_nonce IS NULL OR p.last_nonce<>?)",
                     heartbeat.activeSeconds(), heartbeat.nonce(), heartbeat.activeSeconds(), heartbeat.activeSeconds(),
                     assignment, chapter, heartbeat.nonce());
+            jdbc.update("""
+                    UPDATE training_chapter_progress p
+                       SET p.completed=FALSE,p.completed_at=NULL,p.version=p.version+1
+                     WHERE p.assignment_id=? AND p.chapter_id=?
+                       AND EXISTS(SELECT 1 FROM training_document d
+                           LEFT JOIN training_document_progress dp ON dp.document_id=d.id AND dp.assignment_id=p.assignment_id
+                           WHERE d.chapter_id=p.chapter_id AND d.status='ACTIVE'
+                             AND COALESCE(dp.status,'NOT_STARTED')<>'COMPLETED')
+                    """, assignment, chapter);
             jdbc.update("UPDATE training_assignment SET status='IN_PROGRESS',version=version+1 WHERE id=? AND status='ASSIGNED'", assignment);
             completeIfEligible(assignment);
             return view(user, assignment);
@@ -54,19 +63,25 @@ public final class TrainingProgressService {
                 "LEFT JOIN training_chapter_progress p ON p.chapter_id=c.id AND p.assignment_id=a.id " +
                 "WHERE c.course_id=a.course_id AND COALESCE(p.completed,FALSE)=FALSE) AND NOT EXISTS(SELECT 1 FROM training_gate g " +
                 "JOIN training_chapter c ON c.id=g.chapter_id WHERE c.course_id=a.course_id AND NOT EXISTS(SELECT 1 FROM training_quiz_attempt q " +
-                "WHERE q.assignment_id=a.id AND q.gate_id=g.id AND q.passed=TRUE))", assignment);
+                "WHERE q.assignment_id=a.id AND q.gate_id=g.id AND q.passed=TRUE)) " +
+                "AND NOT EXISTS(SELECT 1 FROM training_document d JOIN training_chapter c ON c.id=d.chapter_id " +
+                "LEFT JOIN training_document_progress dp ON dp.document_id=d.id AND dp.assignment_id=a.id " +
+                "WHERE c.course_id=a.course_id AND d.status='ACTIVE' AND COALESCE(dp.status,'NOT_STARTED')<>'COMPLETED')", assignment);
     }
 
     private ProgressView view(long user, long assignment) {
         return jdbc.query("SELECT a.id,a.course_id,a.user_id,a.status,a.version," +
                 "(SELECT COUNT(*) FROM training_chapter WHERE course_id=a.course_id) total," +
                 "(SELECT COUNT(*) FROM training_chapter_progress WHERE assignment_id=a.id AND completed=TRUE) done," +
+                "(SELECT COUNT(*) FROM training_document d JOIN training_chapter c ON c.id=d.chapter_id WHERE c.course_id=a.course_id AND d.status='ACTIVE') total_docs," +
+                "(SELECT COUNT(*) FROM training_document_progress dp JOIN training_document d ON d.id=dp.document_id JOIN training_chapter c ON c.id=d.chapter_id WHERE dp.assignment_id=a.id AND c.course_id=a.course_id AND dp.status='COMPLETED') done_docs," +
                 "(SELECT MAX(score) FROM training_quiz_attempt WHERE assignment_id=a.id) best," +
                 "(SELECT MIN(c.id) FROM training_chapter c LEFT JOIN training_chapter_progress p ON p.chapter_id=c.id " +
                 "AND p.assignment_id=a.id WHERE c.course_id=a.course_id AND COALESCE(p.completed,FALSE)=FALSE) current " +
                 "FROM training_assignment a WHERE a.id=? AND a.user_id=?", result -> {
             if (!result.next()) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
-            int total = result.getInt("total"), done = result.getInt("done");
+            int total = result.getInt("total") + result.getInt("total_docs");
+            int done = result.getInt("done") + result.getInt("done_docs");
             BigDecimal percent = total == 0 ? BigDecimal.ZERO : BigDecimal.valueOf(done).multiply(BigDecimal.valueOf(100))
                     .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
             Object current = result.getObject("current"), best = result.getObject("best");

@@ -24,8 +24,8 @@ class AiConfigurationTest {
 
         AiGovernanceService governance = configuration.aiGovernanceService(dataSource);
         AiSafetyPolicy policy = configuration.aiSafetyPolicy(dataSource);
-        ModelGateway model = configuration.modelGateway(
-                "http://localhost", "test-key", "test-model", governance, metrics);
+        var providerConfigs = configuration.systemAiProviderConfigClient("http://localhost", secret);
+        ModelGateway model = configuration.modelGateway(providerConfigs, governance, metrics);
         RetrievalGateway retrieval = configuration.retrievalGateway(
                 "http://localhost", secret, policy, metrics);
         CommerceToolGateway tools = configuration.commerceToolGateway(

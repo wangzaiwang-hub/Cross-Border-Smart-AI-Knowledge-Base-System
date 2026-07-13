@@ -81,6 +81,7 @@ services:
       YGH_SYSTEM_DB_MIGRATION_PASSWORD: ${SYSTEM_DB_MIGRATION_PASSWORD:?required}
       YGH_SYSTEM_DB_POOL_MAX_SIZE: 2
       YGH_SYSTEM_DB_POOL_MIN_IDLE: 0
+      YGH_SYSTEM_CONFIG_MASTER_KEY_BASE64: ${SYSTEM_CONFIG_MASTER_KEY_BASE64:?required}
   product:
     <<: *app
     profiles: [mall]
@@ -176,8 +177,7 @@ services:
       YGH_ELASTICSEARCH_BASE_URL: http://host.docker.internal:19200
       YGH_ELASTICSEARCH_USERNAME: elastic
       YGH_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:?required}
-      YGH_DOUBAO_API_KEY: ${YGH_DOUBAO_API_KEY:-}
-      YGH_DOUBAO_EMBEDDING_MODEL: ${YGH_DOUBAO_EMBEDDING_MODEL:-}
+      YGH_SYSTEM_INTERNAL_BASE_URL: http://system:8083
   ai:
     <<: *app
     profiles: [ai-apps]
@@ -191,8 +191,7 @@ services:
       YGH_PRODUCT_INTERNAL_BASE_URL: http://product:8084
       YGH_INVENTORY_INTERNAL_BASE_URL: http://inventory:8085
       YGH_ORDER_INTERNAL_BASE_URL: http://order:8086
-      YGH_DOUBAO_API_KEY: ${YGH_DOUBAO_API_KEY:-}
-      YGH_DOUBAO_CHAT_MODEL: ${YGH_DOUBAO_CHAT_MODEL:-}
+      YGH_SYSTEM_INTERNAL_BASE_URL: http://system:8083
   training:
     <<: *app
     profiles: [training]

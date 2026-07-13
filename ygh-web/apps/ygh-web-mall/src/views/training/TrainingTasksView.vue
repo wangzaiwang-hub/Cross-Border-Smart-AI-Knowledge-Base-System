@@ -11,6 +11,10 @@ import {
     type Progress,
 } from "@/api/training";
 type Task = { assignment: Assignment; course?: Course; progress?: Progress };
+const statusText = (status: string) => {
+    const labels: Record<string, string> = { ASSIGNED: "未开始", IN_PROGRESS: "未完成", COMPLETED: "已完成" };
+    return labels[status] || status;
+};
 const loading = ref(true);
 const tasks = ref<Task[]>([]);
 const pending = computed(
@@ -92,7 +96,7 @@ onMounted(async () => {
                                   ? 'warning'
                                   : 'info'
                         "
-                        >{{ task.assignment.status }}</el-tag
+                        >{{ statusText(task.assignment.status) }}</el-tag
                     >
                 </div>
                 <h2 class="serif">

@@ -14,6 +14,7 @@ import {
     listTrainingChapters,
     listTrainingGates,
     listLearningPaths,
+    listEmployeeLearningProgress,
     publishTrainingCourse,
     uploadTrainingDocument,
     type TrainingChapter,
@@ -21,6 +22,7 @@ import {
     type TrainingCourse,
     type TrainingGate,
     type LearningPath,
+    type EmployeeLearningProgress,
 } from "@/api/operations";
 import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const tab = ref("courses");
@@ -28,6 +30,7 @@ const loading = ref(true);
 const data = ref<TrainingAnalytics>();
 const courses = ref<TrainingCourse[]>([]);
 const paths = ref<LearningPath[]>([]);
+const employeeProgress = ref<EmployeeLearningProgress[]>([]);
 const courseDialog = ref(false);
 const assignmentDialog = ref(false);
 const contentDialog = ref(false);
@@ -73,13 +76,16 @@ const pathCourseForm = reactive({
     sequenceNo: 1,
     prerequisiteCourseId: "",
 });
+const learningStatusText = (status: string) =>
+    ({ ASSIGNED: "未开始", IN_PROGRESS: "未完成", COMPLETED: "已完成" } as Record<string, string>)[status] || status;
 async function load() {
     loading.value = true;
     try {
-        [data.value, courses.value, paths.value] = await Promise.all([
+        [data.value, courses.value, paths.value, employeeProgress.value] = await Promise.all([
             getTrainingAnalytics(),
             listTrainingCourses(),
             listLearningPaths(),
+            listEmployeeLearningProgress(),
         ]);
     } catch {
         ElMessage.error("培训运营数据加载失败");
@@ -358,6 +364,21 @@ onMounted(load);
                             ></template
                         ></el-table-column
                     ></el-table></EnterpriseTable
+                ></el-tab-pane
+            ><el-tab-pane label="员工进度" name="employee-progress"
+                ><EnterpriseTable
+                    :items="employeeProgress"
+                    :search-fields="['userId', 'courseTitle', 'status']"
+                    search-placeholder="检索员工 ID、课程或状态"
+                    v-slot="{ rows, emptyText }"
+                ><el-table :data="rows" :empty-text="emptyText"
+                    ><el-table-column prop="userId" label="员工用户 ID" min-width="150" />
+                    <el-table-column prop="courseTitle" label="课程" min-width="220" />
+                    <el-table-column label="文档任务点" min-width="130"><template #default="scope">{{ scope.row.completedDocuments }}/{{ scope.row.totalDocuments }}</template></el-table-column>
+                    <el-table-column label="学习进度" min-width="180"><template #default="scope"><el-progress :percentage="Number(scope.row.progressPercent)" /></template></el-table-column>
+                    <el-table-column label="状态"><template #default="scope"><el-tag :type="scope.row.status === 'COMPLETED' ? 'success' : scope.row.status === 'IN_PROGRESS' ? 'warning' : 'info'">{{ learningStatusText(scope.row.status) }}</el-tag></template></el-table-column>
+                    <el-table-column prop="bestScore" label="最好成绩" />
+                </el-table></EnterpriseTable
                 ></el-tab-pane
             ><el-tab-pane label="学习分析" name="analytics"
                 ><EnterpriseTable

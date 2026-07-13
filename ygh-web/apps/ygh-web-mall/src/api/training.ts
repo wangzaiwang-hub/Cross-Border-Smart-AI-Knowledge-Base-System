@@ -32,6 +32,16 @@ export interface TrainingDocument {
     sizeBytes: number;
     status: string;
 }
+export interface DocumentProgress {
+    assignmentId: string;
+    documentId: string;
+    chapterId: string;
+    fileName: string;
+    status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+    openedAt?: string;
+    completedAt?: string;
+    version: number;
+}
 export interface Assignment {
     assignmentId: string;
     userId: string;
@@ -98,13 +108,26 @@ export const listChapterDocuments = async (
     );
 export const getTrainingDocumentContent = async (
     documentId: string,
+    assignmentId: string,
 ): Promise<Blob> =>
     (
         await useHttp().get<Blob>(
             `/api/v1/training/documents/${documentId}/content`,
-            { params: { inline: true }, responseType: "blob" },
+            { params: { inline: true, assignmentId }, responseType: "blob" },
         )
     ).data;
+export const listDocumentProgress = async (
+    assignmentId: string,
+    chapterId: string,
+): Promise<DocumentProgress[]> =>
+    apiData(await useHttp().get(`/api/v1/training/learning/assignments/${assignmentId}/documents`, {
+        params: { chapterId },
+    }));
+export const completeDocument = async (
+    assignmentId: string,
+    documentId: string,
+): Promise<DocumentProgress> =>
+    apiData(await useHttp().post(`/api/v1/training/learning/assignments/${assignmentId}/documents/${documentId}/complete`));
 export const listMyAssignments = async (): Promise<Assignment[]> =>
     apiData(await useHttp().get("/api/v1/training/assignments/mine"));
 export const getProgress = async (assignmentId: string): Promise<Progress> =>

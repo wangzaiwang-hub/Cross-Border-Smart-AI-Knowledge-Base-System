@@ -27,6 +27,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_dictionary_item TO 'ygh_sy
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_setting TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_feature_flag TO 'ygh_system_app'@'%';
 GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_configuration_audit TO 'ygh_system_app'@'%';
+GRANT SELECT,INSERT,UPDATE,DELETE ON system_db.system_ai_provider_config TO 'ygh_system_app'@'%';
 FLUSH PRIVILEGES;
 EOSQL
 fi
