@@ -2284,15 +2284,79 @@ Docker 容器里也不安装项目开发用 JDK。
 
 ```powershell
 java -version
+where java
+echo $env:JAVA_HOME
 ```
 
 执行后的结果：
 
-能看到 Java 25。
+应该看到：
+
+```text
+java -version 第一行包含 openjdk version "25
+where java 第一行来自 C:\Program Files\Eclipse Adoptium\jdk-25...\bin\java.exe
+echo $env:JAVA_HOME 输出 C:\Program Files\Eclipse Adoptium\jdk-25...
+```
 
 需要修改的内容：
 
-如果没有 Java 25，在 Windows 安装 JDK 25，然后在 IDEA 里配置 Project SDK。
+如果没有 Java 25，在 Windows 安装 JDK 25，然后配置系统环境变量。
+
+图形界面配置方法：
+
+1. 右键“此电脑”。
+2. 点击“属性”。
+3. 点击“高级系统设置”。
+4. 点击“环境变量”。
+5. 在下面的“系统变量”里新建或编辑 `JAVA_HOME`。
+6. 变量名填写：
+
+```text
+JAVA_HOME
+```
+
+7. 变量值填写 JDK 25 安装目录，示例：
+
+```text
+C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
+```
+
+8. 注意 `JAVA_HOME` 不要带 `\bin`：
+
+```text
+正确：C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot
+错误：C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot\bin
+```
+
+9. 在“系统变量”里编辑 `Path`。
+10. 新增：
+
+```text
+%JAVA_HOME%\bin
+```
+
+11. 把 `%JAVA_HOME%\bin` 放到旧版 Java 路径前面。
+12. 点击“确定”保存。
+13. 关闭 PowerShell，重新打开，再执行验证命令。
+
+管理员 PowerShell 配置方法：
+
+```powershell
+[Environment]::SetEnvironmentVariable('JAVA_HOME','C:\Program Files\Eclipse Adoptium\jdk-25.0.3.7-hotspot','Machine')
+```
+
+继续输入：
+
+```powershell
+$machinePath = [Environment]::GetEnvironmentVariable('Path','Machine')
+if ($machinePath -notlike '*%JAVA_HOME%\bin*') {
+  [Environment]::SetEnvironmentVariable('Path', "%JAVA_HOME%\bin;$machinePath", 'Machine')
+}
+```
+
+执行后的结果：
+
+重新打开 PowerShell 后，`echo $env:JAVA_HOME` 输出 JDK 25 根目录，`where java` 第一行指向 `%JAVA_HOME%\bin\java.exe`。
 
 ### 第二步：确认后端连接地址
 
