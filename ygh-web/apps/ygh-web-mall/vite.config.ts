@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
     server: {
+      strictPort: true,
       proxy: {
         "/api": {
           target: env.VITE_GATEWAY_URL || "http://127.0.0.1:8080",

@@ -62,17 +62,15 @@ cd ygh-web
 pnpm install
 pnpm type-check
 pnpm build
-python <webapp-testing>/scripts/with_server.py `
-  --server "pnpm --filter @ygh/web-mall dev" --port 5173 `
-  --server "pnpm --filter @ygh/web-admin dev" --port 5174 `
-  -- python scripts/ui_smoke.py
+python scripts/ui_smoke.py --target mall
+python scripts/ui_smoke.py --target admin
 ```
 
 结果：
 
 - 三个工作区包严格 TypeScript 检查通过；
 - Mall 与 Admin 生产构建通过；
-- Playwright 巡检商城公共区 6 条、用户工作台 6 条、后台 8 条路由；
+- Playwright 在低内存环境中串行巡检商城公共区 6 条、用户工作台 6 条、后台 8 条路由；视觉巡检仅 Mock 登录响应以进入受保护页面，不替代 Auth 真实 E2E；
 - 20 条路由无空白页、无意外 404、无浏览器 Console/Page Error；
 - 已人工检查商城首页与后台总览截图。
 
