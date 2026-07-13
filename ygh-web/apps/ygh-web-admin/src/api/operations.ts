@@ -633,6 +633,14 @@ export const retryProcessingJob = async (id: string): Promise<void> => {
 export const retryIndexJob = async (id: string): Promise<void> => {
     await useHttp().post(`/api/v1/admin/knowledge/index-jobs/${id}/retry`);
 };
+export const rebuildKnowledgeIndex = async (
+    version: string,
+): Promise<{ version: string; queuedDocuments: number }> =>
+    apiData(
+        await useHttp().post("/api/v1/admin/knowledge/index-jobs/rebuild", {
+            version,
+        }),
+    );
 export const listDeadLetters = async (): Promise<DeadLetter[]> =>
     apiData(await useHttp().get("/api/v1/admin/notifications/dead-letters"));
 export const listNotificationTemplates = async (): Promise<

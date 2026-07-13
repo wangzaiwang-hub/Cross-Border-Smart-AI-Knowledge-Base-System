@@ -10,6 +10,7 @@ import {
     reviewKnowledge,
     retryIndexJob,
     retryProcessingJob,
+    rebuildKnowledgeIndex,
     uploadKnowledge,
     type KnowledgeDocument,
     type KnowledgeJob,
@@ -21,6 +22,7 @@ const processing = ref<KnowledgeJob[]>([]);
 const indexing = ref<KnowledgeJob[]>([]);
 const uploadDialog = ref(false);
 const uploading = ref(false);
+const rebuilding = ref(false);
 const file = ref<File>();
 const form = reactive({ title: "", category: "政策法规" });
 async function load() {
@@ -92,6 +94,32 @@ async function offline(document: KnowledgeDocument) {
         ElMessage.error("下线失败");
     }
 }
+async function rebuild() {
+    const defaultVersion = `knowledge-v${new Date()
+        .toISOString()
+        .replace(/[-:TZ.]/g, "")}`;
+    const { value } = await ElMessageBox.prompt(
+        "系统将从已发布且未过期的知识重新生成索引任务。旧索引在完成校验和版本切换前仍然可用。",
+        "创建全量索引版本",
+        {
+            inputValue: defaultVersion,
+            inputPattern: /^[a-z0-9][a-z0-9._-]{1,63}$/,
+            inputErrorMessage: "版本只能使用小写字母、数字、点、下划线和连字符",
+            confirmButtonText: "确认创建",
+        },
+    );
+    rebuilding.value = true;
+    try {
+        const result = await rebuildKnowledgeIndex(value);
+        ElMessage.success(`已为 ${result.queuedDocuments} 篇知识创建重建任务`);
+        tab.value = "index";
+        await load();
+    } catch {
+        ElMessage.error("索引重建任务创建失败");
+    } finally {
+        rebuilding.value = false;
+    }
+}
 onMounted(load);
 </script>
 <template>
@@ -101,6 +129,9 @@ onMounted(load);
             <p>上传、安全校验、解析切片、审核、发布与索引版本的完整治理链。</p>
         </div>
         <div>
+            <el-button :loading="rebuilding" @click="rebuild"
+                >全量重建索引</el-button
+            >
             <el-button type="primary" @click="uploadDialog = true"
                 >上传知识</el-button
             ><el-button :icon="Refresh" @click="load">刷新</el-button>
