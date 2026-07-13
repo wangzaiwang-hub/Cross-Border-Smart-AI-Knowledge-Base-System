@@ -369,10 +369,10 @@
 ### P12.4 GitHub 远程交付
 
 - [x] `BE-1260` 固定 GitHub `origin` 并推送已验收阶段基线到 `main`。
-- [ ] `BE-1261` 发布前执行全 Reactor、E2E、Compose、Secret 和许可证最终门禁。
+- [x] `BE-1261` 发布前执行全 Reactor、E2E、Compose、Secret 和许可证最终门禁（58 模块、364 测试、四套 Compose、498 组件 SBOM）。
 - [ ] `BE-1262` 推送 release/feature 分支并通过 Pull Request 完成最终代码审查。
 - [ ] `BE-1263` 合并到 `main`，创建版本标签和发布说明，记录远程 Commit SHA。
-- [ ] `BE-1264` 核验 GitHub 仓库不含 Secret、原始需求文件、运行数据、日志和构建产物。
+- [x] `BE-1264` 核验 GitHub 仓库不含 Secret、原始需求文件、运行数据、日志和构建产物（1,043 个跟踪文件审计通过）。
 
 退出门禁：后端独立完成全部核心业务闭环、测试、容器部署和前端接入材料，不依赖尚未开发的前端证明业务正确。
 
