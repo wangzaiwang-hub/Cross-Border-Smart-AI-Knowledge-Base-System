@@ -32,6 +32,14 @@ class EnterpriseEvaluationDatasetTest {
 
             assertThat(categories)
                     .contains("POLICY", "CUSTOMS", "TRACEABILITY", "RECOMMENDATION");
+            try (var connection = DriverManager.getConnection(
+                            mysql.jdbcUrl(), mysql.username(), mysql.credential());
+                    var statement = connection.prepareStatement(
+                            "SELECT COUNT(*) FROM ai_evaluation_case WHERE expected_refusal=TRUE");
+                    var rows = statement.executeQuery()) {
+                rows.next();
+                assertThat(rows.getInt(1)).isEqualTo(2);
+            }
         }
     }
 }

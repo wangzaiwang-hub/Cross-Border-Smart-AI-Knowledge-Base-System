@@ -173,6 +173,7 @@ export interface EvaluationCase {
     question: string;
     expectedEvidence: string;
     forbiddenAnswer?: string;
+    expectedRefusal: boolean;
     enabled: boolean;
 }
 export interface AiSummary {
@@ -686,9 +687,19 @@ export const createEvaluationCase = async (command: {
     question: string;
     expectedEvidence: string;
     forbiddenAnswer?: string;
+    expectedRefusal: boolean;
     enabled: boolean;
 }): Promise<EvaluationCase> =>
     apiData(await useHttp().post("/api/v1/admin/ai/evaluation-cases", command));
+export const setEvaluationCaseEnabled = async (
+    id: string,
+    enabled: boolean,
+): Promise<EvaluationCase> =>
+    apiData(
+        await useHttp().put(`/api/v1/admin/ai/evaluation-cases/${id}/status`, {
+            enabled,
+        }),
+    );
 export const getAiSummary = async (): Promise<AiSummary> =>
     apiData(await useHttp().get("/api/v1/admin/ai/summary"));
 export const runAiEvaluations = async (): Promise<EvaluationRun[]> =>

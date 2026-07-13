@@ -8,7 +8,13 @@ import java.util.Locale;
 final class EvidenceCoverageEvaluator {
     private static final double PASSING_COVERAGE = 0.60;
 
-    Evaluation evaluate(ChatResponse response, String expectedEvidence, String forbiddenAnswer) {
+    Evaluation evaluate(ChatResponse response, String expectedEvidence, String forbiddenAnswer,
+            boolean expectedRefusal) {
+        if (expectedRefusal) {
+            return response.refused() && "INSUFFICIENT_EVIDENCE".equals(response.refusalReason())
+                    ? new Evaluation(true, 100, null)
+                    : new Evaluation(false, 0, "REFUSAL_EXPECTED");
+        }
         if (response.refused()) return new Evaluation(false, 0, "REFUSED_OR_INSUFFICIENT_EVIDENCE");
         if (response.citations().isEmpty()) return new Evaluation(false, 0, "CITATION_MISSING");
         String searchable = (response.answer() + " " + response.citations().stream()

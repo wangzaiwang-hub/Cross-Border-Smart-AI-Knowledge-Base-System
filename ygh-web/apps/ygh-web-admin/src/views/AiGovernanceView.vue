@@ -8,6 +8,7 @@ import {
     listEvaluationCases,
     listPrompts,
     runAiEvaluations,
+    setEvaluationCaseEnabled,
     type AiSummary,
     type EvaluationCase,
     type EvaluationRun,
@@ -38,6 +39,7 @@ const caseForm = reactive({
     question: "",
     expectedEvidence: "",
     forbiddenAnswer: "",
+    expectedRefusal: false,
     enabled: true,
 });
 async function load() {
@@ -63,6 +65,16 @@ async function run() {
         ElMessage.error("离线评测失败");
     } finally {
         running.value = false;
+    }
+}
+async function changeCaseStatus(item: EvaluationCase) {
+    try {
+        await setEvaluationCaseEnabled(item.id, item.enabled);
+        ElMessage.success(item.enabled ? "评测用例已启用" : "评测用例已停用");
+        summary.value = await getAiSummary();
+    } catch {
+        item.enabled = !item.enabled;
+        ElMessage.error("评测用例状态更新失败");
     }
 }
 async function savePrompt() {
@@ -166,11 +178,17 @@ onMounted(load);
                         prop="expectedEvidence"
                         label="预期证据"
                         min-width="240"
-                    /><el-table-column label="状态"
+                    /><el-table-column label="预期结果"
                         ><template #default="scope"
-                            ><el-tag>{{
-                                scope.row.enabled ? "启用" : "停用"
+                            ><el-tag :type="scope.row.expectedRefusal ? 'warning' : 'success'">{{
+                                scope.row.expectedRefusal ? "应拒答" : "应回答"
                             }}</el-tag></template
+                        ></el-table-column
+                    ><el-table-column label="状态" width="100"
+                        ><template #default="scope"
+                            ><el-switch
+                                v-model="scope.row.enabled"
+                                @change="changeCaseStatus(scope.row)" /></template
                         ></el-table-column
                     ></el-table
                 ><el-button
@@ -269,6 +287,9 @@ onMounted(load);
                     ><el-input
                         v-model="caseForm.forbiddenAnswer"
                         type="textarea" /></el-form-item
+                ><el-form-item label="预期拒答"
+                    ><el-switch v-model="caseForm.expectedRefusal" />
+                    <span class="form-hint">仅用于已审核知识不足时必须拒答的用例</span></el-form-item
                 ><el-form-item label="启用"
                     ><el-switch
                         v-model="caseForm.enabled" /></el-form-item></el-form
@@ -291,4 +312,5 @@ onMounted(load);
     grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
+.form-hint { margin-left: 10px; color: var(--muted); font-size: 12px; }
 </style>
