@@ -53,6 +53,9 @@ const departmentNames = computed(() =>
 const positionNames = computed(() =>
     Object.fromEntries(positions.value.map((x) => [x.id, x.name])),
 );
+function updateDialogVisibility(visible: boolean) {
+    if (!visible) dialog.value = "";
+}
 
 async function load() {
     loading.value = true;
@@ -247,7 +250,8 @@ onMounted(load);
             ></el-tab-pane>
         </el-tabs>
         <el-dialog
-            v-model="dialog"
+            :model-value="Boolean(dialog)"
+            @update:model-value="updateDialogVisibility"
             :title="
                 dialog === 'department'
                     ? '新增部门'

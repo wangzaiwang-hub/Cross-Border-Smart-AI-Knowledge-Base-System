@@ -44,6 +44,10 @@ class OrganizationServiceIntegrationTest {
                 }
             });
             assertThat(employee.positionIds()).containsExactlyInAnyOrder(developer.id(), reviewer.id());
+            assertBusinessError(() -> service.createEmployee(new CreateEmployeeRequest(
+                    "1", "E002", child.id(), Set.of(), LocalDate.of(2026, 7, 2))), ErrorCode.BUSINESS_CONFLICT);
+            assertBusinessError(() -> service.createPosition(
+                    new CreatePositionRequest("DEV", "重复岗位", null)), ErrorCode.BUSINESS_CONFLICT);
             assertThat(service.replacePositions(employee.id(), null).positionIds()).isEmpty();
             assertThat(service.replacePositions(employee.id(), Set.of(reviewer.id())).positionIds()).containsExactly(reviewer.id());
             assertThat(service.changeStatus(employee.id(), "SUSPENDED").status()).isEqualTo("SUSPENDED");
