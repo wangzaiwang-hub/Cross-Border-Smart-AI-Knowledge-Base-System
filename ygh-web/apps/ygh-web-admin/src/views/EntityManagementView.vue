@@ -363,6 +363,9 @@ async function saveCatalog() {
         savingProduct.value = false;
     }
 }
+function updateCatalogDialogVisibility(visible: boolean) {
+    if (!visible) catalogDialog.value = "";
+}
 function format(value: unknown) {
     if (typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value))
         return new Date(value).toLocaleString("zh-CN");
@@ -854,7 +857,8 @@ watch(() => route.fullPath, load, { immediate: true });
         </el-tabs>
     </el-dialog>
     <el-dialog
-        v-model="catalogDialog"
+        :model-value="Boolean(catalogDialog)"
+        @update:model-value="updateCatalogDialogVisibility"
         :title="catalogDialog === 'category' ? '新增商品类目' : '新增商品品牌'"
         width="520"
     >
