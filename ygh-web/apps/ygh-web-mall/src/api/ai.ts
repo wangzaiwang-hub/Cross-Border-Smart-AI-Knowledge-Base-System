@@ -94,6 +94,15 @@ export async function streamChat(
                 result.refused = Boolean(
                     (JSON.parse(event.data) as { refused: boolean }).refused,
                 );
+            else if (event.event === "error") {
+                const value = JSON.parse(event.data) as {
+                    code?: string;
+                    message?: string;
+                };
+                throw new Error(
+                    value.message || "AI 服务暂不可用，请稍后重试",
+                );
+            }
         },
         signal,
     );

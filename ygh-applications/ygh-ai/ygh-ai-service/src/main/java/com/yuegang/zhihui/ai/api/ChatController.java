@@ -8,6 +8,8 @@ import com.yuegang.zhihui.common.web.TraceIdResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,6 +20,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 @RequestMapping("/api/v1/ai/chat")
 public final class ChatController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatController.class);
     private final ChatService service;
     private final AiUserResolver users;
 
@@ -49,7 +52,17 @@ public final class ChatController {
                 emitter.send(SseEmitter.event().name("done").data(Map.of("refused", response.refused())));
                 emitter.complete();
             } catch (Exception exception) {
-                emitter.completeWithError(exception);
+                LOGGER.warn("ai_stream_failed type={}", exception.getClass().getSimpleName());
+                try {
+                    emitter.send(SseEmitter.event().name("error").data(Map.of(
+                            "code", "AI_RESPONSE_UNAVAILABLE",
+                            "message", "AI 模型暂不可用，请在后台检查对话模型或 Endpoint ID")));
+                    emitter.complete();
+                } catch (Exception sendException) {
+                    LOGGER.debug("ai_stream_error_event_failed type={}",
+                            sendException.getClass().getSimpleName());
+                    emitter.complete();
+                }
             }
         });
         return emitter;

@@ -330,7 +330,7 @@ onMounted(load);
                         <el-option v-for="model in embeddingModels" :key="model" :label="model" :value="model" />
                     </el-select>
                 </el-form-item>
-                <el-text type="info">如果火山引擎控制台为账号分配的是 Endpoint ID，可直接输入；当前账号可用模型由火山引擎账号权限决定。</el-text>
+                <el-text type="info">如果火山引擎控制台为账号分配的是 Endpoint ID，请直接输入。对话模型与向量模型必须在当前 Ark 账号中已开通；向量模型不可用时系统会自动降级为全文检索，知识问答仍可继续。</el-text>
             </el-form>
             <template #footer>
                 <el-button @click="providerDialog = false">取消</el-button>

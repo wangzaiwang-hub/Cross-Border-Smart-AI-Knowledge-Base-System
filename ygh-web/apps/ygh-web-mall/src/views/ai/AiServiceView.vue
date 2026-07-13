@@ -21,6 +21,7 @@ const route = useRoute();
 const input = ref(String(route.query.q || ""));
 const sending = ref(false);
 const scroll = ref<HTMLElement>();
+const composer = ref<{ focus: () => void }>();
 const welcome: ChatMessage = {
     id: "welcome",
     role: "ASSISTANT",
@@ -93,6 +94,13 @@ function newChat() {
     controller?.abort();
     conversationId.value = undefined;
     messages.value = [welcome];
+    input.value = "";
+    feedbackMessages.value.clear();
+    nextTick(() => {
+        scroll.value?.scrollTo({ top: 0 });
+        composer.value?.focus();
+    });
+    ElMessage.success("已开始新会话");
 }
 async function send() {
     const text = input.value.trim();
@@ -142,8 +150,12 @@ async function send() {
         await loadConversations();
     } catch (error) {
         if ((error as Error).name !== "AbortError") {
-            answer.content = "回答生成失败，请稍后重试。";
-            ElMessage.error("AI 流式回答失败");
+            const detail = error instanceof Error ? error.message : "";
+            const message = detail.startsWith("AI 模型")
+                ? detail
+                : "AI 服务暂不可用，请稍后重试";
+            answer.content = message;
+            ElMessage.error(message);
         }
     } finally {
         sending.value = false;
@@ -180,6 +192,7 @@ onMounted(loadConversations);
             <button
                 v-for="c in conversations"
                 :key="c.id"
+                :class="{ active: c.id === conversationId }"
                 @click="openConversation(c.id)"
             >
                 <ChatDotRound /><span
@@ -271,6 +284,7 @@ onMounted(loadConversations);
                 </div>
                 <div class="composer">
                     <el-input
+                        ref="composer"
                         v-model="input"
                         type="textarea"
                         :autosize="{ minRows: 2, maxRows: 5 }"
@@ -351,6 +365,10 @@ onMounted(loadConversations);
 }
 .ai-shell aside > button:hover {
     background: rgba(255, 255, 255, 0.07);
+}
+.ai-shell aside > button.active {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
 }
 .ai-shell aside > button svg {
     width: 15px;

@@ -35,6 +35,10 @@ Set-Location F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev
 .\scripts\local-profile.ps1 -Mode stop
 ```
 
+在 Docker Desktop 3GB 内存上限下联调 AI 时，Elasticsearch 与全部 Java 服务无法同时常驻。保留
+`gateway/auth/user/system/product/order/knowledge/search/ai`，并停止
+`inventory/wallet/training/notification/admin` 后再启动 `ai-deps`；切换模块时重新启动对应服务。
+
 `.env` 是本机密钥文件，不得提交、复制到文档或粘贴到日志。
 
 ## WSL 与 Docker Desktop

@@ -113,15 +113,17 @@ services:
     environment:
       discovery.type: single-node
       xpack.security.enabled: "true"
+      xpack.ml.enabled: "false"
+      ingest.geoip.downloader.enabled: "false"
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?required}
-      ES_JAVA_OPTS: -Xms768m -Xmx768m
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
       - "19200:9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     networks: [ygh-local]
-    mem_limit: 1536m
-    cpus: 1.50
+    mem_limit: 1024m
+    cpus: 1.00
     stop_grace_period: 60s
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -u elastic:$${ELASTIC_PASSWORD} http://127.0.0.1:9200/_cluster/health >/dev/null"]
