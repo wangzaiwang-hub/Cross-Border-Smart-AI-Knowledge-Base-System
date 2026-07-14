@@ -1,6 +1,8 @@
 # Redis 8.4.4 手工安装、配置与 Docker 迁移操作文档
 
-## 第一部分：手动下载、上传并安装 Redis 源码版
+## 第一部分：在 Rocky Linux 虚拟机中准备临时源码版 Redis
+
+这一部分的源码版 Redis 只用于准备 `redis.conf`、验证参数和生成迁移数据，不是本项目最终长期运行的 Redis。完成后必须停止源码版 Redis，再把配置和数据迁移到同一台 Rocky Linux 虚拟机里的 Docker 容器。
 
 ### 1. 源码包准备与解压
 
@@ -156,9 +158,9 @@ vim /etc/hosts
 
 本项目直接使用 `bind 127.0.0.1 192.168.154.10`。如果客户虚拟机的固定服务地址不是 `192.168.154.10`，这里只替换为客户实际固定 IP。源码编译保留 TLS 能力，但当前项目 Java 配置没有启用 Redis TLS，不要只开启 Redis TLS 端口后直接启动项目。
 
-### 8. 启动服务与网络检查
+### 8. 临时启动源码版 Redis 并检查网络
 
-指定配置文件启动 `Redis` 服务，并检查端口监听状态。
+以下命令在 Rocky Linux 虚拟机系统中临时启动源码版 Redis，并检查端口监听状态。这个进程只运行到 Docker 迁移前，不能和后面的 Docker Redis 同时运行。
 
 ```bash
 # 启动服务
@@ -231,7 +233,7 @@ vim /usr/local/redis/conf/redis.conf
 
 
 
-# Docker 安装步骤
+# 第二部分：在 Rocky Linux 虚拟机内部手动安装 Docker
 
 开始安装前，先在 Rocky Linux 虚拟机确认网络。以下三条都成功后再继续：
 
@@ -395,9 +397,11 @@ sudo usermod -aG docker $USER
 
 
 
-# 手动迁移 Redis 到 Docker
+# 第三部分：停止源码版并把 Redis 最终迁移到虚拟机 Docker 容器
 
-将源码编译安装的 Redis 8.4.4 迁移到 Docker 中，核心逻辑是：**“导出原始数据（RDB文件）+ 提取核心配置 + 启动版本匹配的容器”**。
+这里的 Docker Engine 安装在 Rocky Linux 虚拟机内部。迁移完成后的唯一 Redis 服务是该虚拟机 Docker 中名为 `ygh-redis` 的容器；Windows IDEA 通过 `192.168.154.10:6379` 访问它。源码版 Redis 必须停止，不再作为项目服务运行。
+
+迁移的核心操作是：**导出源码版数据（RDB 文件）→ 复制并修改配置 → 停止源码版进程 → 启动虚拟机内的 Redis Docker 容器**。
 
 ### 第一步：手动拉取项目固定版本的 Redis 镜像
 
@@ -446,7 +450,18 @@ cp /usr/local/redis/conf/redis.conf /opt/docker_redis/conf/
 chown -R 999:999 /opt/docker_redis/data
 ```
 
-#### 2. 针对容器环境的配置修正（重点检查项）
+#### 2. 停止虚拟机系统中的源码版 Redis
+
+数据和配置复制完成后，立即停止源码版 Redis，释放 6379 端口：
+
+```bash
+/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD shutdown
+ss -lntp | grep ':6379' || echo '源码版 Redis 已停止，6379 端口已释放'
+```
+
+把 `CHANGE_TO_STRONG_PASSWORD` 替换为源码版 Redis 的真实密码。必须看到端口已经释放，才能继续。此后不要再启动 `/usr/local/redis/bin/redis-server`。
+
+#### 3. 针对容器环境的配置修正（重点检查项）
 
 ```
 vim /opt/docker_redis/conf/redis.conf
@@ -651,7 +666,10 @@ redis-server:6379> EXIT
 为了释放 6379 端口给 Docker 使用：
 ```bash
 killall redis-server
+ss -lntp | grep ':6379' || echo '源码版 Redis 已停止，6379 端口已释放'
 ```
+
+执行后必须看到“源码版 Redis 已停止，6379 端口已释放”，才能启动 Docker Redis。迁移完成后不要再执行 `/usr/local/redis/bin/redis-server`。
 
 ---
 
@@ -710,6 +728,8 @@ docker run -d \
   redis-server /etc/redis/redis.conf
 ```
 
+这条命令执行在 Rocky Linux 虚拟机 SSH 终端，但 Redis 进程实际运行在该虚拟机的 Docker 容器 `ygh-redis` 中，不是直接运行在虚拟机系统中。
+
 **指令解释：**
 - `-v .../redis.conf:/etc/redis/redis.conf`: 把虚拟机宿主系统中修改好的配置挂载进去。
 - `-v .../data:/data`: 把存有 `dump.rdb` 的目录挂载到容器数据目录。Redis 启动时会自动加载这个文件还原数据。
@@ -731,7 +751,7 @@ docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD
 
 #### 2. 修改 Spring Boot 配置
 
-本项目 Java 服务在 Windows 本机 IDEA 中运行，Redis 在 Rocky Linux 虚拟机 Docker 中运行。代码不需要上传到 Redis，Java 服务通过虚拟机 IP 连接 Redis。
+本项目 Java 服务在 Windows 本机 IDEA 中运行，Redis 最终且唯一运行在 Rocky Linux 虚拟机内的 Docker 容器 `ygh-redis` 中。代码不需要上传到 Redis，Java 服务通过虚拟机 IP 连接 Redis。
 
 在 IDEA 右上角点击运行配置 → `Edit Configurations...` → 选择服务 → `Environment variables`，添加：
 
