@@ -82,9 +82,9 @@ public final class HybridSearchService {
 
     private List<Raw> lexicalSearch(SearchRequest request, List<String> visibilities) {
         List<Object> filters = new ArrayList<>();
-        filters.add(Map.of("terms", Map.of("visibility.keyword", visibilities)));
+        filters.add(Map.of("terms", Map.of("visibility", visibilities)));
         if (request.category() != null) {
-            filters.add(Map.of("term", Map.of("category.keyword", request.category())));
+            filters.add(Map.of("term", Map.of("category", request.category())));
         }
         try {
             Map<?, ?> body = elastic.post().uri("/" + alias + "/_search").body(Map.of(

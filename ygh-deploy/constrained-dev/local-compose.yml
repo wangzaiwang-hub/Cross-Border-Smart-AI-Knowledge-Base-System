@@ -122,7 +122,7 @@ services:
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     networks: [ygh-local]
-    mem_limit: 1024m
+    mem_limit: 1280m
     cpus: 1.00
     stop_grace_period: 60s
     healthcheck:
