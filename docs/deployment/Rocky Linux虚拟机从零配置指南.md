@@ -227,22 +227,21 @@ VMware Workstation Pro
 
 ```text
 ISO 文件下载到 Windows 本机电脑。
-建议保存路径：D:\ISO\Rocky-9.6-x86_64-minimal.iso
+建议保存路径：D:\ISO\Rocky-10.2-x86_64-minimal.iso
 ISO 只是安装镜像，不是项目运行目录。
 ```
 
 浏览器打开：
 
 ```text
-https://rockylinux.org/download
+https://download.rockylinux.org/pub/rocky/10/isos/x86_64/
 ```
 
 点击：
 
 ```text
-Rocky Linux 9
-x86_64
-Minimal ISO
+Rocky-10.2-x86_64-minimal.iso
+Rocky-10.2-x86_64-minimal.iso.CHECKSUM
 ```
 
 执行后的结果：
@@ -250,12 +249,26 @@ Minimal ISO
 下载到 ISO 文件，例如：
 
 ```text
-D:\ISO\Rocky-9.6-x86_64-minimal.iso
+D:\ISO\Rocky-10.2-x86_64-minimal.iso
+D:\ISO\Rocky-10.2-x86_64-minimal.iso.CHECKSUM
 ```
 
 需要修改的内容：
 
-ISO 文件名以客户实际下载为准。不要下载 Live 镜像，建议下载 Minimal ISO。
+本文固定使用 Rocky Linux 10.2 x86_64 Minimal。不要下载 `latest`、Live、Boot、DVD 或 aarch64 镜像。
+
+下载完成后打开 Windows PowerShell，输入：
+
+```powershell
+$actual=(Get-FileHash 'D:\ISO\Rocky-10.2-x86_64-minimal.iso' -Algorithm SHA256).Hash.ToLowerInvariant()
+$line=Get-Content 'D:\ISO\Rocky-10.2-x86_64-minimal.iso.CHECKSUM' | Where-Object {$_ -match 'Rocky-10\.2-x86_64-minimal\.iso$'}
+$expected=($line -split '=')[1].Trim().ToLowerInvariant()
+$actual
+$expected
+$actual -eq $expected
+```
+
+执行后的结果：两个 SHA256 完全相同，最后一行为 `True`。不是 `True` 时删除 ISO 并从 Rocky 官方仓库重新下载，不能继续安装。
 
 ### 第四步：创建虚拟机
 
@@ -331,7 +344,7 @@ ygh-rocky-dev
 安装到 VMware 虚拟机内部。
 不是安装到 Windows 本机程序目录。
 安装完成后，Rocky Linux 的系统目录在虚拟机内部，例如 /、/home、/opt。
-后续项目部署目录使用：/opt/ygh/constrained-dev
+后续组件配置和镜像目录统一放在：/opt/ygh
 ```
 
 启动虚拟机。
@@ -339,7 +352,7 @@ ygh-rocky-dev
 选择：
 
 ```text
-Install Rocky Linux 9
+Install Rocky Linux 10.2
 ```
 
 进入安装界面后配置：
@@ -632,332 +645,7 @@ sudo systemctl restart sshd
 
 ---
 
-## 第五部分：手动准备项目配置
-
-### 第一步：确认虚拟机里到底安装什么
-
-本项目 Java 服务由客户在 Windows IDEA 里启动，虚拟机里不安装 JDK。
-
-安装位置：
-
-```text
-虚拟机里只安装：Rocky Linux、OpenSSH Server、Docker Engine、Docker Compose Plugin、firewalld。
-Windows 本机安装：JDK 25、IDEA、Node.js、pnpm、Docker Desktop、WSL2。
-虚拟机 Docker 容器运行：MySQL、Redis、Nacos、PGVector。
-Windows Docker Desktop 运行：RocketMQ、Seata、Elasticsearch。
-```
-
-虚拟机只安装：
-
-```text
-Rocky Linux 9
-OpenSSH Server
-Docker Engine
-Docker Compose Plugin
-firewalld
-```
-
-Docker 里运行：
-
-```text
-MySQL 8.4.10
-Redis 8.4.4
-Nacos 3.1.1
-PostgreSQL 17 + PGVector 0.8.5
-```
-
-执行后的结果：
-
-Windows IDEA 启动 Java 服务，Java 服务连接虚拟机里的 MySQL、Redis、Nacos、PGVector。
-
-需要修改的内容：
-
-不要在虚拟机里手工安装 JDK，不要把 JDK 上传到 `/opt/software/jdk`。
-
-### 第二步：打开部署目录
-
-操作位置：
-
-```text
-在 Windows 本机 PowerShell 操作。
-Windows 项目目录：F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev
-后面会复制到虚拟机目录：/opt/ygh/constrained-dev
-```
-
-在 Windows PowerShell 输入：
-
-```powershell
-Set-Location 'F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev'
-```
-
-继续输入：
-
-```powershell
-Get-ChildItem
-```
-
-执行后的结果：
-
-能看到：
-
-```text
-vm-compose.yml
-.env.example
-mysql
-postgres
-scripts
-```
-
-需要修改的内容：
-
-如果客户项目解压路径不是 `F:\跨境智汇AI知识库系统`，把命令里的路径换成客户实际项目路径。
-
-### 第三步：手动创建 .env
-
-文件位置：
-
-```text
-先在 Windows 本机创建：F:\跨境智汇AI知识库系统\ygh-deploy\constrained-dev\.env
-再复制到 Rocky Linux 虚拟机：/opt/ygh/constrained-dev/.env
-这个文件不是 Docker 镜像，不放到 WSL2，不放进交付压缩包，不截图发给别人。
-```
-
-输入：
-
-```powershell
-Copy-Item .\.env.example .\.env
-```
-
-继续输入：
-
-```powershell
-notepad .\.env
-```
-
-执行后的结果：
-
-记事本打开 `.env`。
-
-需要修改的内容：
-
-把 `.env` 里的所有：
-
-```text
-change-me
-base64-at-least-32-bytes
-base64-exactly-32-bytes
-```
-
-全部替换成客户自己的随机值。
-
-### 第四步：生成普通密码并填入 .env
-
-在 Windows PowerShell 输入：
-
-```powershell
-$b=New-Object byte[] 24; [System.Security.Cryptography.RandomNumberGenerator]::Fill($b); [Convert]::ToBase64String($b).TrimEnd('=').Replace('+','A').Replace('/','B')
-```
-
-执行后的结果：
-
-输出一串随机密码，例如：
-
-```text
-Vh2x9...省略
-```
-
-需要修改的内容：
-
-每执行一次，复制输出值，填入 `.env` 中一个密码项。以下字段都要分别生成，不要全部用同一个密码：
-
-```text
-MYSQL_ROOT_PASSWORD
-NACOS_DB_PASSWORD
-AUTH_DB_APP_PASSWORD
-AUTH_DB_MIGRATION_PASSWORD
-USER_DB_APP_PASSWORD
-USER_DB_MIGRATION_PASSWORD
-SYSTEM_DB_APP_PASSWORD
-SYSTEM_DB_MIGRATION_PASSWORD
-YGH_PRODUCT_DB_APP_PASSWORD
-YGH_PRODUCT_DB_MIGRATION_PASSWORD
-YGH_INVENTORY_DB_APP_PASSWORD
-YGH_INVENTORY_DB_MIGRATION_PASSWORD
-YGH_ORDER_DB_APP_PASSWORD
-YGH_ORDER_DB_MIGRATION_PASSWORD
-YGH_WALLET_DB_APP_PASSWORD
-YGH_WALLET_DB_MIGRATION_PASSWORD
-YGH_KNOWLEDGE_DB_APP_PASSWORD
-YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD
-YGH_AI_DB_APP_PASSWORD
-YGH_AI_DB_MIGRATION_PASSWORD
-YGH_TRAINING_DB_APP_PASSWORD
-YGH_TRAINING_DB_MIGRATION_PASSWORD
-YGH_NOTIFICATION_DB_APP_PASSWORD
-YGH_NOTIFICATION_DB_MIGRATION_PASSWORD
-REDIS_PASSWORD
-NACOS_AUTH_IDENTITY_KEY
-NACOS_AUTH_IDENTITY_VALUE
-NACOS_ADMIN_PASSWORD
-POSTGRES_PASSWORD
-ELASTIC_PASSWORD
-SEATA_PASSWORD
-```
-
-### 第五步：生成 Base64 密钥并填入 .env
-
-在 Windows PowerShell 输入：
-
-```powershell
-$b=New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Fill($b); [Convert]::ToBase64String($b)
-```
-
-执行后的结果：
-
-输出一个 32 字节 Base64 密钥。
-
-需要修改的内容：
-
-分别生成并填入：
-
-```text
-USER_PII_KEY_BASE64
-AUTH_AUDIT_PEPPER_BASE64
-INTERNAL_REQUEST_HMAC_BASE64
-```
-
-继续输入：
-
-```powershell
-$b=New-Object byte[] 48; [System.Security.Cryptography.RandomNumberGenerator]::Fill($b); [Convert]::ToBase64String($b)
-```
-
-执行后的结果：
-
-输出一个更长的 Base64 Token。
-
-需要修改的内容：
-
-填入：
-
-```text
-NACOS_AUTH_TOKEN
-```
-
-### 第六步：检查 .env 是否还有占位符
-
-保存并关闭记事本。
-
-在 Windows PowerShell 输入：
-
-```powershell
-Select-String -Path .\.env -Pattern 'change-me|base64-at-least-32-bytes|base64-exactly-32-bytes'
-```
-
-执行后的结果：
-
-没有任何输出。
-
-需要修改的内容：
-
-如果还有输出，说明 `.env` 还没改完，重新打开：
-
-```powershell
-notepad .\.env
-```
-
-继续修改。
-
-### 第七步：如果虚拟机 IP 不是默认值，修改 vm-compose.yml
-
-默认虚拟机 IP 是：
-
-```text
-192.168.154.10
-```
-
-如果客户实际 IP 不是这个，在 Windows PowerShell 输入：
-
-```powershell
-notepad .\vm-compose.yml
-```
-
-把所有：
-
-```text
-192.168.154.10
-```
-
-替换成客户实际虚拟机 IP，例如：
-
-```text
-192.168.80.10
-```
-
-保存后输入：
-
-```powershell
-Select-String -Path .\vm-compose.yml -Pattern '192.168'
-```
-
-执行后的结果：
-
-输出中的 IP 必须全部是客户实际虚拟机 IP。
-
-需要修改的内容：
-
-只改端口绑定 IP，不要改镜像版本、服务名、volume 名。
-
-### 第八步：复制部署目录到虚拟机
-
-在 Windows PowerShell 输入：
-
-```powershell
-ssh wang@192.168.154.10 'sudo mkdir -p /opt/ygh; sudo chown -R wang:wang /opt/ygh'
-```
-
-继续输入：
-
-```powershell
-ssh wang@192.168.154.10 'if [ -d /opt/ygh/constrained-dev ]; then mv /opt/ygh/constrained-dev /opt/ygh/constrained-dev.bak-$(date +%Y%m%d-%H%M%S); fi; mkdir -p /opt/ygh/constrained-dev'
-```
-
-继续输入：
-
-```powershell
-scp -r .\* wang@192.168.154.10:/opt/ygh/constrained-dev/
-```
-
-继续输入：
-
-```powershell
-scp .\.env wang@192.168.154.10:/opt/ygh/constrained-dev/.env
-```
-
-继续输入：
-
-```powershell
-ssh wang@192.168.154.10 'ls -la /opt/ygh/constrained-dev | head'
-```
-
-执行后的结果：
-
-能看到：
-
-```text
-.env
-vm-compose.yml
-mysql
-postgres
-```
-
-需要修改的内容：
-
-如果用户名或 IP 不同，替换所有 `wang@192.168.154.10`。
-
----
-
-## 第六部分：手动安装 Docker
+## 第五部分：手动安装和验证 Docker Engine
 
 ### 第一步：卸载冲突组件
 
@@ -1031,14 +719,13 @@ curl -I https://download.docker.com/linux/centos/docker-ce.repo
 
 如果公司网络拦截，需要让客户网络放通 Docker 官方下载站，或使用客户公司允许的软件源。
 
-### 第四步：安装 Docker Engine 和 Compose 插件
+### 第四步：安装 Docker Engine
 
 安装位置：
 
 ```text
 安装到 Rocky Linux 虚拟机里。
 Docker 命令路径：/usr/bin/docker
-Docker Compose 插件路径通常为：/usr/libexec/docker/cli-plugins/docker-compose
 Docker 配置文件：/etc/docker/daemon.json
 Docker 数据目录：/var/lib/docker
 不安装到 Windows Docker Desktop，也不安装到 WSL2。
@@ -1047,7 +734,7 @@ Docker 数据目录：/var/lib/docker
 输入：
 
 ```bash
-sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
 ```
 
 执行后的结果：
@@ -1058,19 +745,7 @@ sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 Complete!
 ```
 
-需要修改的内容：
-
-不要只安装 `docker` 命令，必须同时安装 `docker-compose-plugin`，因为项目使用的是：
-
-```bash
-docker compose
-```
-
-不是：
-
-```bash
-docker-compose
-```
+需要修改的内容：本文每个组件都使用独立的 `docker pull`、`docker run`、`docker stop` 和 `docker start`，不需要安装或调用 Compose 插件。
 
 ### 第五步：手动写入 Docker 配置
 
@@ -1100,10 +775,6 @@ sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
   },
   "live-restore": true,
   "storage-driver": "overlay2",
-  "registry-mirrors": [
-    "https://docker.m.daocloud.io",
-    "https://docker.1ms.run"
-  ],
   "default-address-pools": [
     { "base": "172.30.0.0/16", "size": 24 }
   ]
@@ -1123,7 +794,7 @@ sudo dockerd --validate --config-file=/etc/docker/daemon.json
 
 需要修改的内容：
 
-如果客户现场有指定 Docker 镜像代理，把 `registry-mirrors` 改成客户自己的代理地址。
+此时先不写镜像代理。Docker 启动后在第十步逐个测试，只有现场可用且符合客户安全要求的地址才写入 `registry-mirrors`。
 
 ### 第六步：启动 Docker
 
@@ -1202,12 +873,6 @@ docker version
 继续输入：
 
 ```bash
-docker compose version
-```
-
-继续输入：
-
-```bash
 docker info --format 'Docker={{.ServerVersion}} Cgroup={{.CgroupVersion}} Driver={{.Driver}}'
 ```
 
@@ -1220,8 +885,6 @@ docker
 ```
 
 `docker version` 正常输出客户端和服务端版本。
-
-`docker compose version` 正常输出 Compose 插件版本。
 
 需要修改的内容：
 
@@ -1259,40 +922,49 @@ Status: Downloaded newer image for alpine:latest
 
 如果失败，继续下一步处理 Docker 镜像封锁。
 
-### 第十步：处理 Docker Hub 被封或超时
+### 第十步：逐个测试镜像地址并配置可用镜像源
 
-先输入：
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
+
+先测试 Docker Hub 官方 Registry：
 
 ```bash
-ping -c 4 223.5.5.5
+curl -I --connect-timeout 10 https://registry-1.docker.io/v2/
 ```
 
-继续输入：
+**执行后的结果**：
+
+1. 返回 `HTTP/1.1 401 Unauthorized` 说明网络已经到达 Docker Registry；401 是未登录探测的正常结果。
+2. `Could not resolve host` 说明 DNS 仍未修好，回到第三部分第三步。
+3. `Connection timed out` 或 TLS 失败说明当前网络无法直连 Docker Hub。
+
+官方地址不可用时，逐个测试候选地址，每次只输入一条：
 
 ```bash
-ping -c 4 registry-1.docker.io
+curl -I --connect-timeout 10 https://docker.m.daocloud.io/v2/
 ```
 
-继续输入：
-
 ```bash
-curl -I https://registry-1.docker.io/v2/
+curl -I --connect-timeout 10 https://docker.1ms.run/v2/
 ```
 
-执行后的结果：
+**执行后的结果**：只有能返回 HTTP 响应且 TLS 证书校验正常的地址才可使用。公共代理可用性会变化；客户有自建 Harbor 或合规代理时优先使用单位地址。
 
-如果 `223.5.5.5` 都不通，说明 VMware NAT 没配好。
-
-如果 IP 能通但域名不通，说明 DNS 没配好。
-
-如果能访问网络但 `docker pull` 超时，通常是 Docker Hub 被封或镜像代理不可用。
-
-需要修改的内容：
-
-手动改 Docker 镜像代理。输入：
+先备份当前 Docker 配置：
 
 ```bash
-sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+sudo cp -a /etc/docker/daemon.json /etc/docker/daemon.json.bak.$(date +%Y%m%d-%H%M%S)
+```
+
+输入：
+
+```bash
+sudo vi /etc/docker/daemon.json
+```
+
+按 `i` 编辑。保留原来的日志、存储驱动和地址池，只在 `registry-mirrors` 中填写刚实测可用的一个地址：
+
+```json
 {
   "log-driver": "json-file",
   "log-opts": {
@@ -1302,117 +974,63 @@ sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
   "live-restore": true,
   "storage-driver": "overlay2",
   "registry-mirrors": [
-    "https://docker.m.daocloud.io",
-    "https://dockerproxy.com",
-    "https://dockerpull.com",
-    "https://docker.1panel.live",
     "https://docker.1ms.run"
   ],
   "default-address-pools": [
     { "base": "172.30.0.0/16", "size": 24 }
   ]
 }
-EOF
 ```
 
-继续输入：
+按 `Esc`，输入 `:wq` 并回车。逐条输入：
 
 ```bash
 sudo dockerd --validate --config-file=/etc/docker/daemon.json
 ```
 
-继续输入：
-
 ```bash
 sudo systemctl restart docker
 ```
 
-继续输入：
-
 ```bash
-docker pull alpine
+docker info | sed -n '/Registry Mirrors/,+4p'
 ```
 
-执行后的结果：
-
-能拉取 `alpine`。
-
-如果仍然失败，使用离线导入镜像。
-
-### 第十一步：离线导入项目镜像
-
-在一台能访问 Docker Hub 的机器输入：
-
 ```bash
+docker pull alpine:latest
+```
+
+**执行后的结果**：配置校验无错误，Docker 为 active，`docker info` 显示实际镜像地址，Alpine 拉取成功。
+
+**需要修改的内容**：示例 `https://docker.1ms.run` 必须替换为客户现场实测可用且符合安全要求的地址。失败时从实际备份文件恢复后重启 Docker，不要继续叠加未知代理。
+
+### 第十一步：网络受限时逐个离线导入组件镜像
+
+**在哪里操作**：可联网 Windows 电脑 PowerShell、WinSCP、Rocky Linux SSH 终端。
+
+进入后续组件文档时，只为当前组件执行 `docker pull`、`docker save`、SHA256、WinSCP 上传和 `docker load`。不要把全部组件打成一个不透明大包。
+
+以 MySQL 为例，在可联网电脑输入：
+
+```powershell
 docker pull mysql:8.4.10
+docker save -o 'D:\ygh-images\mysql-8.4.10.tar' mysql:8.4.10
+Get-FileHash 'D:\ygh-images\mysql-8.4.10.tar' -Algorithm SHA256
 ```
 
-继续输入：
+用 WinSCP 上传到 `/opt/ygh/images/mysql-8.4.10.tar`。在虚拟机输入：
 
 ```bash
-docker pull redis:8.4.4
+sha256sum /opt/ygh/images/mysql-8.4.10.tar
+docker load -i /opt/ygh/images/mysql-8.4.10.tar
+docker image inspect mysql:8.4.10 --format '{{.RepoTags}} {{.Architecture}} {{.Os}}'
 ```
 
-继续输入：
+**执行后的结果**：Windows 与虚拟机 SHA256 一致，当前镜像标签和架构正确。然后进入当前组件文档创建目录、配置、密码、容器和数据卷；不要执行 Compose。
 
-```bash
-docker pull nacos/nacos-server:v3.1.1
-```
+**下一步做什么**：完成下面的防火墙基础配置，再按总教程依次安装 MySQL、Redis、Nacos 和 PGVector。
 
-继续输入：
-
-```bash
-docker pull pgvector/pgvector:0.8.5-pg17-bookworm
-```
-
-继续输入：
-
-```bash
-docker save -o ygh-vm-images.tar mysql:8.4.10 redis:8.4.4 nacos/nacos-server:v3.1.1 pgvector/pgvector:0.8.5-pg17-bookworm
-```
-
-把 `ygh-vm-images.tar` 拷贝到客户虚拟机，例如放到：
-
-```text
-/opt/ygh/ygh-vm-images.tar
-```
-
-在客户虚拟机输入：
-
-```bash
-cd /opt/ygh
-```
-
-继续输入：
-
-```bash
-docker load -i ygh-vm-images.tar
-```
-
-继续输入：
-
-```bash
-docker images | grep -E 'mysql|redis|nacos|pgvector'
-```
-
-执行后的结果：
-
-能看到：
-
-```text
-mysql                         8.4.10
-redis                         8.4.4
-nacos/nacos-server            v3.1.1
-pgvector/pgvector             0.8.5-pg17-bookworm
-```
-
-需要修改的内容：
-
-离线导入成功后，后面启动项目可以不执行 `pull`，直接执行 `up -d`。
-
----
-
-## 第七部分：手动配置虚拟机防火墙
+## 第六部分：手动配置虚拟机防火墙
 
 ### 第一步：启动 firewalld
 
@@ -1627,1076 +1245,3 @@ sudo firewall-cmd --reload
 ```
 
 ---
-
-## 第八部分：手动启动 MySQL、Redis、Nacos
-
-运行位置：
-
-```text
-MySQL、Redis、Nacos 不安装到 Linux 系统目录。
-它们运行在 Rocky Linux 虚拟机的 Docker 容器里。
-Compose 文件：/opt/ygh/constrained-dev/vm-compose.yml
-环境变量文件：/opt/ygh/constrained-dev/.env
-Docker 数据卷目录由 Docker 管理，底层在：/var/lib/docker/volumes
-MySQL 数据卷：ygh-mysql-data
-Redis 数据卷：ygh-redis-data
-Nacos 数据存在 MySQL 的 nacos_config 库里。
-```
-
-### 第一步：进入部署目录
-
-在 Rocky Linux 输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-```
-
-继续输入：
-
-```bash
-pwd
-```
-
-继续输入：
-
-```bash
-ls -la
-```
-
-执行后的结果：
-
-`pwd` 输出：
-
-```text
-/opt/ygh/constrained-dev
-```
-
-`ls` 能看到：
-
-```text
-.env
-vm-compose.yml
-mysql
-postgres
-```
-
-需要修改的内容：
-
-如果没有 `.env`，回到 Windows 复制 `.env`。
-
-### 第二步：检查 Compose 配置
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core config >/dev/null
-```
-
-继续输入：
-
-```bash
-echo $?
-```
-
-执行后的结果：
-
-看到：
-
-```text
-0
-```
-
-需要修改的内容：
-
-如果报：
-
-```text
-required variable ... is missing
-```
-
-说明 `.env` 缺字段，回 Windows 打开 `.env` 补全。
-
-### 第三步：拉取核心镜像
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core pull
-```
-
-执行后的结果：
-
-会拉取：
-
-```text
-mysql:8.4.10
-redis:8.4.4
-nacos/nacos-server:v3.1.1
-```
-
-需要修改的内容：
-
-如果已经离线导入镜像，这一步可以跳过。
-
-如果拉取失败，回到 Docker 镜像封锁处理步骤。
-
-### 第四步：启动核心组件
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core up -d
-```
-
-执行后的结果：
-
-看到类似：
-
-```text
-Container ygh-vm-mysql-1  Started
-Container ygh-vm-redis-1  Started
-Container ygh-vm-nacos-1  Started
-```
-
-需要修改的内容：
-
-第一次启动 MySQL 会自动读取 `mysql/init` 目录里的项目初始化文件，创建 Nacos 库、认证库、用户库、系统库和业务库。
-
-这些初始化文件由 MySQL 容器入口自动读取，不需要客户手工执行，也不需要客户手工建库。
-
-### 第五步：查看容器状态
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core ps
-```
-
-执行后的结果：
-
-最终应该看到：
-
-```text
-mysql   healthy
-redis   healthy
-nacos   healthy
-```
-
-需要修改的内容：
-
-如果 Nacos 暂时是 `starting`，等待 1 到 3 分钟后再次执行同一条命令。
-
-### 第六步：查看启动日志
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core logs --tail=80 mysql
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core logs --tail=80 redis
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core logs --tail=120 nacos
-```
-
-执行后的结果：
-
-没有反复重启、密码错误、端口占用、数据库连接失败。
-
-需要修改的内容：
-
-如果日志提示端口绑定失败，检查 `vm-compose.yml` 里的 IP 是否就是虚拟机 IP。
-
-### 第七步：验证 MySQL
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -h 127.0.0.1 -uroot --silent'
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -Nse "SELECT 1"'
-```
-
-执行后的结果：
-
-第一条没有报错。
-
-第二条输出：
-
-```text
-1
-```
-
-需要修改的内容：
-
-如果提示认证失败，检查 `.env` 里的 `MYSQL_ROOT_PASSWORD`。如果这是第一次启动后才发现密码写错，需要先确认是否允许删除测试数据卷；不要直接删除客户数据卷。
-
-### 第八步：验证 Redis
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping'
-```
-
-执行后的结果：
-
-看到：
-
-```text
-PONG
-```
-
-需要修改的内容：
-
-如果提示认证失败，检查 `.env` 里的 `REDIS_PASSWORD`。
-
-### 第九步：验证 Nacos
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T nacos curl -fsS http://127.0.0.1:8848/nacos/v3/admin/core/state/readiness
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T nacos curl -fsS http://127.0.0.1:8080/v3/console/health/readiness
-```
-
-执行后的结果：
-
-命令正常返回，不报错。
-
-需要修改的内容：
-
-如果失败，先看 Nacos 日志：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core logs --tail=200 nacos
-```
-
-### 第十步：手动初始化 Nacos 管理员密码
-
-输入：
-
-```bash
-set -a
-```
-
-继续输入：
-
-```bash
-. ./.env
-```
-
-继续输入：
-
-```bash
-set +a
-```
-
-继续输入：
-
-```bash
-curl -sS -X POST "http://192.168.154.10:8848/nacos/v3/auth/user/admin" --data-urlencode "password=${NACOS_ADMIN_PASSWORD}"
-```
-
-继续输入：
-
-```bash
-curl -sS -X POST "http://192.168.154.10:8848/nacos/v3/auth/user/login" --data-urlencode "username=nacos" --data-urlencode "password=${NACOS_ADMIN_PASSWORD}"
-```
-
-执行后的结果：
-
-登录接口返回内容中包含：
-
-```text
-accessToken
-```
-
-需要修改的内容：
-
-如果虚拟机 IP 不是 `192.168.154.10`，把 URL 里的 IP 改成客户实际虚拟机 IP。
-
-如果提示用户已存在，可以直接执行登录命令验证。
-
-### 第十一步：Windows 验证端口
-
-在 Windows PowerShell 输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 3306
-```
-
-继续输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 6379
-```
-
-继续输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 8848
-```
-
-继续输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 9848
-```
-
-执行后的结果：
-
-每条都应该看到：
-
-```text
-TcpTestSucceeded : True
-```
-
-需要修改的内容：
-
-如果端口不通，按顺序检查：
-
-```text
-1. 虚拟机 IP 是否正确
-2. vm-compose.yml 端口绑定 IP 是否正确
-3. firewalld rich rule 源地址是否是 Windows VMnet8 IP
-4. 容器是否 healthy
-```
-
----
-
-## 第九部分：手动启动 PGVector
-
-运行位置：
-
-```text
-PGVector 不安装到 Linux 系统目录。
-它运行在 Rocky Linux 虚拟机的 Docker 容器里。
-Compose 文件：/opt/ygh/constrained-dev/vm-compose.yml
-数据卷：ygh-pgvector-data
-底层数据卷目录由 Docker 管理，位于：/var/lib/docker/volumes
-不运行在 Windows Docker Desktop、WSL2 或 IDEA。
-```
-
-### 第一步：确认是否需要启动 PGVector
-
-PGVector 用于 AI 向量数据场景。
-
-如果当前只跑商城、用户、系统、认证等基础服务，可以先不启动 PGVector。
-
-执行后的结果：
-
-低配置电脑可以少占用内存。
-
-需要修改的内容：
-
-需要 AI 知识库向量检索时再启动。
-
-### 第二步：拉取 PGVector 镜像
-
-在 Rocky Linux 输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile ai-data pull pgvector
-```
-
-执行后的结果：
-
-拉取：
-
-```text
-pgvector/pgvector:0.8.5-pg17-bookworm
-```
-
-需要修改的内容：
-
-如果已经离线导入镜像，这一步可以跳过。
-
-### 第三步：启动 PGVector
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile ai-data up -d pgvector
-```
-
-执行后的结果：
-
-看到：
-
-```text
-Container ygh-vm-pgvector-1  Started
-```
-
-需要修改的内容：
-
-PGVector 端口是 `5432`，密码来自 `.env` 的 `POSTGRES_PASSWORD`。
-
-### 第四步：验证 PGVector
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile ai-data exec -T pgvector pg_isready -U ygh_vector -d ygh_vector
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile ai-data exec -T pgvector psql -U ygh_vector -d ygh_vector -c "SELECT extversion FROM pg_extension WHERE extname = 'vector';"
-```
-
-执行后的结果：
-
-第一条看到：
-
-```text
-accepting connections
-```
-
-第二条能看到 vector 扩展版本。
-
-需要修改的内容：
-
-如果没有 vector 扩展，检查这个文件是否已经复制到虚拟机：
-
-```text
-/opt/ygh/constrained-dev/postgres/init/01-enable-vector.sql
-```
-
-### 第五步：Windows 验证 PGVector 端口
-
-在 Windows PowerShell 输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 5432
-```
-
-执行后的结果：
-
-看到：
-
-```text
-TcpTestSucceeded : True
-```
-
-### 第六步：不用时停止 PGVector
-
-在 Rocky Linux 输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile ai-data stop pgvector
-```
-
-执行后的结果：
-
-PGVector 容器停止，数据卷保留。
-
-需要修改的内容：
-
-不要执行：
-
-```bash
-docker compose down -v
-```
-
-`-v` 会删除数据卷。
-
----
-
-## 第十部分：组件配置位置
-
-### 第一步：查看 MySQL 配置
-
-在 Rocky Linux 输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-```
-
-继续输入：
-
-```bash
-cat mysql/conf.d/ygh-low-memory.cnf
-```
-
-执行后的结果：
-
-能看到：
-
-```text
-character-set-server=utf8mb4
-collation-server=utf8mb4_0900_ai_ci
-default-time-zone=+08:00
-innodb_buffer_pool_size=256M
-max_connections=80
-performance_schema=OFF
-```
-
-需要修改的内容：
-
-低配置客户电脑不要随意调大 `innodb_buffer_pool_size`。
-
-### 第二步：确认 MySQL 初始化文件
-
-输入：
-
-```bash
-ls -la mysql/init
-```
-
-执行后的结果：
-
-能看到项目提供的 Nacos、Auth、User、System、业务库初始化文件。
-
-需要修改的内容：
-
-这些文件只在 MySQL 数据卷第一次创建时自动执行。容器已经有数据后，改这些文件不会自动重跑。
-
-### 第三步：查看 Redis 配置
-
-输入：
-
-```bash
-grep -A 20 'redis:' vm-compose.yml
-```
-
-执行后的结果：
-
-能看到：
-
-```text
---appendonly yes
---appendfsync everysec
---maxmemory 96mb
---maxmemory-policy noeviction
---requirepass "$${REDIS_PASSWORD}"
-```
-
-需要修改的内容：
-
-Redis 密码只改 `.env` 的 `REDIS_PASSWORD`。不要把密码直接写死在 `vm-compose.yml`。
-
-### 第四步：查看 Nacos 配置
-
-输入：
-
-```bash
-grep -A 45 'nacos:' vm-compose.yml
-```
-
-执行后的结果：
-
-能看到：
-
-```text
-MODE: standalone
-SPRING_DATASOURCE_PLATFORM: mysql
-MYSQL_SERVICE_DB_NAME: nacos_config
-NACOS_AUTH_ENABLE: "true"
-NACOS_AUTH_ADMIN_ENABLE: "true"
-JVM_XMS: 384m
-JVM_XMX: 384m
-```
-
-需要修改的内容：
-
-Nacos 管理员密码来自 `.env`：
-
-```text
-NACOS_ADMIN_PASSWORD
-```
-
-### 第五步：查看 PGVector 配置
-
-输入：
-
-```bash
-grep -A 35 'pgvector:' vm-compose.yml
-```
-
-执行后的结果：
-
-能看到：
-
-```text
-POSTGRES_DB: ygh_vector
-POSTGRES_USER: ygh_vector
-shared_buffers=64MB
-max_connections=30
-work_mem=2MB
-```
-
-需要修改的内容：
-
-PGVector 密码来自 `.env`：
-
-```text
-POSTGRES_PASSWORD
-```
-
----
-
-## 第十一部分：Windows IDEA 连接虚拟机配置
-
-### 第一步：确认 JDK 安装位置
-
-JDK 25 安装在 Windows，不安装在虚拟机。
-
-安装位置：
-
-```text
-Windows 本机：C:\Program Files\Java\jdk-25
-IDEA 使用这个 JDK 启动后端服务。
-Rocky Linux 虚拟机里不安装 JDK。
-Docker 容器里也不安装项目开发用 JDK。
-```
-
-在 Windows PowerShell 输入：
-
-```powershell
-java -version
-where java
-echo $env:JAVA_HOME
-```
-
-执行后的结果：
-
-应该看到：
-
-```text
-java -version 第一行包含 java version "25
-where java 第一行来自 C:\Program Files\Java\jdk-25\bin\java.exe
-echo $env:JAVA_HOME 输出 C:\Program Files\Java\jdk-25
-```
-
-需要修改的内容：
-
-如果没有 Java 25，在 Windows 安装 JDK 25，然后配置系统环境变量。
-
-JDK 下载地址：
-
-```text
-https://www.oracle.com/java/technologies/downloads/
-```
-
-下载时选择：
-
-```text
-JDK 25
-Windows
-x64 Installer
-```
-
-本项目使用 Oracle JDK 25，不使用 OpenJDK 发行版。
-
-图形界面配置方法：
-
-1. 右键“此电脑”。
-2. 点击“属性”。
-3. 点击“高级系统设置”。
-4. 点击“环境变量”。
-5. 在下面的“系统变量”里新建或编辑 `JAVA_HOME`。
-6. 变量名填写：
-
-```text
-JAVA_HOME
-```
-
-7. 变量值填写 JDK 25 安装目录，示例：
-
-```text
-C:\Program Files\Java\jdk-25
-```
-
-8. 注意 `JAVA_HOME` 不要带 `\bin`：
-
-```text
-正确：C:\Program Files\Java\jdk-25
-错误：C:\Program Files\Java\jdk-25\bin
-```
-
-9. 在“系统变量”里编辑 `Path`。
-10. 新增：
-
-```text
-%JAVA_HOME%\bin
-```
-
-11. 把 `%JAVA_HOME%\bin` 放到旧版 Java 路径前面。
-12. 点击“确定”保存。
-13. 关闭 PowerShell，重新打开，再执行验证命令。
-
-管理员 PowerShell 配置方法：
-
-```powershell
-[Environment]::SetEnvironmentVariable('JAVA_HOME','C:\Program Files\Java\jdk-25','Machine')
-```
-
-继续输入：
-
-```powershell
-$machinePath = [Environment]::GetEnvironmentVariable('Path','Machine')
-if ($machinePath -notlike '*%JAVA_HOME%\bin*') {
-  [Environment]::SetEnvironmentVariable('Path', "%JAVA_HOME%\bin;$machinePath", 'Machine')
-}
-```
-
-执行后的结果：
-
-重新打开 PowerShell 后，`echo $env:JAVA_HOME` 输出 JDK 25 根目录，`where java` 第一行指向 `%JAVA_HOME%\bin\java.exe`。
-
-### 第二步：确认后端连接地址
-
-后端服务在 Windows IDEA 启动时，连接虚拟机地址：
-
-```text
-MySQL:    192.168.154.10:3306
-Redis:    192.168.154.10:6379
-Nacos:    192.168.154.10:8848
-PGVector: 192.168.154.10:5432
-```
-
-执行后的结果：
-
-Windows Java 服务可以访问虚拟机组件。
-
-需要修改的内容：
-
-如果虚拟机 IP 改了，IDEA 运行配置、Spring 配置、Nacos 配置里也要同步改成客户实际 IP。
-
----
-
-## 第十二部分：手动备份数据
-
-### 第一步：创建备份目录
-
-在 Rocky Linux 输入：
-
-```bash
-backup_dir="/opt/ygh/backups/$(date +%Y%m%d-%H%M%S)"
-```
-
-继续输入：
-
-```bash
-mkdir -p "$backup_dir"
-```
-
-继续输入：
-
-```bash
-echo "$backup_dir"
-```
-
-执行后的结果：
-
-输出本次备份目录，例如：
-
-```text
-/opt/ygh/backups/20260713-153000
-```
-
-### 第二步：备份 MySQL
-
-输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --all-databases --single-transaction --routines --events' | gzip > "$backup_dir/mysql-all.sql.gz"
-```
-
-执行后的结果：
-
-生成：
-
-```text
-mysql-all.sql.gz
-```
-
-需要修改的内容：
-
-如果 MySQL 容器没有启动，先启动核心组件。
-
-### 第三步：备份 PGVector
-
-如果 PGVector 已启动，输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile ai-data exec -T pgvector pg_dump -U ygh_vector -d ygh_vector | gzip > "$backup_dir/pgvector-ygh-vector.sql.gz"
-```
-
-执行后的结果：
-
-生成：
-
-```text
-pgvector-ygh-vector.sql.gz
-```
-
-需要修改的内容：
-
-如果没有启动 PGVector，可以跳过这一步。
-
-### 第四步：保存备份校验值
-
-输入：
-
-```bash
-cd "$backup_dir"
-```
-
-继续输入：
-
-```bash
-sha256sum * > SHA256SUMS.txt
-```
-
-继续输入：
-
-```bash
-ls -lh
-```
-
-执行后的结果：
-
-能看到备份文件和：
-
-```text
-SHA256SUMS.txt
-```
-
-需要修改的内容：
-
-把备份目录复制到客户指定备份盘，不要只放在虚拟机里。
-
----
-
-## 第十三部分：常见问题处理
-
-### 问题一：Windows 端口不通
-
-在 Windows PowerShell 输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 3306
-```
-
-如果失败，在 Rocky Linux 输入：
-
-```bash
-ip addr
-```
-
-继续输入：
-
-```bash
-sudo firewall-cmd --list-rich-rules
-```
-
-继续输入：
-
-```bash
-docker compose --env-file /opt/ygh/constrained-dev/.env -f /opt/ygh/constrained-dev/vm-compose.yml --profile core ps
-```
-
-执行后的结果：
-
-定位失败位置：
-
-```text
-IP 不对：改 nmcli 固定 IP
-防火墙不对：重新添加 rich rule
-容器没启动：重新 docker compose up -d
-```
-
-### 问题二：Docker 镜像拉不下来
-
-输入：
-
-```bash
-docker pull alpine
-```
-
-如果失败，输入：
-
-```bash
-curl -I https://registry-1.docker.io/v2/
-```
-
-执行后的结果：
-
-如果网络通但拉镜像失败，改 `/etc/docker/daemon.json` 的 `registry-mirrors`，然后：
-
-```bash
-sudo dockerd --validate --config-file=/etc/docker/daemon.json
-sudo systemctl restart docker
-docker pull alpine
-```
-
-如果仍失败，走离线导入 `ygh-vm-images.tar`。
-
-### 问题三：Nacos 登录失败
-
-输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-set -a
-. ./.env
-set +a
-curl -sS -X POST "http://192.168.154.10:8848/nacos/v3/auth/user/login" --data-urlencode "username=nacos" --data-urlencode "password=${NACOS_ADMIN_PASSWORD}"
-```
-
-执行后的结果：
-
-成功时返回 `accessToken`。
-
-需要修改的内容：
-
-如果没有初始化管理员，重新执行：
-
-```bash
-curl -sS -X POST "http://192.168.154.10:8848/nacos/v3/auth/user/admin" --data-urlencode "password=${NACOS_ADMIN_PASSWORD}"
-```
-
-### 问题四：MySQL 初始化库没有创建
-
-输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -Nse "SHOW DATABASES;"'
-```
-
-执行后的结果：
-
-应看到：
-
-```text
-nacos_config
-auth_db
-user_db
-system_db
-```
-
-需要修改的内容：
-
-MySQL 初始化文件只在第一次创建数据卷时运行。如果是测试环境且确认可以清空数据，才可以删除数据卷重新初始化；客户正式数据不能这样做。
-
----
-
-## 第十四部分：最终检查
-
-### 第一步：检查 Docker 组件状态
-
-在 Rocky Linux 输入：
-
-```bash
-cd /opt/ygh/constrained-dev
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core ps
-```
-
-执行后的结果：
-
-应看到：
-
-```text
-mysql healthy
-redis healthy
-nacos healthy
-```
-
-### 第二步：检查核心服务健康
-
-输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -Nse "SELECT 1"'
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping'
-```
-
-继续输入：
-
-```bash
-docker compose --env-file .env -f vm-compose.yml --profile core exec -T nacos curl -fsS http://127.0.0.1:8848/nacos/v3/admin/core/state/readiness
-```
-
-执行后的结果：
-
-MySQL 输出 `1`，Redis 输出 `PONG`，Nacos 命令不报错。
-
-### 第三步：检查 Windows 端口
-
-在 Windows PowerShell 输入：
-
-```powershell
-Test-NetConnection 192.168.154.10 -Port 3306
-Test-NetConnection 192.168.154.10 -Port 6379
-Test-NetConnection 192.168.154.10 -Port 8848
-Test-NetConnection 192.168.154.10 -Port 9848
-```
-
-执行后的结果：
-
-全部显示：
-
-```text
-TcpTestSucceeded : True
-```
-
-完成标准：
-
-```text
-1. Rocky Linux 固定 IP 正确
-2. SSH 可以登录
-3. Docker 和 docker compose 可用
-4. 防火墙只允许 Windows VMnet8 IP 访问组件端口
-5. MySQL、Redis、Nacos healthy
-6. Nacos 管理员可以登录
-7. Windows 能访问 3306、6379、8848、9848
-8. 需要 AI 向量场景时，PGVector 5432 可以访问
-```
