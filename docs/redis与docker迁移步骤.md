@@ -115,12 +115,45 @@ sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 
 **在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
 
-分别输入：
+先确认虚拟机和 Docker 服务没有配置代理：
 
 ```bash
-curl -L -sS --connect-timeout 10 -o /dev/null -w 'Docker Hub: %{http_code}\n' https://registry-1.docker.io/v2/
-curl -L -sS --connect-timeout 10 -o /dev/null -w 'DaoCloud: %{http_code}\n' https://docker.m.daocloud.io/v2/
-curl -L -sS --connect-timeout 10 -o /dev/null -w '1ms: %{http_code}\n' https://docker.1ms.run/v2/
+env | grep -Ei '^(http|https|all|no)_proxy=' || true
+systemctl show docker --property=Environment --no-pager
+docker info --format 'HTTP={{.HTTPProxy}} HTTPS={{.HTTPSProxy}} NOPROXY={{.NoProxy}}'
+```
+
+三条命令均不得出现 HTTP、HTTPS 或 SOCKS 代理地址。然后执行直连 `/v2/` 检查；`--noproxy '*'` 用于强制 curl 不读取任何代理设置：
+
+```bash
+for host in \
+  docker.1ms.run \
+  docker.m.daocloud.io \
+  docker.1panel.live \
+  docker.xuanyuan.me \
+  dockerproxy.com \
+  dockerpull.com
+do
+  curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null \
+    -w "$host HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n" \
+    "https://$host/v2/"
+done
+```
+
+`/v2/` 可达不代表镜像一定能拉取。继续真实拉取 Alpine 和 Nginx；每次最多等待 45 秒：
+
+```bash
+for host in \
+  docker.1ms.run \
+  docker.m.daocloud.io \
+  docker.1panel.live \
+  docker.xuanyuan.me \
+  dockerproxy.com \
+  dockerpull.com
+do
+  timeout 45s docker pull --platform linux/amd64 "$host/library/alpine:3.20"
+  timeout 45s docker pull --platform linux/amd64 "$host/library/nginx:alpine"
+done
 ```
 
 **如何判断结果**：
@@ -133,19 +166,24 @@ curl -L -sS --connect-timeout 10 -o /dev/null -w '1ms: %{http_code}\n' https://d
 - `500`、`502`、`503`、`504`：代理服务端故障，暂时不可用。
 - 显示 `000`、`Could not resolve host` 或连接超时：当前客户网络无法使用该源。
 
-**截至 2026-07-14 的本次检查结果**：
+**2026-07-14 无 VPN、无代理真实检查结果**：
 
-| 地址 | 本次结果 | 本项目处理方式 |
-|---|---:|---|
-| `registry-1.docker.io` | 当前检查网络连接失败 | 官方源；客户网络能访问时可以直接使用 |
-| `docker.m.daocloud.io` | `401` | 可达，写入本项目镜像代理配置 |
-| `docker.1ms.run` | `401` | 可达，作为第二镜像代理 |
-| `dockerproxy.com` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
-| `dockerpull.com` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
-| `docker.1panel.live` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
-| `docker.anyhub.us.kg` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
+测试位置为项目 Rocky Linux 10.0 虚拟机 `192.168.154.129` 的原生 Docker Engine。虚拟机代理环境变量为空，`docker.service` 的 `Environment` 为空，`docker info` 的 HTTP/HTTPS Proxy 为空；所有请求经 VMware NAT 默认路由直接访问公网。Windows Docker Desktop 自带的 `docker.internal:3128` 转发结果没有计入本表。
 
-**注意事项**：镜像站可用性与客户网络、时间和服务方策略有关。表格记录的是本次检查结果，客户部署时必须重新执行上面的三条检测命令。不要把来源不明、没有 HTTPS 或要求关闭证书校验的地址加入 Docker。
+| 排名 | 地址 | `/v2/` 直连 | Alpine 3.20 | Nginx Alpine | Redis 8.4.4 | 本次结论 |
+|---:|---|---|---|---|---|---|
+| 1 | `https://docker.m.daocloud.io` | `401`，2.31 秒 | 成功，9.40 秒（层已缓存） | 成功，9.69 秒（层已缓存） | 成功，9.44 秒（层已缓存） | 默认首选；标准名称 `redis:8.4.4` 已通过该配置拉取 |
+| 2 | `https://docker.1panel.live` | `200`，4.67 秒 | 成功，11.78 秒（层已缓存） | 成功，10.05 秒（层已缓存） | 成功，15.17 秒（层已缓存） | 虚拟机可用；不同出口曾出现 403，必须现场复测 |
+| 3 | `https://docker.1ms.run` | `401`，2.41 秒 | 成功，22.59 秒 | 成功，26.04 秒 | 最终成功，103.19 秒；此前两次 60 秒门限超时 | 可用但大镜像偏慢，只作为后备 |
+| 4 | `https://docker.xuanyuan.me` | `401`，3.29 秒 | 成功，12.44 秒（层已缓存） | 成功，12.57 秒（层已缓存） | 成功，13.12 秒（层已缓存） | 虚拟机可用；其他出口曾出现 429，暂不放入默认配置 |
+| 5 | `https://dockerproxy.com` | 5 秒连接超时 | 约 15 秒后失败 | 约 15 秒后失败 | 未继续测试 | 当前无代理网络不可用，不配置 |
+| 6 | `https://dockerpull.com` | 5 秒连接超时 | 约 15 秒后失败 | 约 15 秒后失败 | 未继续测试 | 当前无代理网络不可用，不配置 |
+
+测试顺序为 1ms、DaoCloud、1Panel、轩辕。1ms 是本轮第一个下载实际镜像层的站点，后续站点可能复用 Docker 内容存储中的相同层，因此表中后续拉取耗时只能证明请求在门限内完成，不能用于比较完整下载带宽。
+
+Redis 复核并不只检查“拉取成功”：四个可用站的镜像均为 `linux/amd64`，实际执行 `redis-server --version` 均返回 `Redis server v=8.4.4`。标准命令 `docker pull redis:8.4.4` 也在 12.98 秒内成功，并由当前首选代理返回有效镜像。但 DaoCloud 返回的镜像创建于 2026-06-24，摘要为 `sha256:ac5c39529eb8b3e41318154581dad015b1f414e63d532f9318d25409a47f8451`；另外三个站返回的镜像创建于 2026-07-14，摘要为 `sha256:ed6718f2e830bb226f85e7323ede7d6e79bc4ece58c0024784b2ffef8fcc8a84`。这说明同一版本标签可能被上游重建或镜像站同步时间不同。正式交付必须记录并锁定验收通过的摘要，不能只依赖可变标签。
+
+**注意事项**：镜像站可用性取决于客户出口 IP、时间、CDN 节点和服务方策略。客户部署当天必须重新执行 `/v2/` 与真实 `docker pull` 两组检查。不要把来源不明、没有 HTTPS、要求关闭证书校验或本次真实拉取失败的地址加入 Docker。
 
 ### 第六步：手动配置 Docker 镜像代理
 
@@ -177,6 +215,7 @@ sudo vim /etc/docker/daemon.json
   "storage-driver": "overlay2",
   "registry-mirrors": [
     "https://docker.m.daocloud.io",
+    "https://docker.1panel.live",
     "https://docker.1ms.run"
   ],
   "default-address-pools": [
@@ -218,7 +257,7 @@ sudo docker version
 sudo docker info | sed -n '/Registry Mirrors/,+5p'
 ```
 
-`docker version` 必须同时显示 Client 和 Server；镜像代理列表必须显示 DaoCloud 和 1ms 地址。如果只有 Client 没有 Server，执行 `sudo journalctl -u docker -n 200 --no-pager` 查看 Docker 启动错误。
+`docker version` 必须同时显示 Client 和 Server；镜像代理列表必须显示 DaoCloud、1Panel 和 1ms 地址。如果只有 Client 没有 Server，执行 `sudo journalctl -u docker -n 200 --no-pager` 查看 Docker 启动错误。
 
 ## 第二部分：手动拉取 Redis 8.4.4 镜像
 
