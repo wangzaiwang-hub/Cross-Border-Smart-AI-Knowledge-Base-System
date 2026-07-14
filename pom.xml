@@ -21,8 +21,13 @@
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
+        <!--
+            Maven and production services still run on JDK 25. Source and
+            bytecode target Java 24 so client IntelliJ versions whose highest
+            supported language level is 24 can import the complete reactor.
+        -->
         <java.version>25</java.version>
-        <maven.compiler.release>25</maven.compiler.release>
+        <maven.compiler.release>24</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.parameters>true</maven.compiler.parameters>
