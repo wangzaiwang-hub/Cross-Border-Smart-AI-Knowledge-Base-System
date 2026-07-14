@@ -1,19 +1,19 @@
-# 实验教案：`Redis` 8.4.4 源码编译、`TLS` 增强安装与配置实战
+# Redis 8.4.4 源码安装、Docker 迁移与项目配置操作文档
 
-**实验背景**：本实验按照跨境智汇 AI 知识库系统的 Rocky Linux 虚拟机环境，通过源码安装 `Redis` 8.4.4，保留 `TLS` 编译能力，再把配置和数据迁移到项目固定版本的 Docker 容器。
-
----
-
-## 一、 实验目标
-
-1. 掌握 `Redis` 源码包的解压与目录规范化管理。
-2. 学习使用 `make` 命令进行条件编译（开启 `TLS` 支持）。
-3. 掌握 `Redis` 运行环境的目录结构初始化。
-4. 学习 `Redis` 服务的启动与端口连通性验证。
+**操作说明**：本文按照跨境智汇 AI 知识库系统的 Rocky Linux 虚拟机环境，通过源码安装 `Redis` 8.4.4，保留 `TLS` 编译能力，再把配置和数据迁移到项目固定版本的 Docker 容器。
 
 ---
 
-## 二、 实验环境
+## 一、 操作内容
+
+1. 下载、上传并解压 `Redis` 源码包，按指定目录保存文件。
+2. 使用 `make` 编译 Redis，并开启 `TLS` 支持。
+3. 创建 Redis 配置、日志、进程和数据目录。
+4. 启动 Redis，完成认证、端口、持久化和项目连接验证。
+
+---
+
+## 二、 操作环境
 
 *   **操作系统**：Rocky Linux 10 虚拟机（SSH 地址 `192.168.154.10`）
 *   **软件版本**：项目固定使用 `Redis` 8.4.4，源码版和 Docker 版保持一致
@@ -23,7 +23,7 @@
 
 ---
 
-## 三、 实验步骤
+## 三、 操作步骤
 
 ### 1. 源码包准备与解压
 
@@ -132,7 +132,7 @@ chmod 600 /usr/local/redis/conf/redis.conf
 
 ### 7. 配置文件修改
 
-使用 `vim` 修改 `/usr/local/redis/conf/redis.conf`。根据生产需求，通常需要修改以下项（实验记录中已执行修改）：
+使用 `vim` 修改 `/usr/local/redis/conf/redis.conf`。按照本项目配置要求修改以下项目：
 
 *   `daemonize yes`（源码版后台运行；迁移到 Docker 时必须改为 `no`）
 *   `protected-mode yes`（保持保护模式，不要关闭）
@@ -221,7 +221,7 @@ redis-server:6379> auth CHANGE_TO_STRONG_PASSWORD
 
  
 
-## 四、 实验总结
+## 四、 操作结果确认
 
 1. **编译参数的重要性**：在源码安装阶段，`BUILD_TLS=yes` 是决定 Redis 是否支持加密连接的关键。
 2. **目录规范化**：通过建立 `conf`, `logs`, `dbcache` 等目录，可以使运维工作更加井然有序。
@@ -229,11 +229,11 @@ redis-server:6379> auth CHANGE_TO_STRONG_PASSWORD
 
 ---
 
-## 五、 思考题
+## 五、 操作注意事项
 
-1. 为什么在编译前建议执行 `make distclean`？
-2. 如果在执行 `redis-cli` 时报错“`command not found`”，除了 `source /etc/profile` 外，还有哪种方式可以解决？
-3. 在开启了 `TLS` 的 `Redis` 环境中，使用 `redis-cli` 直接连接（不加参数）还能操作数据吗？
+1. 重新编译前执行 `make distclean`，清除旧的目标文件和依赖缓存。
+2. 如果执行 `redis-cli` 提示 `command not found`，先执行 `source /etc/profile`，也可以直接使用 `/usr/local/redis/bin/redis-cli`。
+3. 如果 Redis 只开放 TLS 端口，`redis-cli` 必须增加 `--tls` 和对应证书参数，不能继续使用普通明文连接。
 
 
 
@@ -348,7 +348,7 @@ sudo docker pull alpine
 
 ---
 
-### 💡 进阶方案：如果镜像加速器依然缓慢
+### 补充操作：镜像加速器仍然缓慢时如何处理
 
 如果上述加速器都无法解决你的问题，目前的“终极方案”有三种：
 
@@ -400,7 +400,7 @@ sudo usermod -aG docker $USER
 - 源 Redis 版本不高于目标版本时才能直接迁移 RDB；高版本向低版本迁移必须单独验证。
 - 源码版和 Docker 版都占用 `192.168.154.10:6379`，启动 Docker 前必须停止源码版。
 
-#### 1. 准备持久化数据（物理机操作）
+#### 1. 准备持久化数据（Rocky Linux 虚拟机宿主系统操作）
 
 ```bash
 # 确保数据写回磁盘
@@ -579,12 +579,12 @@ docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD CONFIG GET io-t
 
 ---
 
-### 第一阶段：在物理机上准备数据和配置
+### 第一阶段：在 Rocky Linux 虚拟机宿主系统准备数据和配置
 
 迁移前，我们需要把正在运行的 Redis 数据落盘并提取出来。
 
 #### 1. 强制保存数据
-在物理机终端执行，确保内存中的数据完整写入磁盘：
+在 Rocky Linux 虚拟机终端执行，确保内存中的数据完整写入磁盘：
 ```bash
 /usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD
 redis-server:6379> SAVE
@@ -596,7 +596,7 @@ redis-server:6379> EXIT
 - **数据文件**：`/usr/local/redis/dbcache/dump.rdb`
 - **配置文件**：`/usr/local/redis/conf/redis.conf`
 
-#### 3. 停止物理机 Redis
+#### 3. 停止源码版 Redis
 为了释放 6379 端口给 Docker 使用：
 ```bash
 killall redis-server
@@ -606,12 +606,12 @@ killall redis-server
 
 ### 第二阶段：准备 Docker 运行环境
 
-在物理机上创建专门存放 Docker 持久化数据的目录。
+在 Rocky Linux 虚拟机宿主系统创建专门存放 Docker 持久化数据的目录。
 
 ```bash
 mkdir -p /opt/docker_redis/{data,conf}
 
-# 将物理机的文件拷贝到 Docker 挂载目录
+# 将虚拟机宿主系统中的文件复制到 Docker 挂载目录
 cp /usr/local/redis/dbcache/dump.rdb /opt/docker_redis/data/
 cp /usr/local/redis/conf/redis.conf /opt/docker_redis/conf/
 
@@ -658,7 +658,7 @@ docker run -d \
 ```
 
 **指令解释：**
-- `-v .../redis.conf:/etc/redis/redis.conf`: 把物理机改好的配置挂载进去。
+- `-v .../redis.conf:/etc/redis/redis.conf`: 把虚拟机宿主系统中修改好的配置挂载进去。
 - `-v .../data:/data`: 把存有 `dump.rdb` 的目录挂载到容器数据目录。Redis 启动时会自动加载这个文件还原数据。
 - `redis:8.4.4`：项目固定使用的 Docker Hub 官方 Redis 镜像，不使用 `latest`。
 
@@ -693,7 +693,7 @@ YGH_REDIS_ENVIRONMENT=dev
 
 ---
 
-### 💡 进阶：多线程 IO 与本项目资源限制
+### 补充操作：多线程 IO 与本项目资源限制
 
 原版示例使用了 `io-threads 3` 和 `io-threads-do-reads yes`。当前项目的 Redis 容器只分配 `0.20` CPU，不启用这两个参数，避免线程数量超过可用 CPU。可以通过以下命令确认当前值：
 ```bash
@@ -704,4 +704,3 @@ docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD CONFIG GET io-t
 - **容器秒退**：检查 `redis.conf` 里的 `daemonize` 是否已经改为 `no`。
 - **无法连接**：检查 `redis.conf` 里的 `bind` 是否为 `0.0.0.0`，并确认防火墙已放行 6379 端口。
 - **数据没出来**：检查 `redis.conf` 里的 `dir` 是否指向了 `/data`，且容器启动命令中正确挂载了数据卷。
-
