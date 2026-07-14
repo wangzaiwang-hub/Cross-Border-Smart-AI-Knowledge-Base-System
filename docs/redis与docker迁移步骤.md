@@ -1,536 +1,458 @@
-# Redis 8.4.4 手工安装、配置与 Docker 迁移操作文档
+# Redis 8.4.4 Docker 镜像手工安装与项目配置操作文档
 
-## 第一部分：在 Rocky Linux 虚拟机中准备临时源码版 Redis
+## 第一部分：在 Rocky Linux 虚拟机中手动安装 Docker
 
-这一部分的源码版 Redis 只用于准备 `redis.conf`、验证参数和生成迁移数据，不是本项目最终长期运行的 Redis。完成后必须停止源码版 Redis，再把配置和数据迁移到同一台 Rocky Linux 虚拟机里的 Docker 容器。
+### 第一步：确认命令运行位置和虚拟机网络
 
-### 1. 源码包准备与解压
+**在哪里运行**：通过 SSH 登录 `192.168.154.10` 后，在 Rocky Linux 虚拟机终端运行。不要在 Windows PowerShell、WSL 或 Windows Docker Desktop 中执行本部分命令。
 
-先在 Windows 浏览器打开 `https://download.redis.io/releases/redis-8.4.4.tar.gz`，下载 `redis-8.4.4.tar.gz`。文件通常位于 `C:\Users\当前用户名\Downloads`。
-
-在 Windows PowerShell 执行：
+在 Windows PowerShell 输入：
 
 ```powershell
-Get-FileHash "$HOME\Downloads\redis-8.4.4.tar.gz" -Algorithm SHA256
+ssh root@192.168.154.10
 ```
 
-官方文件 SHA256 应为：
+如果实际 SSH 用户不是 `root`，把 `root` 修改为实际用户名。登录成功后，终端提示符会变成类似 `[root@localhost ~]#`。
 
-```text
-C41CE78682346C1CAAB0EA917826EB408D666746755A0772B55754227D72EBE9
-```
-
-打开 WinSCP，协议选 `SFTP`，主机填 `192.168.154.10`，端口填 `22`，输入实际 SSH 用户和密码。左侧找到下载文件，右侧进入 `/opt`，把文件上传为 `/opt/redis-8.4.4.tar.gz`。
-
-回到虚拟机终端执行：
+在虚拟机终端依次输入：
 
 ```bash
-ls -lh /opt/redis-8.4.4.tar.gz
-sha256sum /opt/redis-8.4.4.tar.gz
-```
-
-Linux 与 Windows 的 SHA256 必须一致。然后安装源码编译依赖：
-
-```bash
-sudo dnf install -y gcc gcc-c++ make openssl-devel systemd-devel tcl tar net-tools psmisc
-```
-
-首先进入存放安装包的目录，将源码解压到标准的系统软件目录 `/usr/local/`。
-
-```bash
-cd /opt/
-# 解压到指定目录
-tar -zxvf /opt/redis-8.4.4.tar.gz -C /usr/local/
-# 进入安装目录并重命名，方便管理
-cd /usr/local/
-mv redis-8.4.4 redis
-cd redis/
-```
-
-### 2. 编译前的清理工作
-
-为了防止旧的编译缓存干扰，执行清理命令。这一步会清除之前可能存在的 `.o` 文件和依赖关系。
-
-```bash
-sudo make distclean
-```
-
-*注：即使报错 `tests: No such file or directory` 通常也可忽略，只要主清理流程完成即可。*
-
-### 3. 编译与安装 (核心步骤：开启 `TLS`)
-
-执行编译时，必须指定 `BUILD_TLS=yes` 参数。`Redis` 会自动下载或编译内置的依赖库（如 `jemalloc`, `lua`, `hiredis`）。
-
-```bash
-# 开启 TLS 支持进行编译
-sudo make BUILD_TLS=yes
-
-# 将编译好的二进制文件安装到指定目录
-make PREFIX=/usr/local/redis install
-```
-
-### 4. 环境变量配置
-
-为了能在任何位置直接调用 `redis-cli` 等命令，需要修改系统环境变量。
-
-```bash
-vim /etc/profile
-```
-
-打开文件后按下面顺序操作：
-
-1. 按键盘上的 `i`，进入编辑模式。
-2. 移动到文件最后一行。
-3. 输入 `export PATH=$PATH:/usr/local/redis/bin`。
-4. 按 `Esc` 退出编辑模式。
-5. 输入 `:wq` 后按回车，保存并退出。
-
-让环境变量立即生效并检查：
-
-```bash
-source /etc/profile
-echo $PATH | tr ':' '\n' | grep '/usr/local/redis/bin'
-```
-
-执行后应输出 `/usr/local/redis/bin`。如果没有输出，重新打开 `/etc/profile`，检查这一行是否拼写正确。
-
-### 5. 安装验证
-
-验证安装的版本以及是否成功集成了 TLS 功能。
-
-```bash
-# 查看版本号
-redis-server --version
-# 预期输出：Redis server v=8.4.4 ... malloc=jemalloc-5.3.0
-
-# 检查客户端是否支持 TLS 参数
-redis-cli --help | grep tls
-# 预期输出：应能看到 --tls, --tls-ciphers 等相关参数
-```
-
-### 6. 初始化生产运行目录
-
-规范化管理 Redis 的配置文件、日志、进程文件和数据持久化文件。
-
-```bash
-mkdir -p /usr/local/redis/{conf,run,logs,dbcache}
-
-# 拷贝并备份默认配置文件
-cp /usr/local/redis/redis.conf /usr/local/redis/conf/
-chown root:root /usr/local/redis/conf/redis.conf
-chmod 600 /usr/local/redis/conf/redis.conf
-```
-
-### 7. 配置文件修改
-
-配置文件位于 Rocky Linux 虚拟机的 `/usr/local/redis/conf/redis.conf`。输入：
-
-```bash
-vim /usr/local/redis/conf/redis.conf
-```
-
-打开文件后按 `i` 进入编辑模式，逐项搜索并修改。Vim 中输入 `/配置项` 后按回车可以搜索，按 `n` 可以查找下一处。
-
-1. 搜索 `daemonize`，修改为 `daemonize yes`。源码版需要后台运行；迁移到 Docker 时再改为 `no`。
-2. 搜索 `protected-mode`，修改为 `protected-mode yes`，不要关闭保护模式。
-3. 搜索 `bind`，修改为 `bind 127.0.0.1 192.168.154.10`。
-4. 搜索 `appendonly`，修改为 `appendonly yes`。
-5. 搜索 `appendfsync`，修改为 `appendfsync everysec`。
-6. 搜索 `maxmemory`，修改为 `maxmemory 96mb`。如果原文件中这一项以 `#` 开头，需要删除行首的 `#`。
-7. 搜索 `maxmemory-policy`，修改为 `maxmemory-policy noeviction`。
-8. 搜索 `dir`，修改为 `dir /usr/local/redis/dbcache`。
-9. 搜索 `logfile`，修改为 `logfile "/usr/local/redis/logs/redis.log"`。
-10. 搜索 `pidfile`，修改为 `pidfile /usr/local/redis/run/redis_6379.pid`。
-
-全部修改完成后按 `Esc`，输入 `:wq` 并按回车保存。执行下面的命令核对，输出必须包含刚才填写的值：
-
-```bash
-grep -E '^(daemonize|protected-mode|bind|appendonly|appendfsync|maxmemory|maxmemory-policy|dir|logfile|pidfile)' /usr/local/redis/conf/redis.conf
-```
-
-```bash
-# 配置映射
-vim /etc/hosts
-
-# 在hosts中配置
-192.168.154.10    redis-server
-```
-
-本项目直接使用 `bind 127.0.0.1 192.168.154.10`。如果客户虚拟机的固定服务地址不是 `192.168.154.10`，这里只替换为客户实际固定 IP。源码编译保留 TLS 能力，但当前项目 Java 配置没有启用 Redis TLS，不要只开启 Redis TLS 端口后直接启动项目。
-
-### 8. 临时启动源码版 Redis 并检查网络
-
-以下命令在 Rocky Linux 虚拟机系统中临时启动源码版 Redis，并检查端口监听状态。这个进程只运行到 Docker 迁移前，不能和后面的 Docker Redis 同时运行。
-
-```bash
-# 启动服务
-/usr/local/redis/bin/redis-server /usr/local/redis/conf/redis.conf
-
-# 检查 6379 端口是否在监听
-netstat -nptl | grep 6379
-
-# 启动Redis
-/usr/local/redis/bin/redis-cli
-# 会出现
-redis-server:6379>
-# 此时就表示redis成功登录
-```
-
-### 9. `Redis` 安全认证
-
-现在 Redis 已经监听 `127.0.0.1` 和 `192.168.154.10`，还需要手动设置密码。先在 Rocky Linux 虚拟机终端生成强密码：
-
-```bash
-openssl rand -base64 24
-```
-
-终端会输出一串随机字符。把它保存到客户自己的密码管理器，然后输入：
-
-```bash
-vim /usr/local/redis/conf/redis.conf
-```
-
-打开文件后执行：
-
-1. 输入 `/requirepass` 并按回车搜索。
-2. 按 `i` 进入编辑模式。
-3. 删除行首的 `#`，把这一行改为 `requirepass 客户刚生成的真实密码`。
-4. 按 `Esc`，输入 `:wq` 并按回车保存。
-
-不要把真实密码写入本文、Git、截图或聊天记录。重启源码版 Redis 使密码生效：
-
-```bash
-/usr/local/redis/bin/redis-cli -h 127.0.0.1 -p 6379 shutdown
-/usr/local/redis/bin/redis-server /usr/local/redis/conf/redis.conf
-```
-
-使用刚才的真实密码验证：
-
-```bash
-/usr/local/redis/bin/redis-cli -h 192.168.154.10 -p 6379
-
-192.168.154.10:6379> auth CHANGE_TO_STRONG_PASSWORD
-192.168.154.10:6379> ping
-```
-
-输入命令时，把 `CHANGE_TO_STRONG_PASSWORD` 替换成真实密码。`auth` 应返回 `OK`，`ping` 应返回 `PONG`。输入 `exit` 退出 Redis 客户端，然后进入 Docker 安装步骤。
-
- 
-
-## 四、 操作结果确认
-
-1. **编译参数的重要性**：在源码安装阶段，`BUILD_TLS=yes` 是决定 Redis 是否支持加密连接的关键。
-2. **目录规范化**：通过建立 `conf`, `logs`, `dbcache` 等目录，可以使运维工作更加井然有序。
-3. **权限管理**：配置文件包含密码，使用 `chmod 600` 或按实际运行用户配置最小读取权限，不使用 `chmod 777`。
-
----
-
-## 五、 操作注意事项
-
-1. 重新编译前执行 `make distclean`，清除旧的目标文件和依赖缓存。
-2. 如果执行 `redis-cli` 提示 `command not found`，先执行 `source /etc/profile`，也可以直接使用 `/usr/local/redis/bin/redis-cli`。
-3. 如果 Redis 只开放 TLS 端口，`redis-cli` 必须增加 `--tls` 和对应证书参数，不能继续使用普通明文连接。
-
-
-
-# 第二部分：在 Rocky Linux 虚拟机内部手动安装 Docker
-
-开始安装前，先在 Rocky Linux 虚拟机确认网络。以下三条都成功后再继续：
-
-```bash
+ip -br address
+ip route
 ping -c 4 192.168.154.2
 ping -c 4 223.5.5.5
-getent hosts mirrors.rockylinux.org
+getent hosts download.docker.com
+getent hosts registry-1.docker.io
 ```
 
-如果公网 IP 不通，先修复 VMware NAT；如果公网 IP 能通但域名无法解析，先修复 DNS。
+**执行结果及原因**：
 
-### 第一步：清理旧版本
+- `ip -br address` 应显示虚拟机网卡具有 `192.168.154.10/24`。
+- `ip route` 应显示默认网关，例如 `default via 192.168.154.2`。
+- 能 ping 通 `192.168.154.2`，说明虚拟机能够到达 VMware NAT 网关。
+- 能 ping 通 `223.5.5.5`，说明虚拟机能够访问公网 IP。
+- `getent hosts` 能返回 IP，说明 DNS 可以解析域名。
 
-如果系统里有旧的 Docker 冲突包，先执行卸载：
+**注意事项**：如果公网 IP 不通，先修复 VMware NAT、虚拟机网关或宿主机防火墙；如果公网 IP 能通但域名无法解析，先修复虚拟机 DNS。网络没有恢复前不要继续安装 Docker，因为 `dnf` 和 `docker pull` 都需要网络。
+
+### 第二步：检查并清理冲突软件
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+先检查是否存在 Podman 容器：
 
 ```bash
-sudo dnf remove docker \
-                  docker-client \
-                  docker-client-latest \
-                  docker-common \
-                  docker-latest \
-                  docker-latest-logrotate \
-                  docker-logrotate \
-                  docker-engine
+sudo podman ps -a
 ```
 
-### 第二步：安装基础依赖并配置阿里软件源
+如果提示 `podman: command not found`，说明没有安装 Podman，可以继续。如果列表中存在客户正在使用的容器，先停止操作并备份这些容器，不能直接卸载 Podman。
 
-官方源 `download.docker.com` 在国内访问极慢，我们直接使用阿里云提供的镜像仓库。
+确认没有需要保留的 Podman 容器后输入：
 
-1. **安装工具包**：
+```bash
+sudo dnf remove -y podman buildah runc docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+```
 
-   ```bash
-   sudo dnf install -y dnf-plugins-core curl ca-certificates
-   ```
+**执行结果及原因**：命令最后应显示事务完成。出现 `No packages marked for removal` 表示这些冲突包原本不存在，不是错误。
 
-2. **添加阿里云 Docker 软件源**：
-   由于 Rocky 10 非常新，如果阿里云的 `rocky/10` 路径尚未完全就绪，我们可以手动指向 `centos` 的兼容路径：
+**注意事项**：本命令只清理可能与 Docker CE 冲突的软件包，不要手动删除 `/var/lib/docker`、`/var/lib/containerd` 或客户已有数据目录。
 
-   ```bash
-   sudo dnf config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
-   ```
+### 第三步：添加 Docker CE 下载源
 
-### 第三步：安装 Docker 引擎
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+Docker 官方安装说明位于：`https://docs.docker.com/engine/install/centos/`。Rocky Linux 10 使用 Docker 的 CentOS 兼容 RPM 仓库安装 Docker Engine。
+
+先安装仓库管理工具：
+
+```bash
+sudo dnf install -y dnf-plugins-core curl ca-certificates yum-utils
+```
+
+优先添加 Docker 官方软件源：
+
+```bash
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo dnf makecache
+```
+
+**执行结果及原因**：`dnf makecache` 应成功下载仓库元数据，不能出现 `Could not resolve host`、`Connection timed out` 或 metadata 下载失败。
+
+如果客户网络无法访问 `download.docker.com`，删除刚才未完成的仓库文件，再改用阿里云 Docker CE 兼容软件源：
+
+```bash
+sudo rm -f /etc/yum.repos.d/docker-ce.repo
+sudo dnf config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+sudo dnf makecache
+```
+
+**哪些内容需要修改**：官方源和阿里云源二选一，不要同时创建两份名称相同的 `docker-ce.repo`。如果公司有内部 RPM 仓库，应填写公司提供的仓库地址。
+
+**手动浏览器下载方式**：如果虚拟机完全不能访问软件仓库，在一台可以联网的电脑上打开 `https://download.docker.com/linux/centos/`，依次进入对应系统版本、`x86_64`、`stable`、`Packages`，下载 Docker CE、Docker CLI、containerd、Buildx 和 Compose Plugin 的 RPM 文件，再通过 WinSCP 上传到虚拟机 `/opt/docker-rpms`，最后在该目录执行 `sudo dnf install ./*.rpm`。RPM 之间存在依赖，缺少任何依赖时 `dnf` 会明确报出包名，必须补齐后再安装，不使用一键安装脚本。
+
+### 第四步：安装 Docker Engine
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
 
 ```bash
 sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-### 第四步：配置镜像加速器（解决“无法下载镜像”核心问题）
+**安装位置**：
 
-这是最关键的一步。由于目前国内大量公共镜像站（如中科大、网易、阿里等）已失效或仅限内部使用，建议配置多个**当前依然存活的社区代理**或使用**自建中转**。
+- Docker 命令：`/usr/bin/docker`。
+- Docker 服务：`docker.service`，由 systemd 管理。
+- Docker 配置文件：`/etc/docker/daemon.json`。
+- Docker 镜像和容器数据：通常位于 `/var/lib/docker`；Docker Engine 29 新安装使用 containerd image store 时，部分镜像内容位于 `/var/lib/containerd`。
 
-1. **创建配置目录**：
+**执行结果及原因**：安装事务最后应显示 `Complete!`，不能出现依赖冲突或 GPG 校验失败。Docker 官方仓库首次安装时如果要求确认 GPG Key，应核对官方文档公布的指纹后接受。
 
-   ```bash
-   sudo mkdir -p /etc/docker
-   ```
+**注意事项**：这里安装的是 Rocky Linux 虚拟机内部的 Docker Engine，不是 Windows Docker Desktop。Redis 最终运行在这个 Docker Engine 创建的容器中。
 
-2. **手动编写配置文件**：
+### 第五步：现场检测 Docker Hub 和镜像代理
 
-   ```bash
-   sudo vim /etc/docker/daemon.json
-   ```
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
 
-   打开文件后按 `i` 进入编辑模式，输入以下全部内容：
-
-   ```json
-   {
-     "log-driver": "json-file",
-     "log-opts": {
-       "max-size": "10m",
-       "max-file": "3"
-     },
-     "live-restore": true,
-     "storage-driver": "overlay2",
-     "registry-mirrors": [
-       "https://docker.m.daocloud.io",
-       "https://docker.1ms.run"
-     ],
-     "default-address-pools": [
-       { "base": "172.30.0.0/16", "size": 24 }
-     ]
-   }
-   ```
-
-   输入完成后按 `Esc`，输入 `:wq` 并按回车保存。然后执行：
-
-   ```bash
-   sudo cat /etc/docker/daemon.json
-   sudo dockerd --validate --config-file=/etc/docker/daemon.json
-   ```
-
-   第一条命令应完整显示刚才输入的 JSON；第二条命令不能出现 JSON 格式错误。如果提示某一行语法错误，重新执行 `sudo vim /etc/docker/daemon.json`，检查逗号、双引号和括号。
-
-   镜像代理状态可能变化。如果失效，使用客户自己的企业镜像仓库、网络代理或后面的离线导入方式，不要随意配置来源不明的镜像站。
-
-### 第五步：启动并设置开机自启
+分别输入：
 
 ```bash
-sudo dockerd --validate --config-file=/etc/docker/daemon.json
-sudo systemctl daemon-reload
-sudo systemctl enable --now docker
+curl -L -sS --connect-timeout 10 -o /dev/null -w 'Docker Hub: %{http_code}\n' https://registry-1.docker.io/v2/
+curl -L -sS --connect-timeout 10 -o /dev/null -w 'DaoCloud: %{http_code}\n' https://docker.m.daocloud.io/v2/
+curl -L -sS --connect-timeout 10 -o /dev/null -w '1ms: %{http_code}\n' https://docker.1ms.run/v2/
 ```
 
-### 第六步：验证安装
+**如何判断结果**：
 
-执行以下命令检查 Docker 状态：
+- `200`：Registry 可以直接访问。
+- `401`：Registry 可以访问，只是 `/v2/` 接口要求继续按镜像仓库协议鉴权；这是正常的可用结果。
+- `403`：服务可达，但当前 IP、区域或访问方式被拒绝，不能作为当前客户的可用源。
+- `429`：服务可达，但当前被限流，等待后重试或换源。
+- `404`：该地址不是可用的 Registry `/v2/` 接口。
+- `500`、`502`、`503`、`504`：代理服务端故障，暂时不可用。
+- 显示 `000`、`Could not resolve host` 或连接超时：当前客户网络无法使用该源。
+
+**截至 2026-07-14 的本次检查结果**：
+
+| 地址 | 本次结果 | 本项目处理方式 |
+|---|---:|---|
+| `registry-1.docker.io` | 当前检查网络连接失败 | 官方源；客户网络能访问时可以直接使用 |
+| `docker.m.daocloud.io` | `401` | 可达，写入本项目镜像代理配置 |
+| `docker.1ms.run` | `401` | 可达，作为第二镜像代理 |
+| `dockerproxy.com` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
+| `dockerpull.com` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
+| `docker.1panel.live` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
+| `docker.anyhub.us.kg` | 连接失败 | 原参考资料中的旧地址，本项目不再配置 |
+
+**注意事项**：镜像站可用性与客户网络、时间和服务方策略有关。表格记录的是本次检查结果，客户部署时必须重新执行上面的三条检测命令。不要把来源不明、没有 HTTPS 或要求关闭证书校验的地址加入 Docker。
+
+### 第六步：手动配置 Docker 镜像代理
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+创建配置目录并备份原配置：
+
+```bash
+sudo mkdir -p /etc/docker
+sudo cp -a /etc/docker/daemon.json "/etc/docker/daemon.json.bak-$(date +%Y%m%d-%H%M%S)"
+```
+
+如果第二条提示文件不存在，说明这是第一次配置，可以忽略该提示。输入：
+
+```bash
+sudo vim /etc/docker/daemon.json
+```
+
+打开文件后按 `i` 进入编辑模式，输入：
+
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "live-restore": true,
+  "storage-driver": "overlay2",
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://docker.1ms.run"
+  ],
+  "default-address-pools": [
+    { "base": "172.30.0.0/16", "size": 24 }
+  ]
+}
+```
+
+输入完成后按 `Esc`，输入 `:wq` 并按回车保存。继续输入：
+
+```bash
+sudo cat /etc/docker/daemon.json
+sudo dockerd --validate --config-file=/etc/docker/daemon.json
+```
+
+**执行结果及原因**：第一条命令应完整显示刚才填写的 JSON；第二条命令应输出 `configuration OK` 或不显示错误。如果提示 JSON 语法错误，重新打开文件检查双引号、逗号和括号，不能带着错误配置启动 Docker。
+
+**哪些内容需要修改**：如果客户有企业内部镜像仓库，用企业提供的 HTTPS 地址替换 `registry-mirrors`。不修改日志轮转、`live-restore`、存储驱动和地址池，除非客户网络管理员确认 `172.30.0.0/16` 与内部网段冲突。
+
+### 第七步：启动 Docker 并设置开机启动
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now docker
+sudo systemctl is-enabled docker
+sudo systemctl is-active docker
+```
+
+**执行结果及原因**：后两条命令应分别输出 `enabled` 和 `active`。`enabled` 表示虚拟机开机时自动启动 Docker，`active` 表示 Docker 当前正在运行。
+
+验证版本和镜像代理：
 
 ```bash
 sudo docker version
+sudo docker info | sed -n '/Registry Mirrors/,+5p'
 ```
 
-尝试拉取一个轻量级镜像测试网络：
+`docker version` 必须同时显示 Client 和 Server；镜像代理列表必须显示 DaoCloud 和 1ms 地址。如果只有 Client 没有 Server，执行 `sudo journalctl -u docker -n 200 --no-pager` 查看 Docker 启动错误。
+
+## 第二部分：手动拉取 Redis 8.4.4 镜像
+
+### 第一步：从项目固定镜像名拉取 Redis
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
 
 ```bash
-sudo docker pull alpine
+sudo docker pull redis:8.4.4
 ```
 
-如果能看到 `Status: Downloaded newer image for alpine:latest`，说明配置成功。
+**正常输出示例**：
 
----
+```text
+8.4.4: Pulling from library/redis
+...
+Digest: sha256:...
+Status: Downloaded newer image for redis:8.4.4
+docker.io/library/redis:8.4.4
+```
 
-### 补充操作：镜像加速器仍然缓慢时如何处理
+如果本机已有完全相同的镜像，状态可能是 `Image is up to date for redis:8.4.4`，也属于正常结果。Docker 会先尝试 Docker Hub，并按 `/etc/docker/daemon.json` 中的顺序使用镜像代理。
 
-如果上述加速器仍然无法使用，按下面三种备用方式处理：
+**为什么必须使用这个命令**：项目固定版本是 Redis 8.4.4。`redis:latest` 会随时间变化，客户重新部署时可能得到不同版本，不能用于交付。
 
-1. **使用代理（推荐）**：
-   如果你有科学上网环境，给 Docker 配置系统代理：
+### 第二步：官方名称拉取失败时直接从代理拉取
 
-   ```bash
-   sudo mkdir -p /etc/systemd/system/docker.service.d
-   sudo vi /etc/systemd/system/docker.service.d/http-proxy.conf
-   ```
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
 
-   内容如下：
-
-   ```ini
-   [Service]
-   Environment="HTTP_PROXY=http://你的代理IP:端口"
-   Environment="HTTPS_PROXY=http://你的代理IP:端口"
-   ```
-
-   然后重启：`systemctl daemon-reload && systemctl restart docker`
-
-2. **使用国内源拉取特定镜像**：
-   国内某些大厂（如华为、南京大学）对部分常用镜像有缓存，可以尝试：
-   `docker pull swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/alpine:latest`
-
-3. **离线导出导入**：
-   在能联网的机器上执行 `docker save -o image.tar 镜像名`，然后拷贝到 Rocky 机器上执行 `docker load -i image.tar`。
-
-### 第七步：管理非 root 用户（可选）
-
-如果你不想每次都输入 `sudo`，将当前用户加入 docker 组：
+先查看失败原因：
 
 ```bash
-sudo usermod -aG docker $USER
-# 执行完后需重新登录终端生效
+sudo journalctl -u docker -n 100 --no-pager
 ```
 
+如果 `docker pull redis:8.4.4` 因 Docker Hub 网络超时失败，可以从下面两种方式中选择一种，不需要两种都执行。
 
-
-# 第三部分：停止源码版并把 Redis 最终迁移到虚拟机 Docker 容器
-
-这里的 Docker Engine 安装在 Rocky Linux 虚拟机内部。迁移完成后的唯一 Redis 服务是该虚拟机 Docker 中名为 `ygh-redis` 的容器；Windows IDEA 通过 `192.168.154.10:6379` 访问它。源码版 Redis 必须停止，不再作为项目服务运行。
-
-迁移的核心操作是：**导出源码版数据（RDB 文件）→ 复制并修改配置 → 停止源码版进程 → 启动虚拟机内的 Redis Docker 容器**。
-
-### 第一步：手动拉取项目固定版本的 Redis 镜像
-
-在 Rocky Linux 虚拟机 SSH 终端输入：
+方式一，DaoCloud：
 
 ```bash
-docker pull redis:8.4.4
-docker image inspect redis:8.4.4 --format '{{.RepoTags}}'
-docker run --rm redis:8.4.4 redis-server --version
+sudo docker pull docker.m.daocloud.io/library/redis:8.4.4
+sudo docker tag docker.m.daocloud.io/library/redis:8.4.4 redis:8.4.4
 ```
 
-第一条命令从 Docker Hub 或已经配置的镜像代理下载 Redis。第二条命令输出中必须包含 `redis:8.4.4`。第三条命令应显示 Redis 8.4.4 版本，验证完成后临时容器自动删除。
-
-如果拉取失败，不要把版本改成 `latest`，返回“Docker 安装步骤”的镜像源配置和网络检查部分。镜像下载到 Rocky Linux 虚拟机的 Docker 数据目录 `/var/lib/docker`，不下载到 Windows、WSL 或 Windows Docker Desktop。
-
-### 第二步：确认源码版和 Docker 版版本一致
-
-本项目源码版和 Docker 版都固定为 Redis 8.4.4。输入：
+方式二，1ms：
 
 ```bash
-redis-server --version
-docker run --rm redis:8.4.4 redis-server --version
+sudo docker pull docker.1ms.run/library/redis:8.4.4
+sudo docker tag docker.1ms.run/library/redis:8.4.4 redis:8.4.4
 ```
 
-两条命令都必须显示 8.4.4，才能继续迁移。
+**执行结果及原因**：第一条命令下载代理中的 Redis 8.4.4；第二条命令在本机增加标准标签 `redis:8.4.4`，确保后面的启动命令不依赖具体代理域名。
 
-**核心预警：**
+**注意事项**：只有第五步现场检测为 `200` 或 `401` 的代理才能使用。出现 `403`、`429`、`5xx` 或连接失败时，不要连续高频重试，改用另一个已验证代理或第四部分的离线镜像方式。
 
-- 不使用 `redis:latest`，避免不同交付时间拉到不同版本。
-- 源 Redis 版本不高于目标版本时才能直接迁移 RDB；高版本向低版本迁移必须单独验证。
-- 源码版和 Docker 版都占用 `192.168.154.10:6379`，启动 Docker 前必须停止源码版。
+### 第三步：检查镜像版本、架构和标签
 
-#### 1. 准备持久化数据（Rocky Linux 虚拟机宿主系统操作）
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
 
 ```bash
-# 确保数据写回磁盘
-/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD SAVE
-
-# 创建 Docker 专用的目录结构
-mkdir -p /opt/docker_redis/{data,conf,logs}
-cp /usr/local/redis/dbcache/dump.rdb /opt/docker_redis/data/
-cp /usr/local/redis/conf/redis.conf /opt/docker_redis/conf/
-
-# 关键：修正权限
-# Docker 内部 redis 用户 UID 通常是 999
-chown -R 999:999 /opt/docker_redis/data
+sudo docker image inspect redis:8.4.4 --format 'ID={{.Id}} ARCH={{.Architecture}} OS={{.Os}} TAGS={{json .RepoTags}}'
+sudo docker image inspect redis:8.4.4 --format 'DIGESTS={{json .RepoDigests}}'
+sudo docker run --rm redis:8.4.4 redis-server --version
 ```
 
-#### 2. 停止虚拟机系统中的源码版 Redis
+**执行结果及原因**：
 
-数据和配置复制完成后，立即停止源码版 Redis，释放 6379 端口：
+- 架构应为 `amd64`，操作系统应为 `linux`。
+- 标签中必须有 `redis:8.4.4`。
+- 项目在 2026-07-11 锁定的多架构标签摘要是 `sha256:ac5c39529eb8b3e41318154581dad015b1f414e63d532f9318d25409a47f8451`，Linux amd64 平台摘要是 `sha256:c17daa76f4f44878637398c9d1b0a1f3c1d30d45a804c5bcdefa4f89e48b6f3b`。`RepoDigests` 通常显示前一个标签摘要；通过代理拉取时仓库名前缀可能不同，但摘要部分应与项目锁定记录一致。
+- Redis 版本命令必须显示 `v=8.4.4`。
+- `--rm` 表示版本检查完成后自动删除临时容器，不会删除 Redis 镜像。
+
+如果版本不是 8.4.4，执行 `sudo docker image rm 错误镜像标签` 删除错误标签，然后重新拉取正确版本。不要删除客户已有的其他镜像。
+
+## 第三部分：手动创建 Redis 配置并启动项目所需容器
+
+### 第一步：理解“拉取完成后如何导入项目”
+
+**在哪里操作**：本步骤是操作说明，后续命令仍在 Rocky Linux 虚拟机 SSH 终端执行。
+
+Redis 镜像拉取完成后，**不需要把 Java 项目源码导入 Redis 镜像或 Redis 容器**。本项目的正确连接关系是：
+
+```text
+Windows 本机 IntelliJ IDEA 中的 Java 服务
+        ↓ 连接 192.168.154.10:6379
+Rocky Linux 虚拟机
+        ↓
+Docker 容器 ygh-redis（redis:8.4.4）
+```
+
+所谓“让 Redis 适配项目”，实际需要完成三件事：手工创建项目要求的 `redis.conf`、用该配置启动 `ygh-redis` 容器、在 IDEA 中填写 Redis 连接变量。
+
+### 第二步：创建 Redis 配置和数据目录
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
 
 ```bash
-/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD shutdown
-ss -lntp | grep ':6379' || echo '源码版 Redis 已停止，6379 端口已释放'
-```
-
-把 `CHANGE_TO_STRONG_PASSWORD` 替换为源码版 Redis 的真实密码。必须看到端口已经释放，才能继续。此后不要再启动 `/usr/local/redis/bin/redis-server`。
-
-#### 3. 针对容器环境的配置修正（重点检查项）
-
-```
-vim /opt/docker_redis/conf/redis.conf
-```
-
-确认以下配置：
-
-- daemonize no (容器环境下必须为 no，否则容器启动即退出)
-- bind 0.0.0.0 (允许外部连接)
-- dir /data (指向容器内挂载点)
-- logfile "/data/redis.log"（将日志也存放在持久化目录）
-- appendonly yes
-- appendfsync everysec
-- maxmemory 96mb
-- maxmemory-policy noeviction
-- requirepass 使用前面生成的同一个强密码
-
-
-
-在 Docker 中，“挂载点”是通过启动命令中的 `-v`（或 `--volume`）参数来实现的。它像一座桥梁，把**宿主机（你的 Rocky Linux）**的文件夹和**容器（Docker 内部）**的文件夹连接起来。
-
-既然你之前已经准备好了 `/opt/docker_redis` 目录，以下是详细的设置与启动步骤：
-
-### 第一步：在宿主机上创建物理目录
-确保宿主机上有存放配置和数据的“实体”：
-```bash
-# 创建配置目录和数据目录
 sudo mkdir -p /opt/docker_redis/conf
 sudo mkdir -p /opt/docker_redis/data
-
-# 将你之前编译好的配置文件拷贝到挂载点
-sudo cp /usr/local/redis/conf/redis.conf /opt/docker_redis/conf/
+sudo ls -ld /opt/docker_redis /opt/docker_redis/conf /opt/docker_redis/data
 ```
 
-### 第二步：修正宿主机目录权限（最重要）
-Docker 镜像内的 Redis 进程通常是以 `redis` 用户（UID 999）运行的。如果宿主机的文件夹权限不对，容器会因为“Permission denied”而无法启动。
+**执行结果及原因**：应显示三个目录。配置文件放在 `/opt/docker_redis/conf`，RDB 和 AOF 数据保存在 `/opt/docker_redis/data`。这些目录位于虚拟机宿主系统，通过 Docker 挂载进入容器。
+
+**注意事项**：不要把配置和数据放到 Windows、WSL 或 Java 项目源码目录。后续备份 Redis 时备份 `/opt/docker_redis`。
+
+### 第三步：生成 Redis 密码
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
+
 ```bash
-# 将目录所有权交给容器内的 redis 用户 (UID 999)
-sudo chown -R 999:999 /opt/docker_redis/data
-sudo chown -R 999:999 /opt/docker_redis/conf
-
-# 不使用 777；配置含密码，数据目录只交给容器内 Redis 用户
-chown -R 999:999 /opt/docker_redis/data /opt/docker_redis/conf
-chmod 750 /opt/docker_redis /opt/docker_redis/data /opt/docker_redis/conf
-chmod 640 /opt/docker_redis/conf/redis.conf
+openssl rand -base64 24
 ```
 
-### 第三步：检查配置文件里的内部路径
-打开宿主机的 `/opt/docker_redis/conf/redis.conf`，确保 Redis 知道数据该往哪存（**注意：这里填的是容器内部的路径**）：
+**执行结果及原因**：命令输出一串随机字符。把它保存到客户自己的密码管理器，后面编辑 `redis.conf` 和 IDEA 配置时使用同一个密码。
+
+**注意事项**：不要使用 `123456`、公司名称或项目名称；不要把真实密码写入本文、Git、截图或聊天记录。
+
+### 第四步：逐项编写 Redis 配置文件
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
+
 ```bash
 sudo vim /opt/docker_redis/conf/redis.conf
 ```
-找到并修改以下行：
+
+打开文件后按 `i` 进入编辑模式，逐行输入下面内容。最后一行必须把占位符替换成第三步生成的真实密码：
+
 ```conf
-# 数据持久化文件的存放目录（容器内路径）
-dir /data
-
-# 如果开启了日志，也建议指向 /data 或容器内的固定路径
-logfile "/data/redis.log"
-
-# 确保是非后台运行模式
+bind 0.0.0.0
+protected-mode yes
+port 6379
+tcp-backlog 511
+timeout 0
+tcp-keepalive 300
 daemonize no
+supervised no
+loglevel notice
+logfile ""
+databases 16
+dir /data
+dbfilename dump.rdb
+appendonly yes
+appendfilename "appendonly.aof"
+appenddirname "appendonlydir"
+appendfsync everysec
+maxmemory 96mb
+maxmemory-policy noeviction
+requirepass CHANGE_TO_STRONG_PASSWORD
 ```
 
-### 第四步：执行挂载并启动容器
-使用 `-v` 参数建立对应关系。格式为：`-v 宿主机绝对路径:容器内部路径`。
+输入完成后按 `Esc`，输入 `:wq` 并按回车保存。检查时不要输出含密码的完整文件，输入：
 
 ```bash
-docker run -d \
+sudo grep -E '^(bind|protected-mode|port|daemonize|logfile|dir|appendonly|appendfsync|maxmemory|maxmemory-policy)' /opt/docker_redis/conf/redis.conf
+sudo grep -q '^requirepass .' /opt/docker_redis/conf/redis.conf && echo 'Redis 密码已配置'
+```
+
+**执行结果及原因**：第一条命令显示项目要求的配置值；第二条只显示 `Redis 密码已配置`，不会把真实密码打印到终端。
+
+**配置原因**：
+
+- `bind 0.0.0.0`：允许容器通过发布端口接收连接。
+- `protected-mode yes` 和 `requirepass`：保持保护模式并启用认证。
+- `daemonize no`：Docker 容器要求 Redis 在前台运行，否则容器会立即退出。
+- `dir /data`：把持久化文件写入挂载的数据目录。
+- `appendonly yes`、`appendfsync everysec`：启用 AOF 并每秒刷盘。
+- `maxmemory 96mb`：匹配项目低内存虚拟机方案。
+- `maxmemory-policy noeviction`：内存用满时明确写入失败，不静默删除会话和安全状态。
+
+### 第五步：设置目录权限
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+先确认官方镜像中的 Redis 用户 UID：
+
+```bash
+sudo docker run --rm redis:8.4.4 id redis
+```
+
+正常应显示类似 `uid=999(redis) gid=999(redis)`。然后输入：
+
+```bash
+sudo chown root:999 /opt/docker_redis/conf/redis.conf
+sudo chmod 640 /opt/docker_redis/conf/redis.conf
+sudo chown -R 999:999 /opt/docker_redis/data
+sudo chmod 750 /opt/docker_redis /opt/docker_redis/conf /opt/docker_redis/data
+sudo ls -l /opt/docker_redis/conf/redis.conf
+```
+
+**执行结果及原因**：配置文件应由 `root` 管理、Redis 组可读；数据目录由容器内 Redis 用户读写。不能使用 `chmod 777`，因为配置文件包含密码。
+
+**哪些内容需要修改**：如果 `id redis` 显示的 UID/GID 不是 `999:999`，把 `chown` 命令中的 `999` 替换为实际值。
+
+### 第六步：确认 6379 没有被其他 Redis 占用
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
+
+```bash
+sudo ss -lntp | grep ':6379' || echo '6379 端口空闲'
+sudo docker ps -a --filter name=ygh-redis
+```
+
+**执行结果及原因**：第一条应显示 `6379 端口空闲`；第二条不应存在同名容器。
+
+如果源码版 Redis 占用端口，先用其真实密码停止：
+
+```bash
+/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD shutdown
+```
+
+如果存在以前创建但不再需要的 `ygh-redis` 容器，先确认数据已经备份，再输入 `sudo docker rm ygh-redis`。不要使用 `docker rm -f` 跳过数据确认。
+
+### 第七步：手动启动项目 Redis 容器
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入以下完整命令：
+
+```bash
+sudo docker run -d \
   --name ygh-redis \
   --cpus="0.20" \
   --memory="128m" \
@@ -542,218 +464,84 @@ docker run -d \
   redis-server /etc/redis/redis.conf
 ```
 
-执行后输入：
+**执行结果及原因**：Docker 输出一串容器 ID。`-p` 把虚拟机固定 IP 的 6379 映射到容器；两个 `-v` 分别挂载配置和数据；`:Z` 让 SELinux 为挂载目录设置容器可访问标签；`unless-stopped` 让虚拟机重启后自动恢复容器。
+
+**哪些内容需要修改**：如果客户虚拟机固定 IP 不是 `192.168.154.10`，只修改 `-p` 前面的宿主机 IP，并同步修改 IDEA 中的 `YGH_REDIS_HOST`。容器名、镜像版本、CPU、内存和容器内路径保持不变。
+
+### 第八步：检查容器状态和 Redis 参数
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+输入：
 
 ```bash
-docker ps --filter name=ygh-redis
-docker logs --tail 100 ygh-redis
+sudo docker ps --filter name=ygh-redis
+sudo docker logs --tail 100 ygh-redis
+sudo docker inspect ygh-redis --format 'Status={{.State.Status}} Restart={{.HostConfig.RestartPolicy.Name}} Memory={{.HostConfig.Memory}} NanoCPUs={{.HostConfig.NanoCpus}}'
 ```
 
-`docker ps` 中应看到 `ygh-redis`，状态应为 `Up`。日志中不能出现配置文件读取失败、权限不足或端口占用错误。
+**执行结果及原因**：容器状态必须是 `Up` 或 `running`，重启策略是 `unless-stopped`，内存字节数对应 128MB，CPU 对应 0.20 核。日志不能出现配置文件读取失败、权限不足或端口占用错误。
 
-以后手动停止、再次启动和重启 Redis 分别使用：
+进入 Redis 客户端：
 
 ```bash
-docker stop ygh-redis
-docker start ygh-redis
-docker restart ygh-redis
+sudo docker exec -it ygh-redis redis-cli
 ```
 
-`--restart unless-stopped` 表示虚拟机重启后 Docker 会自动恢复该容器；如果客户手动执行了 `docker stop`，需要手动执行 `docker start ygh-redis`。
+在 `127.0.0.1:6379>` 提示符中逐条输入：
 
-**挂载点解释：**
-1.  **`-v /opt/docker_redis/conf/redis.conf:/etc/redis/redis.conf`**: 
-    将宿主机的配置文件挂载到容器的 `/etc/redis/` 下。Redis 启动命令最后指定了读取这个位置。
-2.  **`-v /opt/docker_redis/data:/data`**: 
-    将宿主机的 `data` 目录挂载到容器的 `/data`。你在配置文件里写的 `dir /data` 产生的所有 RDB/AOF 文件都会实时出现在宿主机的 `/opt/docker_redis/data` 文件夹里。
-
----
-
-### 第五步：验证挂载是否成功
-
-#### 1. 检查容器内是否能看到配置文件
-```bash
-docker exec -it ygh-redis ls /etc/redis/
-# 预期看到：redis.conf
+```text
+AUTH CHANGE_TO_STRONG_PASSWORD
+PING
+INFO server
+CONFIG GET maxmemory
+CONFIG GET maxmemory-policy
+CONFIG GET appendonly
+CONFIG GET appendfsync
+EXIT
 ```
 
-#### 2. 测试持久化联动
-在容器里写入一条数据，然后去宿主机查看文件：
-```bash
-# 容器内操作
-docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD SET mytest "hello_docker"
-docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD SAVE
+把密码占位符替换成真实密码。`AUTH` 应返回 `OK`，`PING` 应返回 `PONG`，版本应为 8.4.4，策略应为 `noeviction`，AOF 应为 `yes`，刷盘方式应为 `everysec`。
 
-# 宿主机操作
-ls -l /opt/docker_redis/data/dump.rdb
-# 如果 dump.rdb 的更新时间变为了刚才的时间，说明挂载点完全正常！
-```
+### 第九步：配置虚拟机防火墙
 
-### 容器操作提示
-*   **查看启动失败原因**：如果执行 `docker run` 后容器没起来，立刻输入 `docker logs ygh-redis`。
-*   **配置文件只读**：如果你不希望容器修改你的配置文件，可以写成 `-v /opt/docker_redis/conf/redis.conf:/etc/redis/redis.conf:ro`（末尾加 `:ro` 表示 Read-Only）。对于 `data` 目录，必须是读写权限。
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
 
-
-
-#### 3. 启动命令（性能调优版）
-
-本项目虚拟机只有 2 个 vCPU、3.5GB 内存，因此使用下面的资源限制启动，避免 Redis 挤占 MySQL 和 Nacos 的资源。
-
-下面的命令与“第四步：执行挂载并启动容器”相同，只用于再次核对最终参数。如果前面已经成功创建 `ygh-redis`，不要重复执行，否则会提示容器名称冲突。
+当前 VMware NAT 环境中，Windows 宿主机 VMnet8 地址为 `192.168.154.1`。只允许该地址访问 Redis：
 
 ```bash
-docker run -d \
-  --name ygh-redis \
-  --cpus="0.20" \
-  --memory="128m" \
-  -p 192.168.154.10:6379:6379 \
-  -v /opt/docker_redis/conf/redis.conf:/etc/redis/redis.conf:ro,Z \
-  -v /opt/docker_redis/data:/data:Z \
-  --restart unless-stopped \
-  redis:8.4.4 \
-  redis-server /etc/redis/redis.conf
+sudo firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=192.168.154.1/32 port port=6379 protocol=tcp accept'
+sudo firewall-cmd --reload
+sudo firewall-cmd --list-rich-rules
 ```
 
-------
+**执行结果及原因**：规则列表中应出现来源 `192.168.154.1/32` 和端口 6379。这样 Redis 不会向所有网络开放。
 
+**哪些内容需要修改**：客户在 Windows PowerShell 执行 `ipconfig`，查看 VMware Network Adapter VMnet8 的 IPv4 地址。如果不是 `192.168.154.1`，替换防火墙规则中的来源地址。不要设置为 `0.0.0.0/0`。
 
+### 第十步：从 Windows 检查 Redis 端口
 
-### 第四部分：文档补充与故障排查（QA）
+**在哪里运行**：Windows 本机 PowerShell，不在 SSH 终端运行。
 
-**1. 为什么 redis-cli 连不上容器？**
+输入：
 
-- **检查1**：防火墙。Rocky 10 默认开启 firewalld，只允许 Windows VMnet8 地址访问：
-
-  ```bash
-  firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=192.168.154.1/32 port port=6379 protocol=tcp accept'
-  firewall-cmd --reload
-  ```
-
-- **检查2**：`protected-mode` 保持 `yes`，并确认 `requirepass` 已配置且 IDEA 中的密码一致。
-
-**2. 迁移后运行参数是否生效？**
-在容器外执行：
-
-```bash
-docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD INFO
-docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD CONFIG GET io-threads
+```powershell
+Test-NetConnection 192.168.154.10 -Port 6379
 ```
 
-当前项目没有启用 3 个 IO 线程；`CONFIG GET io-threads` 保持默认值即可。重点确认 `maxmemory=96mb`、`maxmemory-policy=noeviction`、`appendonly=yes` 和 `appendfsync=everysec`。
+**执行结果及原因**：应显示 `TcpTestSucceeded : True`，表示 Windows 可以访问虚拟机 Docker 发布的 Redis 端口。
 
-以下保留原文件中的详细迁移复核步骤：
+如果为 `False`，依次检查虚拟机 IP、`docker ps`、`docker logs ygh-redis`、6379 端口映射和 firewalld 规则。不要把 Redis 改装到 Windows Docker Desktop 来绕过问题。
 
----
+### 第十一步：在 IDEA 中把 Java 项目连接到 Redis
 
-### 第一阶段：在 Rocky Linux 虚拟机宿主系统准备数据和配置
+**在哪里操作**：Windows 本机 IntelliJ IDEA。
 
-迁移前，我们需要把正在运行的 Redis 数据落盘并提取出来。
-
-#### 1. 强制保存数据
-在 Rocky Linux 虚拟机终端执行，确保内存中的数据完整写入磁盘：
-```bash
-/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD
-redis-server:6379> SAVE
-redis-server:6379> EXIT
-```
-
-#### 2. 定位并备份关键文件
-你需要拷贝出两个核心文件：
-- **数据文件**：`/usr/local/redis/dbcache/dump.rdb`
-- **配置文件**：`/usr/local/redis/conf/redis.conf`
-
-#### 3. 停止源码版 Redis
-为了释放 6379 端口给 Docker 使用：
-```bash
-killall redis-server
-ss -lntp | grep ':6379' || echo '源码版 Redis 已停止，6379 端口已释放'
-```
-
-执行后必须看到“源码版 Redis 已停止，6379 端口已释放”，才能启动 Docker Redis。迁移完成后不要再执行 `/usr/local/redis/bin/redis-server`。
-
----
-
-### 第二阶段：准备 Docker 运行环境
-
-在 Rocky Linux 虚拟机宿主系统创建专门存放 Docker 持久化数据的目录。
-
-```bash
-mkdir -p /opt/docker_redis/{data,conf}
-
-# 将虚拟机宿主系统中的文件复制到 Docker 挂载目录
-cp /usr/local/redis/dbcache/dump.rdb /opt/docker_redis/data/
-cp /usr/local/redis/conf/redis.conf /opt/docker_redis/conf/
-
-# 赋予权限，防止 Docker 容器无法读取
-# 不使用 777；配置含密码，数据目录只交给容器内 Redis 用户
-chown -R 999:999 /opt/docker_redis/data /opt/docker_redis/conf
-chmod 750 /opt/docker_redis /opt/docker_redis/data /opt/docker_redis/conf
-chmod 640 /opt/docker_redis/conf/redis.conf
-```
-
----
-
-### 第三阶段：针对 Docker 环境修改配置文件
-
-**这一步极其关键！** 源码版的配置文件在 Docker 里直接用会报错，必须修改以下几项：
-
-```bash
-vim /opt/docker_redis/conf/redis.conf
-```
-
-**修改以下四项内容：**
-1.  **`daemonize`**: 改为 **`no`**。（Docker 容器必须前台运行，设为 `yes` 容器启动后会立即退出）。
-2.  **`bind`**: 改为 **`0.0.0.0`**。（允许容器外连接）。
-3.  **`dir`**: 改为 **`/data`**。（这是容器内部的路径）。
-4.  **`protected-mode`**: 保持为 **`yes`**，并确认 `requirepass` 已配置。
-
----
-
-### 第四阶段：启动 Redis 容器
-
-当前项目按低配置虚拟机运行，使用下面的 CPU 和内存限制启动。
-
-如果已经在前面的“第四步：执行挂载并启动容器”中成功创建 `ygh-redis`，本阶段只核对命令参数，不要再次执行。只有前面尚未创建容器时才执行：
-
-```bash
-docker run -d \
-  --name ygh-redis \
-  --cpus="0.20" \
-  --memory="128m" \
-  -p 192.168.154.10:6379:6379 \
-  -v /opt/docker_redis/conf/redis.conf:/etc/redis/redis.conf:ro,Z \
-  -v /opt/docker_redis/data:/data:Z \
-  --restart unless-stopped \
-  redis:8.4.4 \
-  redis-server /etc/redis/redis.conf
-```
-
-这条命令执行在 Rocky Linux 虚拟机 SSH 终端，但 Redis 进程实际运行在该虚拟机的 Docker 容器 `ygh-redis` 中，不是直接运行在虚拟机系统中。
-
-**指令解释：**
-- `-v .../redis.conf:/etc/redis/redis.conf`: 把虚拟机宿主系统中修改好的配置挂载进去。
-- `-v .../data:/data`: 把存有 `dump.rdb` 的目录挂载到容器数据目录。Redis 启动时会自动加载这个文件还原数据。
-- `redis:8.4.4`：项目固定使用的 Docker Hub 官方 Redis 镜像，不使用 `latest`。
-
----
-
-### 第五阶段：验证迁移结果
-
-#### 1. 检查数据是否找回
-进入容器查看之前压测产生的数据：
-```bash
-docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD
-127.0.0.1:6379> DBSIZE
-# 如果输出的数字大于 0，说明数据（dump.rdb）迁移成功！
-127.0.0.1:6379> INFO server
-# 查看版本号是否符合预期
-```
-
-#### 2. 修改 Spring Boot 配置
-
-本项目 Java 服务在 Windows 本机 IDEA 中运行，Redis 最终且唯一运行在 Rocky Linux 虚拟机内的 Docker 容器 `ygh-redis` 中。代码不需要上传到 Redis，Java 服务通过虚拟机 IP 连接 Redis。
-
-在 IDEA 右上角点击运行配置 → `Edit Configurations...` → 选择服务 → `Environment variables`，添加：
+1. 使用 IDEA 打开客户解压后的项目根目录。
+2. 点击 `Run` → `Edit Configurations...`。
+3. 选择需要使用 Redis 的 Spring Boot 服务。
+4. 找到 `Environment variables`，点击右侧编辑按钮。
+5. 逐项添加：
 
 ```text
 YGH_REDIS_HOST=192.168.154.10
@@ -762,18 +550,131 @@ YGH_REDIS_PASSWORD=这里填写Redis真实密码
 YGH_REDIS_ENVIRONMENT=dev
 ```
 
-至少为 `ygh-gateway`、`ygh-auth-service` 和 `ygh-product-service` 配置这些变量。不要把真实密码写入 `application.yml`。
+`ygh-product-service` 另外添加：
 
----
-
-### 补充操作：多线程 IO 与本项目资源限制
-
-原版示例使用了 `io-threads 3` 和 `io-threads-do-reads yes`。当前项目的 Redis 容器只分配 `0.20` CPU，不启用这两个参数，避免线程数量超过可用 CPU。可以通过以下命令确认当前值：
-```bash
-docker exec -it ygh-redis redis-cli -a CHANGE_TO_STRONG_PASSWORD CONFIG GET io-threads
+```text
+YGH_PRODUCT_REDIS_DATABASE=2
 ```
 
-### 常见报错排除：
-- **容器秒退**：检查 `redis.conf` 里的 `daemonize` 是否已经改为 `no`。
-- **无法连接**：检查 `redis.conf` 里的 `bind` 是否为 `0.0.0.0`，并确认防火墙已放行 6379 端口。
-- **数据没出来**：检查 `redis.conf` 里的 `dir` 是否指向了 `/data`，且容器启动命令中正确挂载了数据卷。
+至少为 `ygh-gateway`、`ygh-auth-service` 和 `ygh-product-service` 配置 Redis 连接。密码必须和 `/opt/docker_redis/conf/redis.conf` 中的 `requirepass` 完全一致。
+
+**执行结果及原因**：IDEA 启动日志中不能出现 `Connection refused`、`NOAUTH Authentication required`、`WRONGPASS` 或缺少 `YGH_REDIS_*` 变量。
+
+### 第十二步：日常停止、启动、重启和查看日志
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+```bash
+sudo docker stop ygh-redis
+sudo docker start ygh-redis
+sudo docker restart ygh-redis
+sudo docker logs --tail 200 ygh-redis
+```
+
+这些命令只管理容器，不删除 `/opt/docker_redis/data`。不要执行 `docker rm`、`docker system prune --volumes` 或删除 `/opt/docker_redis/data`，除非已经确认不需要数据并完成备份。
+
+## 第四部分：虚拟机无法联网时手动上传 Redis 镜像
+
+### 第一步：在可联网电脑下载并导出镜像
+
+**在哪里运行**：已安装并启动 Docker Desktop 的 Windows 本机 PowerShell，或者其他能访问 Docker Hub 的电脑。
+
+```powershell
+docker pull redis:8.4.4
+New-Item -ItemType Directory -Force 'D:\delivery-images'
+docker save -o 'D:\delivery-images\redis-8.4.4.tar' redis:8.4.4
+Get-FileHash 'D:\delivery-images\redis-8.4.4.tar' -Algorithm SHA256
+```
+
+**执行结果及原因**：生成 `D:\delivery-images\redis-8.4.4.tar` 和一串 SHA256。`docker save` 保存的是镜像全部层和标签，不是 Java 项目压缩包。
+
+**哪些内容需要修改**：如果客户没有 D 盘，把路径改到空间充足的盘符。不要对 tar 文件再次解压。
+
+### 第二步：使用 WinSCP 上传镜像包
+
+**在哪里操作**：Windows 本机 WinSCP。
+
+1. 打开 WinSCP，协议选择 `SFTP`。
+2. 主机填写 `192.168.154.10`，端口填写 `22`。
+3. 输入虚拟机实际 SSH 用户和密码并登录。
+4. 左侧找到 `D:\delivery-images\redis-8.4.4.tar`。
+5. 右侧进入 `/opt/images`；目录不存在时先新建。
+6. 把 tar 文件上传到 `/opt/images/redis-8.4.4.tar`。
+
+### 第三步：在虚拟机导入镜像
+
+**在哪里运行**：Rocky Linux 虚拟机 SSH 终端。
+
+```bash
+sha256sum /opt/images/redis-8.4.4.tar
+sudo docker load -i /opt/images/redis-8.4.4.tar
+sudo docker image inspect redis:8.4.4 --format '{{json .RepoTags}}'
+sudo docker run --rm redis:8.4.4 redis-server --version
+```
+
+**执行结果及原因**：Linux 的 SHA256 必须与 Windows 一致；`docker load` 应显示 `Loaded image: redis:8.4.4`；版本必须是 8.4.4。
+
+**注意事项**：镜像导入完成后回到第三部分创建配置和启动容器。仍然不需要把 Java 项目源码复制进 Redis 容器。
+
+## 第五部分：已有旧 Redis 数据时迁移 RDB
+
+没有旧 Redis 数据的客户跳过本部分。只有虚拟机中已经运行过源码版或旧容器 Redis 时才执行。
+
+### 第一步：记录旧 Redis 版本和键数量
+
+**在哪里运行**：旧 Redis 所在的 Rocky Linux 虚拟机终端。
+
+```bash
+/usr/local/redis/bin/redis-server --version
+/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD DBSIZE
+```
+
+记录版本和键数量。高版本 Redis 的 RDB 不能未经验证直接迁移到低版本；本项目目标版本是 8.4.4。
+
+### 第二步：保存并复制 RDB
+
+```bash
+/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD SAVE
+sudo mkdir -p /opt/redis-backup
+sudo cp /usr/local/redis/dbcache/dump.rdb /opt/redis-backup/dump.rdb
+sudo ls -lh /opt/redis-backup/dump.rdb
+```
+
+把密码占位符替换为旧 Redis 密码。必须看到非空的 `dump.rdb`。
+
+### 第三步：停止旧 Redis并释放端口
+
+```bash
+/usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD shutdown
+sudo ss -lntp | grep ':6379' || echo '旧 Redis 已停止，6379 端口已释放'
+```
+
+只有看到端口已释放后才能继续。旧 Redis 停止后不要再次启动。
+
+### 第四步：把 RDB 放入项目数据目录
+
+```bash
+sudo mkdir -p /opt/docker_redis/data
+sudo cp /opt/redis-backup/dump.rdb /opt/docker_redis/data/dump.rdb
+sudo chown -R 999:999 /opt/docker_redis/data
+sudo chmod 750 /opt/docker_redis/data
+```
+
+然后按照第三部分创建 `redis.conf` 并启动 `ygh-redis`。Redis 容器首次启动时会从 `/data/dump.rdb` 加载旧数据，并继续使用 AOF 持久化。
+
+### 第五步：核对迁移结果
+
+```bash
+sudo docker exec -it ygh-redis redis-cli
+```
+
+进入 Redis 后输入：
+
+```text
+AUTH CHANGE_TO_STRONG_PASSWORD
+DBSIZE
+INFO persistence
+EXIT
+```
+
+迁移后的 `DBSIZE` 应与迁移前记录一致。若不一致，先停止 `ygh-redis` 并保留所有备份，不要反复覆盖数据文件。
