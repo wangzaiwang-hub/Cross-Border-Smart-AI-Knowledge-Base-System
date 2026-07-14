@@ -88,7 +88,7 @@ sudo dnf makecache
 
 **哪些内容需要修改**：官方源和阿里云源二选一，不要同时创建两份名称相同的 `docker-ce.repo`。如果公司有内部 RPM 仓库，应填写公司提供的仓库地址。
 
-**手动浏览器下载方式**：如果虚拟机完全不能访问软件仓库，在一台可以联网的电脑上打开 `https://download.docker.com/linux/centos/`，依次进入对应系统版本、`x86_64`、`stable`、`Packages`，下载 Docker CE、Docker CLI、containerd、Buildx 和 Compose Plugin 的 RPM 文件，再通过 WinSCP 上传到虚拟机 `/opt/docker-rpms`，最后在该目录执行 `sudo dnf install ./*.rpm`。RPM 之间存在依赖，缺少任何依赖时 `dnf` 会明确报出包名，必须补齐后再安装，不使用一键安装脚本。
+**手动浏览器下载方式**：如果虚拟机完全不能访问软件仓库，在一台可以联网的电脑上打开 `https://download.docker.com/linux/centos/`，依次进入对应系统版本、`x86_64`、`stable`、`Packages`，下载 Docker CE、Docker CLI、containerd 和 Buildx 的 RPM 文件，再通过 WinSCP 上传到虚拟机 `/opt/docker-rpms`，最后在该目录执行 `sudo dnf install ./*.rpm`。RPM 之间存在依赖，缺少任何依赖时 `dnf` 会明确报出包名，必须补齐后再安装，不使用一键安装脚本。
 
 ### 第四步：安装 Docker Engine
 
@@ -97,7 +97,7 @@ sudo dnf makecache
 输入：
 
 ```bash
-sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
 ```
 
 **安装位置**：

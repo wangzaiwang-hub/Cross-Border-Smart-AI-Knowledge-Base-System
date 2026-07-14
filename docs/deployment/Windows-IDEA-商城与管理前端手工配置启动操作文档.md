@@ -1,6 +1,6 @@
 # Windows IDEA 商城与管理前端手工配置启动操作文档
 
-本文从项目源码已经解压到 `D:\ygh-ai-system`、Node.js 24.18.0 和 pnpm 10.13.1 已安装的状态开始。两个前端都运行在客户 Windows 本机，不在 Rocky Linux 虚拟机、Docker、WSL 中运行。本文不创建 `.env`，不使用 Git，不使用批处理或启动脚本。
+本文从项目源码已经解压到 `D:\ygh-ai-system`、Node.js 24.18.0 和 pnpm 10.13.1 已安装的状态开始。两个前端都运行在客户 Windows 本机，不在 Rocky Linux 虚拟机、Docker、WSL 中运行。前端地址只在 IDEA 运行配置中逐项填写，不使用 Git、批处理或启动脚本。
 
 ## 第一部分：检查前端运行条件
 
@@ -68,7 +68,7 @@ Invoke-RestMethod 'http://127.0.0.1:8080/actuator/health'
 
 **执行后的结果**：`TcpTestSucceeded=True`，健康状态为 `UP`。
 
-**配置原因**：商城和管理端都通过 Gateway 访问后端。后端网关运行在 Windows IDEA 的 `8080`，不是 Docker 的 `18080`。
+**配置原因**：商城和管理端都通过 Gateway 访问后端。本文的后端网关运行在 Windows IDEA 的 `8080`。
 
 ### 第五步：检查 5173 和 5174 没有被其他程序占用
 
@@ -211,7 +211,7 @@ Package manager: pnpm
 
 **执行后的结果**：商城所有 Axios 请求和 Vite `/api` 代理都指向 Windows IDEA 网关 `8080`。
 
-**注意事项**：不要复制 `apps\ygh-web-mall\.env.example`。其中历史示例端口 `18080` 是容器映射场景，不适用于本文的 IDEA 网关；本教程明确不创建 `.env`。
+**注意事项**：商城的 Gateway 地址只在本步骤的 IDEA `Environment variables` 中填写，必须是 `http://127.0.0.1:8080`，不要从其他部署场景复制端口。
 
 ### 第十五步：启动商城前端
 
@@ -238,7 +238,7 @@ Local:   http://localhost:5173/
 3. 切换 `Network`。
 4. 刷新页面。
 
-**执行后的结果**：页面能显示，JS/CSS 文件状态为 200；发往后端的请求目标为 `127.0.0.1:8080` 或通过 5173 的 `/api` 代理转发，不应请求 `18080`。
+**执行后的结果**：页面能显示，JS/CSS 文件状态为 200；发往后端的请求目标为 `127.0.0.1:8080`，或通过 5173 的 `/api` 代理转发到该地址。
 
 ## 第四部分：在 IDEA 配置管理前端
 
@@ -272,7 +272,7 @@ Value: http://127.0.0.1:8080
 
 点击 `OK` → `Apply`。
 
-**注意事项**：不要复制 admin 的 `.env.example`，也不要填写 `18080`。管理端和商城端都访问同一个 Gateway `8080`。
+**注意事项**：管理端地址同样只在 IDEA 运行配置中填写。管理端和商城端访问同一个 Gateway `8080`。
 
 ### 第十九步：启动管理前端
 
@@ -347,7 +347,7 @@ Get-NetTCPConnection -State Listen -LocalPort 5173,5174 |
 | 现象 | 原因 | 操作 |
 |---|---|---|
 | 页面打开，接口 `ERR_CONNECTION_REFUSED` | Gateway 8080 未启动 | 回到后端文档启动 Auth、System、Gateway并检查健康 |
-| 请求发往 `18080` | 复制了旧示例或 IDEA 变量错误 | 删除错误 `.env`，IDEA 中设 `VITE_GATEWAY_URL=http://127.0.0.1:8080` 后重启 Vite |
+| 请求没有发往 `8080` | IDEA 中的 Gateway 变量错误 | 将 `VITE_GATEWAY_URL` 改为 `http://127.0.0.1:8080` 后重启 Vite |
 | 浏览器出现 CORS 错误 | Gateway 允许来源缺少 5173/5174 | 核对 Gateway 的 `YGH_GATEWAY_CORS_ALLOWED_ORIGINS` |
 | 返回 401 | 未登录、Token 无效或 Auth/JWKS 不可用 | 先检查 Auth 和 Gateway，不要修改前端绕过认证 |
 | 返回 403 | 当前账号无管理权限 | 在 System 权限体系中正确授权，不要关闭权限校验 |
@@ -373,4 +373,4 @@ build：通过/未通过
 验收时间：
 ```
 
-**执行后的结果**：客户可以从源码、锁文件、IDEA 配置到浏览器请求逐层定位问题，不依赖 `.env` 或任何启动脚本。
+**执行后的结果**：客户可以从源码、锁文件、IDEA 配置到浏览器请求逐层定位问题，不依赖任何启动脚本。
