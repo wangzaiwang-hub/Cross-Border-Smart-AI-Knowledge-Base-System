@@ -201,6 +201,8 @@ Get-Content 'D:\ygh-secrets\jwt\auth-dev-2026.public.pem' -TotalCount 1
 
 ## 第四部分：首次执行 auth、user、system 数据库迁移
 
+Flyway 是项目的 Maven 依赖，不是 IDEA 中单独安装的软件或必须出现的运行配置类型。下面创建的三个配置全部选择 `Application`。开始前必须先完成《02-MySQL-8.4.10-Docker镜像手工安装与项目配置操作文档》第八部分第二步至第七步，确认 Maven 已导入、Oracle JDK 25 已生效、三个 `*MigrationApplication.java` 文件真实存在且可以编译。Main class 搜索不到时不要继续填写变量，也不要改用普通服务启动类。
+
 ### 第十一步：创建 auth 数据库迁移配置
 
 **在哪里操作**：IDEA `Run` → `Edit Configurations...`。
@@ -245,7 +247,7 @@ JRE: Project SDK (Oracle JDK 25)
 2. 点击绿色运行三角。
 3. 等待 Flyway 日志完成。
 4. 必须看到 `Process finished with exit code 0`；该入口会自动退出，不要手动停止。
-5. 回到《MySQL 8.4.10 Docker 镜像手工安装与项目配置操作文档》第九部分第六步，逐条执行六张 auth 表的 `GRANT`。
+5. 回到《02-MySQL-8.4.10-Docker镜像手工安装与项目配置操作文档》第八部分第十二步，逐条执行六张 auth 表的 `GRANT`。
 
 **执行后的结果**：`auth_db.flyway_schema_history` 建立且记录成功，`ygh_auth_app` 获得六张 auth 表的 DML 权限。
 
@@ -279,7 +281,7 @@ Use classpath of module: ygh-user-service
 | `YGH_USER_PII_KEY_BASE64` | 第六步第 3 个值 |
 | `YGH_INTERNAL_REQUEST_HMAC_BASE64` | 第六步第 1 个值 |
 
-点击 `Apply`，运行 `DB-Migrate-user`。看到退出码 0 后，按 MySQL 文档第九部分第七步逐条授予六张 user 表权限。
+点击 `Apply`，运行 `DB-Migrate-user`。看到退出码 0 后，按 MySQL 文档第八部分第十三步逐条授予六张 user 表权限。
 
 **执行后的结果**：user 迁移入口自动结束，`flyway_schema_history` 成功，user app 表权限完成。
 
@@ -310,7 +312,7 @@ Use classpath of module: ygh-system-service
 | `YGH_INTERNAL_REQUEST_HMAC_BASE64` | 第六步第 1 个值 |
 | `YGH_SYSTEM_CONFIG_MASTER_KEY_BASE64` | 第六步第 4 个值 |
 
-点击 `Apply`，运行 `DB-Migrate-system`。看到退出码 0 后，按 MySQL 文档第九部分第八步逐条授予十二张 system 表权限。
+点击 `Apply`，运行 `DB-Migrate-system`。看到退出码 0 后，按 MySQL 文档第八部分第十四步逐条授予十二张 system 表权限。
 
 **执行后的结果**：三个特殊数据库迁移全部完成。以后升级源码时仍先运行这三个迁移入口，再启动三个普通服务。
 

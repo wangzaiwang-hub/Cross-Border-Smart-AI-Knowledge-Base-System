@@ -638,7 +638,7 @@ Test-Path 'D:\ygh-ai-system\ygh-web\package.json'
 
 如果只有 `D:\ygh-ai-system\ygh-ai-system-source\pom.xml` 存在，说明 ZIP 多套一层。将内层目录整体移动为 `D:\ygh-ai-system`，确保根 `pom.xml` 直接位于目标目录下。
 
-### 第七步：核对项目关键目录
+### 第七步：核对项目结构并理解每个目录的用途
 
 **在哪里操作**：Windows 本机资源管理器或 PowerShell。
 
@@ -648,22 +648,45 @@ Test-Path 'D:\ygh-ai-system\ygh-web\package.json'
 Get-ChildItem 'D:\ygh-ai-system' -Directory | Select-Object Name
 ```
 
-**执行后的结果**至少包含：
+**执行后的结果**至少包含下面这些目录。客户拿到的不是一个只有若干 JAR 包的运行目录，而是一个 Maven 多模块源码项目：
 
 ```text
-.mvn
-docs
-spec
-ygh-applications
-ygh-common
-ygh-dependencies
-ygh-deploy
-ygh-platform
-ygh-tests
-ygh-web
+D:\ygh-ai-system
+├─ pom.xml                    Maven 根工程，IDEA 必须从这里导入
+├─ mvnw.cmd                   Maven Wrapper 的 Windows 标准入口，不是项目部署脚本
+├─ .mvn\                      Maven Wrapper 固定版本配置
+├─ ygh-dependencies\          Java 依赖版本管理模块
+├─ ygh-common\                公共 Java 基础模块，不单独启动
+├─ ygh-platform\              平台服务
+│  ├─ ygh-gateway\            网关服务，启动类 GatewayApplication
+│  └─ ygh-auth-service\       认证服务，启动类 AuthApplication
+├─ ygh-applications\          业务服务总目录
+│  ├─ ygh-admin\              管理服务
+│  ├─ ygh-user\               用户服务
+│  ├─ ygh-system\             系统服务
+│  ├─ ygh-product\            商品服务
+│  ├─ ygh-inventory\          库存服务
+│  ├─ ygh-order\              订单服务
+│  ├─ ygh-wallet\             钱包服务
+│  ├─ ygh-search\             向量检索服务
+│  ├─ ygh-knowledge\          知识库服务
+│  ├─ ygh-ai\                 AI 服务
+│  ├─ ygh-notification\       通知服务
+│  └─ ygh-training\           培训服务
+├─ ygh-web\                   商城前端和管理前端
+├─ ygh-tests\                 Java 契约、集成、安全和兼容性测试模块
+├─ spec\                      OpenAPI 等接口规格
+├─ docs\                      项目文档
+└─ ygh-deploy\                Docker 配置及历史部署材料，不是 Java 启动模块
 ```
 
-缺少任何业务根目录时，源码交付包不完整，不能继续导入 IDEA。
+每个业务目录通常继续分为 `*-api` 和 `*-service`：`*-api` 保存接口契约，不能作为 Java 应用启动；`*-service` 才包含 `src\main\java`、`src\main\resources`、数据库迁移文件和真正的 `*Application` 启动类。
+
+`target` 是 Maven 编译产生的临时目录，不是源码模块，也不应出现在正式交付压缩包中。IDEA 中看到橙色 `target` 不代表多了一个项目；交付前应由交付方制作不包含 `target` 的干净压缩包。
+
+`ygh-deploy\scripts` 以及其他 `.ps1`、`.sh` 文件属于现有仓库中的自动化部署或检查脚本。当前客户交付要求是逐项手工安装、配置并在 IDEA 中启动，因此客户不要进入这些目录执行脚本。交付方必须在最终源码包制作前完成脚本清理及其引用调整，不能把脚本写成客户部署入口。
+
+缺少任何业务根目录时，源码交付包不完整，不能继续导入 IDEA；但 `ygh-deploy` 不会显示在 IDEA 的 Maven 模块列表中，因为它没有 `pom.xml`，这属于正常现象。
 
 ### 第八步：确认交付包没有真实秘密和运行垃圾
 

@@ -830,7 +830,7 @@ IDEA 中启动的服务必须向 Nacos 注册 Windows VMnet8 地址，不能注�
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
-完成 Nacos 后，返回 MySQL 操作文档第八部分，按顺序运行：
+完成 Nacos 后不要马上执行 Flyway。继续按编号完成第 05、06、07 份文档；确认 Oracle JDK 25、IDEA 和源码 Maven 模块已经导入，三个迁移入口可以编译后，再返回 MySQL 操作文档第八部分，按顺序运行：
 
 ```text
 DB-Migrate-auth

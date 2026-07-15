@@ -590,26 +590,98 @@ Test-NetConnection 192.168.154.10 -Port 3306
 
 应显示 `TcpTestSucceeded : True`。如果为 False，依次检查虚拟机 IP、`docker ps`、容器健康状态、端口映射和 firewalld 规则。
 
-## 第八部分：在 IDEA 中逐个配置数据库并执行 Flyway
+## 第八部分：在 IDEA 中确认源码和 Flyway 后逐个迁移数据库
 
 ### 第一步：理解每个服务为什么有两套账号
 
 每个 Java 服务使用 `_migration` 账号执行 Flyway 建表和升级，使用 `_app` 账号处理业务请求。迁移账号有 DDL 权限，应用账号只有 DML 权限。不能为了省事让 Java 服务使用 root，也不能把迁移账号当作应用账号。
 
-### 第二步：打开 IDEA 运行配置
+### 第二步：先确认 Flyway 在本项目中是什么
+
+Flyway 不是一个需要客户另外下载的 Windows 软件，也不是 IDEA 左侧必须出现的项目目录，更不是 `Run` → `Edit Configurations...` 中必须出现的配置类型。本项目把 Flyway 作为 Maven 依赖放在 Java 服务中，启动迁移入口后由 Spring Boot 自动调用 Flyway，再读取各服务 `src\main\resources\db\migration` 中的 SQL 文件。
+
+因此，在 IDEA 新建运行配置时应选择 `Application`，不是寻找名为 `Flyway` 的按钮。IDEA 中没有单独的 Flyway 菜单不表示项目缺少 Flyway。
+
+### 第三步：在 Project 视图中找到真实迁移入口
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
-1. 使用 IDEA 打开项目根目录，等待右下角 Maven 导入和索引完成。
-2. 点击 `Run` → `Edit Configurations...`。
-3. 点击左上角 `+`，选择 `Application`。
-4. auth 数据库迁移配置的名称填写 `DB-Migrate-auth`，Main class 选择 `com.yuegang.zhihui.auth.AuthMigrationApplication`，`Use classpath of module` 选择 `ygh-auth-service`。
-5. 找到 `Environment variables`，点击右侧编辑按钮。
-6. 按下面表格为当前迁移入口填写五个变量。
+在 IDEA 左侧把视图切换为 `Project`，依次展开并确认下面三个文件实际存在：
+
+```text
+ygh-platform\ygh-auth-service\src\main\java\com\yuegang\zhihui\auth\AuthMigrationApplication.java
+ygh-applications\ygh-user\ygh-user-service\src\main\java\com\yuegang\zhihui\user\UserMigrationApplication.java
+ygh-applications\ygh-system\ygh-system-service\src\main\java\com\yuegang\zhihui\system\SystemMigrationApplication.java
+```
+
+再分别展开三个服务的 `src\main\resources\db\migration`，必须能看到以 `V1__` 开头的 `.sql` 文件。`AuthMigrationApplication`、`UserMigrationApplication` 和 `SystemMigrationApplication` 是 Java 迁移入口；`db\migration` 中的 SQL 才是 Flyway 实际执行的建表和升级内容。
+
+**执行后的结果**：三个 Java 文件和三组迁移 SQL 都能在源码目录中看到。如果文件不存在，说明客户使用的源码压缩包版本不对或解压不完整，不能靠手工创建同名空类继续部署，应重新取得完整源码包。
+
+### 第四步：确认 IDEA 已把根 pom.xml 导入为 Maven 项目
+
+**在哪里操作**：Windows 本机 IntelliJ IDEA。
+
+1. 查看 IDEA 右侧是否有 `Maven` 工具窗口。
+2. 如果没有，右键项目根目录下的 `pom.xml`，点击 `Add as Maven Project`。
+3. 打开右侧 `Maven`，点击顶部 `Reload All Maven Projects`。
+4. 等待右下角下载、导入和索引全部结束，不要在进度条仍运行时创建运行配置。
+5. Maven 树中确认存在 `ygh-auth-service`、`ygh-user-service` 和 `ygh-system-service`。
+
+**执行后的结果**：三个 `*-service` 出现在 Maven 树中，源码目录显示为蓝色 Sources Root，Java 文件中的 `SpringApplicationBuilder` 等类没有红色报错。
+
+如果 `ygh-deploy` 没有出现在 Maven 树中，这是正常的：它是 Docker 配置目录，不是 Java Maven 模块。不要从 `ygh-deploy\scripts` 启动项目。
+
+### 第五步：确认 JDK 和 Flyway Maven 依赖已经识别
+
+**在哪里操作**：Windows 本机 IntelliJ IDEA。
+
+1. 点击 `File` → `Project Structure...` → `Project`。
+2. `SDK` 必须选择已经安装的 Oracle JDK 25，`Language level` 选择 `25` 或 `SDK default`。
+3. 点击 `Modules`，依次选择 `ygh-auth-service`、`ygh-user-service`、`ygh-system-service`，确认 `Module SDK` 使用 Project SDK。
+4. 返回右侧 Maven 工具窗口，展开 `ygh-auth-service` → `Dependencies`，搜索或查看 `flyway-mysql`。
+5. 再展开它依赖的 `ygh-common-mybatis`，项目 POM 中应包含 Spring Boot 的 `spring-boot-starter-flyway`。
+
+**执行后的结果**：IDEA 的 External Libraries 或 Maven Dependencies 中可以找到 `org.flywaydb` 相关依赖。没有这些依赖时，不要自行下载 Flyway ZIP 或 IDEA 插件；先检查 Maven 是否导入完成以及 Maven Central 是否能访问。
+
+### 第六步：在 IDEA 中逐个编译三个迁移模块
+
+**在哪里操作**：Windows 本机 IntelliJ IDEA，不使用部署脚本。
+
+1. 在左侧找到 `AuthMigrationApplication.java`，右键该文件，点击 `Compile 'AuthMigrationApplication.java'`。如果菜单显示 `Recompile`，点击 `Recompile`。
+2. 编译完成后，IDEA 下方 `Build` 窗口必须显示成功，不能有红色错误。
+3. 对 `UserMigrationApplication.java` 和 `SystemMigrationApplication.java` 重复相同操作。
+
+**执行后的结果**：三个文件都能编译。当前源码已经过 Maven 实测，三个模块及其依赖可以编译成功；若客户电脑失败，应先解决 Build 窗口中的第一个错误，不要跳过编译直接填写 Main class。
+
+### 第七步：找不到 Main class 时逐项处理
+
+如果在运行配置的 `Main class` 中搜索不到迁移类，按下面顺序处理，每完成一项重新搜索一次：
+
+1. 确认 IDEA 打开的是包含根 `pom.xml` 的 `D:\ygh-ai-system`，不是内层单个目录，也不是 `ygh-deploy`。
+2. 确认对应 `.java` 文件确实位于上面列出的源码路径。
+3. 右键模块的 `src\main\java`，确认菜单显示 `Mark Directory as` → `Sources Root`；如果尚未标记，点击 `Sources Root`。
+4. 点击 Maven 工具窗口的 `Reload All Maven Projects`，等待索引完成。
+5. 点击 `Build` → `Rebuild Project`，先修复所有编译错误。
+6. 点击 `File` → `Invalidate Caches...` → `Invalidate and Restart`，IDEA 重启后等待重新索引。
+
+以上步骤完成后仍找不到类，说明源码交付包或 Maven 导入状态存在问题。不要把普通 `AuthApplication` 当作迁移入口，也不要手工安装一个叫 Flyway 的程序来绕过。
+
+### 第八步：创建 IDEA Application 迁移运行配置
+
+**在哪里操作**：Windows 本机 IntelliJ IDEA。
+
+1. 点击 `Run` → `Edit Configurations...`。
+2. 点击左上角 `+`，选择 `Application`。这里本来就不会提供一个必须选择的 `Flyway` 类型。
+3. auth 数据库迁移配置的名称填写 `DB-Migrate-auth`。
+4. `Main class` 点击右侧选择按钮，选择 `com.yuegang.zhihui.auth.AuthMigrationApplication`。
+5. `Use classpath of module` 选择 `ygh-auth-service`，不要选择 `ygh-auth-service.main` 之外的 API 模块，也不要选择 `ygh-deploy`。
+6. 找到 `Environment variables`，点击右侧编辑按钮。
+7. 按下面表格为当前迁移入口填写变量。
 
 项目还提供 `com.yuegang.zhihui.user.UserMigrationApplication` 和 `com.yuegang.zhihui.system.SystemMigrationApplication`。这三个类是项目源码中专门用于数据库迁移的入口：不启动 HTTP 端口，关闭 Nacos 注册，Flyway 完成后自动退出。此处不要选择普通的 `AuthApplication`、`UserApplication` 或 `SystemApplication`。
 
-### 第三步：逐服务填写数据库变量
+### 第九步：逐服务填写数据库变量
 
 URL 公共格式为：
 
@@ -643,9 +715,9 @@ YGH_AUTH_DB_MIGRATION_PASSWORD=填写认证迁移账号真实密码
 
 其他服务按表格替换前缀、数据库名、账号和密码。不要把真实密码写入 `application.yml`。
 
-### 第四步：确认迁移执行时机并准备额外变量
+### 第十步：确认迁移执行时机并准备额外变量
 
-MySQL 容器、数据库和账号在第七部分完成后已经可以交付给 Nacos 使用。下面的 Java Flyway 操作不要立刻执行，必须先完成 Redis 和 Nacos 的安装配置，再返回本文继续。原因是三个迁移入口虽然不会向 Nacos 注册，但 Spring 仍会读取项目配置中的必填变量；使用临时假值容易在后续正式启动时遗留错误配置。
+MySQL 容器、数据库和账号在第七部分完成后已经可以交付给 Nacos 使用。第一次按文档编号部署时，到这里先停止阅读本文，不要立刻执行 Java Flyway。必须先完成第 03 份 Redis 文档、第 04 份 Nacos 文档以及第 07 份 Oracle JDK、IDEA 与项目源码文档，确认源码已经从根 `pom.xml` 导入、三个迁移类可以编译，再返回本文第八部分第二步继续。原因是三个迁移入口虽然不会向 Nacos 注册，但 Spring 仍会读取项目配置中的必填变量；使用临时假值容易在后续正式启动时遗留错误配置。
 
 **在哪里操作**：Rocky Linux 虚拟机 SSH 终端，以及客户自己的密码管理器。
 
@@ -687,7 +759,7 @@ openssl rand -base64 32
 
 填写后点击环境变量窗口的 `OK`，再点击运行配置窗口的 `Apply`。不要在 Nacos 尚未安装、真实 Nacos 用户名和密码还不存在时执行下面的迁移入口。
 
-### 第五步：运行 auth 专用迁移入口并确认 Flyway
+### 第十一步：运行 auth 专用迁移入口并确认 Flyway
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
@@ -719,7 +791,7 @@ SELECT installed_rank,version,description,success FROM auth_db.flyway_schema_his
 
 检查其他服务时把 `auth_db` 改为对应数据库。所有记录的 `success` 必须为 1。
 
-### 第六步：Flyway 建表后授予 auth 应用账号表级权限
+### 第十二步：Flyway 建表后授予 auth 应用账号表级权限
 
 进入 root MySQL 客户端，输入：
 
@@ -736,7 +808,7 @@ EXIT;
 
 **执行后的结果**：六条 `GRANT` 均应显示 `Query OK`；`SHOW GRANTS` 应列出六张 auth 表的 `SELECT, INSERT, UPDATE, DELETE` 权限。auth 的数据库迁移与授权到这里完成，普通 auth 服务留到 Redis、Nacos 及其余项目依赖全部配置后再启动。
 
-### 第七步：Flyway 建表后授予 user 应用账号表级权限
+### 第十三步：Flyway 建表后授予 user 应用账号表级权限
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
@@ -771,7 +843,7 @@ EXIT;
 
 **执行后的结果**：Flyway 历史全部成功，六张 user 表授权成功。普通 user 服务此时不启动，继续处理 system 数据库迁移。
 
-### 第八步：Flyway 建表后授予 system 应用账号表级权限
+### 第十四步：Flyway 建表后授予 system 应用账号表级权限
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
@@ -812,7 +884,7 @@ EXIT;
 
 **执行后的结果**：Flyway 历史全部成功，十二张 system 表授权成功。普通 system 服务留到项目全部依赖配置完成后启动。
 
-### 第九步：记录其余八个服务的后续迁移检查项
+### 第十五步：记录其余八个服务的后续迁移检查项
 
 product、inventory、order、wallet、knowledge、ai、training、notification 的 `_app` 账号已经在第五部分获得各自数据库的 DML 权限，不需要再执行表级授权。这些普通服务还依赖 Nacos，部分服务还依赖 Redis、RocketMQ、PGVector 或项目密钥，因此在 MySQL 配置阶段不要为了建表提前启动。
 
