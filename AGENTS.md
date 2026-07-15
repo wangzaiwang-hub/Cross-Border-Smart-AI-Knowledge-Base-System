@@ -6,15 +6,11 @@
 
 ## Repository Structure
 
-- `docs/`：需求、架构和开发记录。
+- `../跨境智汇AI知识库系统-项目文档/`：项目外部的需求、架构、部署和开发记录，不随项目主体交付。
 - `spec/`：可执行技术规格。
-- `ygh-deploy/`：本机与虚拟机 Docker Compose、配置模板和运维脚本。
-- `docs/development/`：量化验收标准与验证证据。
-- `docs/development/环境配置台账.md`：Windows、WSL2、Docker Desktop、虚拟机与组件的脱敏实测台账。
-- `docs/development/后端接口与前端接入清单.md`：接口、DTO、错误码、权限、事件和前端联调状态的唯一人工可读清单。
-- `docs/development/后端建设总TODO.md`：后端从工程基础到部署交付的唯一总进度表，前端阶段排在最后。
+- `ygh-deploy/`：本机与虚拟机 Docker 配置参考，不包含运维脚本。
 - `spec/backend-delivery.md`：后端交付闭环、契约、安全、测试和完成定义。
-- 后续 Java 根工程和业务副项目结构以 `docs/项目设计架构文档.md` 为准。
+- 外部项目文档中的 `项目设计架构文档.md` 保存架构说明；项目主体以 Maven 工程和 `spec/` 为可执行依据。
 
 ## Constraints
 

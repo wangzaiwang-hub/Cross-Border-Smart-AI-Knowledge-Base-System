@@ -38,6 +38,6 @@ class DeliveryContractTest {
     @Test void versionedCollectionsAndOpenApiExportAreTracked() {
         assertTrue(Files.isDirectory(ROOT.resolve("spec/bruno")));
         assertTrue(Files.isRegularFile(ROOT.resolve("spec/openapi/gateway-service-v1.json")));
-        assertTrue(Files.isRegularFile(ROOT.resolve("docs/development/后端接口与前端接入清单.md")));
+        assertTrue(Files.isRegularFile(ROOT.resolve("spec/backend-delivery.md")));
     }
 }

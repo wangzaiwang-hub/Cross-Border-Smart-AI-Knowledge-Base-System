@@ -38,4 +38,3 @@ Thumbs.db
 # Original requirement files stay local; reviewed Markdown is the repository baseline
 /*.doc
 /*.docx
-/docs/*.pdf
