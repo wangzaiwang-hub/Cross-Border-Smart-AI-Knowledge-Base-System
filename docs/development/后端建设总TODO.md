@@ -1,9 +1,9 @@
-# 后端建设总 TODO
+# 全项目模块开发顺序与建设总 TODO
 
-> 版本：V1.0  
-> 基线日期：2026-07-11  
+> 版本：V1.1  
+> 基线日期：2026-07-15  
 > 后端技术基线：JDK 25、Spring Boot 4.0.7、Spring Cloud 2025.1.2、Spring Cloud Alibaba 2025.1.0.0  
-> 使用方式：本文件是后端建设的唯一总进度表。完成任务时必须同时附测试、构建、接口或部署证据；仅创建目录不得勾选业务完成。
+> 使用方式：本文件是全项目代码建设的唯一总进度表。先按“模块开发严格顺序”确定下一模块，再执行后文对应 BE/FE 任务。完成任务时必须同时附测试、构建、接口或部署证据；仅创建目录不得勾选业务完成。
 
 ## 0. 状态标记
 
@@ -13,7 +13,103 @@
 - 阻塞项在任务后标记 `BLOCKED:`，并写明外部输入或失败证据。
 - 每个阶段只有满足“退出门禁”后才能进入下一业务阶段；允许提前准备不依赖的脚手架，但不得提前宣称阶段完成。
 
-## 1. 当前总体进度
+## 1. 模块开发严格顺序
+
+### 1.1 顺序使用规则
+
+1. `M00` 到 `M32` 是全项目唯一模块队列，原则上从小到大推进。
+2. 当前模块的“完成门禁”没有通过时，下一个依赖模块只能准备规格和失败测试，不能开始写业务实现，更不能标记完成。
+3. 每个业务服务必须先完成 API 契约模块，再完成 Service 实现模块。其他服务只能依赖对方 API 模块，禁止依赖对方 Service 模块。
+4. 数据库迁移属于服务实现的一部分，必须先于 Repository、业务用例和接口联调。
+5. Gateway、Admin、前端和 E2E 都是消费者，必须在被依赖服务的 OpenAPI、错误码、权限和测试证据稳定后开发。
+6. `[x]` 只表示该模块当前代码和模块级证据已完成；全项目是否交付仍以 P12、P13 的未完成门禁为准。
+
+### 1.2 第一阶段：工程骨架与公共代码
+
+| 顺序 | 状态 | 模块/路径 | 前置依赖 | 本模块必须完成的代码 | 完成门禁 |
+|---|---|---|---|---|---|
+| `M00` | `[x]` | 根工程 `pom.xml`、`.mvn/`、`mvnw.cmd` | 无 | Maven Reactor、Wrapper、Enforcer、模块聚合、基础插件 | Oracle JDK 25 下根工程可构建 |
+| `M01` | `[x]` | `ygh-dependencies` | M00 | Spring、数据库、MQ、测试依赖版本集中治理 | dependencyManagement 无漂移和 Snapshot |
+| `M02` | `[x]` | `ygh-common-core` | M00-M01 | 统一响应、错误码、异常、分页、金额/时间、领域事件、幂等模型 | 单元测试和序列化契约通过 |
+| `M03` | `[x]` | `ygh-common-test` | M02 | 测试数据工厂、Mock 时钟、Testcontainers 公共支持 | 后续模块可直接复用测试基座 |
+| `M04` | `[x]` | `ygh-common-web` | M02-M03 | 异常响应、校验错误、traceId、日志脱敏、OpenAPI 公共配置 | MVC/WebFlux 代表测试通过 |
+| `M05` | `[x]` | `ygh-common-security` | M02-M04 | 当前用户、角色权限、资源所有权、内部签名、安全异常 | 伪造、过期、越权测试通过 |
+| `M06` | `[x]` | `ygh-common-mybatis` | M02-M03 | 审计字段、分页、事务与 Flyway 约束 | MySQL 迁移和数据访问测试通过 |
+| `M07` | `[x]` | `ygh-common-redis` | M02-M03 | Key 规范、TTL 抖动、缓存和分布式锁 owner 校验 | Redis/Testcontainers 测试通过 |
+| `M08` | `[x]` | `ygh-common-mq` | M02-M03 | Event Envelope、生产消费契约、幂等、重试、死信 | RocketMQ 契约和重复消费测试通过 |
+
+第一阶段退出门禁：业务模块不需要复制响应、安全、数据库、Redis、MQ 或测试工具代码；公共模块禁止反向依赖任何业务服务。
+
+### 1.3 第二阶段：系统事实、用户、通知、认证和入口
+
+| 顺序 | 状态 | 模块/路径 | 前置依赖 | 本模块必须完成的代码 | 完成门禁 |
+|---|---|---|---|---|---|
+| `M09` | `[x]` | `ygh-system-api` | M02、M05 | RBAC、字典、参数、功能开关、AI 配置 DTO 和接口契约 | API JAR 无数据库和 Service 实现依赖 |
+| `M10` | `[x]` | `ygh-system-service` | M06、M09 | `system_db` 迁移、RBAC 事实、配置加密、权限和审计接口 | Flyway、权限、OpenAPI、集成测试通过 |
+| `M11` | `[x]` | `ygh-user-api` → `ygh-user-service` | M05-M06、M09 | 用户、员工、组织、岗位、地址与数据隔离 | 用户和地址所有权测试通过 |
+| `M12` | `[x]` | `ygh-notification-api` → `ygh-notification-service` | M06、M08、M11 | 模板、站内信、任务、已读、重试和死信 | 重复消息不重复创建通知 |
+| `M13` | `[x]` | `ygh-auth-service` | M05-M07、M10-M12 | 注册登录、密码、JWT、刷新轮换、Redis 会话、审计 | 登录/刷新/退出/锁定/重放测试通过 |
+| `M14` | `[x]` | `ygh-platform/ygh-gateway` | M04-M05、M10-M13 | 路由、JWT、内部签名、限流、CORS、上传限制 | Gateway→Auth→User 真实链路通过 |
+
+第二阶段退出门禁：System 是权限和配置事实源，User 是用户资料事实源，Auth 只保存认证凭据；Gateway 不承载业务数据。
+
+### 1.4 第三阶段：商城与交易闭环
+
+| 顺序 | 状态 | 模块/路径 | 前置依赖 | 本模块必须完成的代码 | 完成门禁 |
+|---|---|---|---|---|---|
+| `M15` | `[x]` | `ygh-product-api` → `ygh-product-service` | M06-M08、M10 | 类目、品牌、SPU/SKU、价格、批次、溯源、缓存、索引事件 | 商品前后台接口和缓存一致性测试通过 |
+| `M16` | `[x]` | `ygh-inventory-api` → `ygh-inventory-service` | M06、M08、M15 | 可用/锁定/已售库存、流水、锁定确认释放、超时对账 | 并发不超卖且重复请求幂等 |
+| `M17` | `[x]` | `ygh-wallet-api` → `ygh-wallet-service` | M06、M08、M11 | 虚拟账户、充值、支付、退款、流水与幂等 | 并发扣款余额不为负 |
+| `M18` | `[x]` | `ygh-order-api` → `ygh-order-service` | M11、M15-M17 | 购物车、订单快照、状态机、库存锁定、支付与 Outbox | 注册→充值→下单→支付→履约 E2E 通过 |
+
+第三阶段退出门禁：订单只能通过公开 API 调用商品、库存和钱包；禁止跨库查询；金额、库存、幂等和状态机证据齐全。
+
+### 1.5 第四阶段：搜索、知识、AI、培训和管理聚合
+
+| 顺序 | 状态 | 模块/路径 | 前置依赖 | 本模块必须完成的代码 | 完成门禁 |
+|---|---|---|---|---|---|
+| `M19` | `[x]` | `ygh-search-api` → `ygh-search-service` | M06、M10、M15 | Elasticsearch 索引/别名、PGVector、关键词/向量融合和权限过滤 | 索引切换、过滤和混合检索测试通过 |
+| `M20` | `[x]` | `ygh-knowledge-api` → `ygh-knowledge-service` | M06、M08、M19 | 文档安全上传、版本、审核、解析切片、发布/下线事件 | 未审核、失效或无权内容不可检索 |
+| `M21` | `[x]` | `ygh-ai-api` → `ygh-ai-service` | M10、M15-M20 | 模型适配、RAG、引用、拒答、受控业务工具、SSE 和治理 | 模块测试完成；引用/拒答总 E2E 见 BE-0714 |
+| `M22` | `[x]` | `ygh-training-api` → `ygh-training-service` | M11-M12、M20 | 课程、章节、任务、进度、测验、解锁、统计 | 岗位课程→阅读→测验→解锁 E2E 通过 |
+| `M23` | `[x]` | `ygh-admin-api` → `ygh-admin-service` | M10-M22 | 运营总览、AI 治理、索引/MQ/服务状态与审计聚合 | 只调用公开只读 API，不跨库读取 |
+
+第四阶段退出门禁：知识生命周期、搜索权限和 AI 引用形成闭环；Training 进度由服务端计算；Admin 只做聚合，不成为新的业务事实源。
+
+### 1.6 第五阶段：测试工程、部署代码和前端
+
+| 顺序 | 状态 | 模块/路径 | 前置依赖 | 本模块必须完成的代码 | 完成门禁 |
+|---|---|---|---|---|---|
+| `M24` | `[x]` | `ygh-api-compatibility-tests`、`ygh-compatibility-tests` | M00-M23 | 依赖类加载、API 二进制/OpenAPI 兼容门禁 | 代表类和契约快照无非预期变化 |
+| `M25` | `[x]` | `ygh-contract-tests` | M08-M23 | Feign DTO、错误码、权限码、MQ Schema 契约 | 提供方与消费方契约一致 |
+| `M26` | `[x]` | `ygh-integration-tests`、`ygh-security-tests` | M10-M23 | 数据库、缓存、消息、鉴权、上传和攻击面集成测试 | P0/P1 安全与一致性缺陷清零 |
+| `M27` | `[x]` | `ygh-performance-tests` | M14-M23 | 网关查询、写入、搜索和 AI 性能场景 | P95 和错误率达到验收标准 |
+| `M28` | `[x]` | `ygh-deploy`、各服务 Dockerfile | M10-M27 | 镜像、健康检查、资源、部署、回滚、备份和 SBOM | 各场景部署与恢复证据通过 |
+| `M29` | `[x]` | `ygh-web/packages/ygh-web-shared` | M14、稳定 OpenAPI | HTTP Client、Token 刷新、共享类型、权限和错误处理 | mall/admin 不复制客户端基础代码 |
+| `M30` | `[x]` | `ygh-web/apps/ygh-web-mall` | M15-M22、M29 | 商城、知识/AI、培训、个人中心真实接口页面 | type-check、build 和主要路由联调通过 |
+| `M31` | `[x]` | `ygh-web/apps/ygh-web-admin` | M10、M12、M15-M23、M29 | 组织/RBAC、商品、知识、培训、AI、通知、审计页面 | 权限按钮、401/403 和管理接口联调通过 |
+| `M32` | `[ ]` | `ygh-e2e-tests`、前后端最终验收 | M24-M31 | 登录、商城、知识 AI、培训、后台、视觉与部署 E2E | BE-0714、BE-1247、BE-1262/1263、FE-1307 全部完成 |
+
+第五阶段退出门禁：全 Reactor、集成、安全、性能、E2E、前端视觉、部署恢复、Secret 和许可证门禁全部通过，才允许创建 Release。
+
+### 1.7 每个业务模块内部固定 TODO 顺序
+
+以下顺序适用于 System、User、Notification、Product、Inventory、Wallet、Order、Search、Knowledge、AI、Training 和 Admin；Auth/Gateway 没有独立 API 子模块时，从适用步骤开始：
+
+1. `[ ]` 明确模块职责、数据所有权、调用方和禁止事项。
+2. `[ ]` 先写 `*-api`：请求/响应 DTO、枚举、错误码、权限码、事件 Schema 和 Feign 契约。
+3. `[ ]` 更新 OpenAPI 与《后端接口与前端接入清单》，状态先标“设计中”。
+4. `[ ]` 在 `*-service` 增加 Flyway 迁移、唯一键、索引、约束和最小权限账号要求。
+5. `[ ]` 编写 domain：实体、值对象、状态机、领域规则和领域事件，不依赖 Controller 或数据库实现。
+6. `[ ]` 编写 application：用例编排、事务边界、幂等、权限和审计。
+7. `[ ]` 编写 infrastructure：Repository、Redis、MQ、搜索、文件或外部模型适配器。
+8. `[ ]` 编写 web：Controller、Validation、鉴权注解、错误映射和限流策略。
+9. `[ ]` 先跑模块单元测试，再跑数据库/Redis/MQ/外部依赖集成测试。
+10. `[ ]` 验证越权、重复请求、非法状态、依赖超时、日志脱敏和 Secret 边界。
+11. `[ ]` 同步 OpenAPI、接口清单、Mock、前端类型和部署变量。
+12. `[ ]` 运行 `mvnw.cmd -pl 模块 -am verify`，附证据后才把模块节点标为 `[x]`。
+
+## 2. 当前总体进度
 
 | 阶段 | 状态 | 主要结果 |
 |---|---|---|
@@ -388,7 +484,7 @@
 
 说明：2026-07-13 根据后续决策已提前完成正式 Vue 商城和运营后台，以便在集中测试中验证真实端到端链路；Figma ZIP 只作为视觉参考，不直接覆盖现有工程。P13 在 Gateway、OpenAPI、E2E 与视觉检查通过前仍不得标记验收完成。
 
-## 2. 每次开发循环
+## 3. 每次开发循环
 
 后续每一个 TODO 都必须走以下循环：
 
@@ -400,7 +496,7 @@
 6. 更新本 TODO、接口清单和 `docs/daily/YYYY-MM-DD/` 证据。
 7. 阶段结束运行 `mvnw.cmd clean verify` 和对应部署冒烟。
 
-## 3. 固定验证命令
+## 4. 固定验证命令
 
 ```powershell
 .\mvnw.cmd clean verify
