@@ -64,9 +64,7 @@ Test-NetConnection 127.0.0.1 -Port 19200
 输入：
 
 ```powershell
-Get-NetIPAddress -AddressFamily IPv4 |
-  Where-Object {$_.IPAddress -like '192.168.154.*'} |
-  Select-Object InterfaceAlias,IPAddress,PrefixLength
+Get-NetIPAddress -InterfaceAlias 'VMware Network Adapter VMnet8' -AddressFamily IPv4 | Select-Object InterfaceAlias,IPAddress,PrefixLength
 ```
 
 **执行后的结果**：VMware 的 VMnet8 网卡通常显示 `192.168.154.1/24`。
@@ -1068,30 +1066,49 @@ YGH-05-Gateway-8080
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-全部服务运行时输入：
+全部服务运行时逐条输入，每条执行完成后再输入下一条：
 
 ```powershell
-Get-NetTCPConnection -State Listen |
-  Where-Object {$_.LocalPort -in 8080,8081,8082,8083,8084,8085,8086,8087,8088,8089,8090,8091,8092,8093} |
-  Sort-Object LocalPort |
-  Select-Object LocalAddress,LocalPort,OwningProcess
+Test-NetConnection 127.0.0.1 -Port 8080
+Test-NetConnection 127.0.0.1 -Port 8081
+Test-NetConnection 127.0.0.1 -Port 8082
+Test-NetConnection 127.0.0.1 -Port 8083
+Test-NetConnection 127.0.0.1 -Port 8084
+Test-NetConnection 127.0.0.1 -Port 8085
+Test-NetConnection 127.0.0.1 -Port 8086
+Test-NetConnection 127.0.0.1 -Port 8087
+Test-NetConnection 127.0.0.1 -Port 8088
+Test-NetConnection 127.0.0.1 -Port 8089
+Test-NetConnection 127.0.0.1 -Port 8090
+Test-NetConnection 127.0.0.1 -Port 8091
+Test-NetConnection 127.0.0.1 -Port 8092
+Test-NetConnection 127.0.0.1 -Port 8093
 ```
 
-**执行后的结果**：显示 14 个端口且各有进程。若缺少某个端口，回到对应 IDEA Run 窗口查看第一条 `Caused by`，不要只看最后一行。
+**执行后的结果**：每条都显示 `TcpTestSucceeded : True`。某个端口为 `False` 时，回到该端口对应的 IDEA Run 窗口查看第一条 `Caused by`，不要继续检查后续业务功能。
 
 ### 第三十六步：逐个检查健康端点
 
 **在哪里操作**：Windows 本机 PowerShell。以下命令逐条执行。
 
 ```powershell
-0..13 | ForEach-Object {
-  $port = 8080 + $_
-  try { "$port $((Invoke-RestMethod "http://127.0.0.1:$port/actuator/health").status)" }
-  catch { "$port FAILED $($_.Exception.Message)" }
-}
+Invoke-RestMethod 'http://127.0.0.1:8080/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8081/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8082/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8083/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8084/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8085/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8086/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8087/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8088/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8089/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8090/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8091/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8092/actuator/health'
+Invoke-RestMethod 'http://127.0.0.1:8093/actuator/health'
 ```
 
-**执行后的结果**：`8080` 至 `8093` 每行均为 `UP`。本命令只用于检查，不会启动、停止或修改任何服务。
+**执行后的结果**：每条响应的 `status` 都为 `UP`。某一条请求失败时先处理对应服务，不使用循环跳过失败项。
 
 ### 第三十七步：检查 Nacos 注册地址
 
@@ -1108,6 +1125,8 @@ Get-NetTCPConnection -State Listen |
 **故障判断**：若实例 IP 是 `172.*`、WSL 地址、VPN 地址或 Wi-Fi 地址，停止该服务，在 IDEA 中补充或修正 `SPRING_CLOUD_NACOS_DISCOVERY_IP=192.168.154.1` 后重新启动。
 
 ### 第三十八步：处理最常见的启动错误
+
+**在哪里操作**：先在 Windows 本机 IDEA 查看对应服务控制台；需要检查端口或网络时，再打开 Windows PowerShell。表格中要求进入 MySQL、Redis 或 Nacos 检查的项目，才切换到 Rocky Linux SSH 终端或相应管理页面。
 
 | 日志或现象 | 原因 | 处理方法 |
 |---|---|---|

@@ -30,19 +30,21 @@ docker info | sed -n '/Registry Mirrors/,+5p'
 - `docker version` 必须同时显示 Client 和 Server。
 - Registry Mirrors 应显示已经配置的 DaoCloud 和 1ms 镜像代理，或者客户自己的企业镜像仓库。
 
-**失败时怎么处理**：如果提示 `docker: command not found`，先停止本教程，按照 Redis 操作文档“在 Rocky Linux 虚拟机中手动安装 Docker”部分完成 Docker Engine 安装和镜像代理配置，再回来继续。MySQL 最终运行在 Rocky Linux 虚拟机内部的 Docker 容器中，不安装到 Windows、WSL 或 Windows Docker Desktop。
+**失败时怎么处理**：如果提示 `docker: command not found`，停止本文，回到 `01-Rocky Linux虚拟机从零配置指南.md` 的 Docker Engine 安装与镜像源配置部分，逐步完成并验证后再回来。MySQL 最终运行在 Rocky Linux 虚拟机内部的 Docker 容器中，不安装到 Windows、WSL 或 Windows Docker Desktop。
 
 ### 第三步：检查虚拟机 IP 和 3306 端口
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
 
 输入：
 
 ```bash
 ip -br address
-sudo ss -lntp | grep ':3306' || echo '3306 端口空闲'
+sudo ss -lntp | grep ':3306'
 docker ps -a --filter name=ygh-mysql
 ```
 
-**执行后的结果**：虚拟机网卡应具有 `192.168.154.10/24`，3306 应显示空闲，不应存在名为 `ygh-mysql` 的旧容器。
+**执行后的结果**：虚拟机网卡应具有 `192.168.154.10/24`；第二条命令没有输出表示 3306 空闲；第三条命令没有输出表示不存在名为 `ygh-mysql` 的旧容器。
 
 **需要修改的内容**：如果客户使用其他固定 IP，记录实际地址，后面 `docker run`、防火墙和 IDEA 数据库 URL 必须同时替换。如果 3306 已被占用，执行 `sudo ss -lntp | grep ':3306'` 查看进程，确认旧数据库数据已经备份后再处理，不能直接结束未知进程。
 
@@ -63,6 +65,8 @@ docker pull mysql:8.4.10
 **为什么使用这个版本**：项目固定使用 MySQL 8.4.10。不能改成 `mysql:latest`、`mysql:8` 或 MariaDB，否则客户不同时间部署会得到不同版本，数据库行为和 Flyway 迁移结果无法保证一致。
 
 ### 第二步：官方名称拉取失败时逐个检测镜像代理
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。只有上一条官方镜像拉取命令失败时才执行本步骤。
 
 先检测代理：
 
@@ -90,6 +94,8 @@ docker tag docker.1ms.run/library/mysql:8.4.10 mysql:8.4.10
 两种方式只选择一种。第二条 `docker tag` 把代理镜像添加为项目统一使用的 `mysql:8.4.10` 标签。
 
 ### 第三步：核对镜像版本、架构和摘要
+
+**在哪里操作**：已经完成镜像拉取的 Rocky Linux 虚拟机 SSH 终端。
 
 输入：
 
@@ -189,6 +195,8 @@ sudo find /opt/docker_mysql/data -mindepth 1 -maxdepth 1 -print
 
 ### 第二步：逐项编写低内存配置文件
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。配置文件写入虚拟机宿主系统的 `/opt/docker_mysql/conf.d`，不是写进 Windows、WSL 或项目源码目录。
+
 先确认虚拟机中有文本编辑器：
 
 ```bash
@@ -234,6 +242,8 @@ sudo cat /opt/docker_mysql/conf/ygh-low-memory.cnf
 
 ### 第三步：生成并保存 root 密码文件
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。密码文件保存在虚拟机宿主系统 `/opt/docker_mysql/secrets`，由 Docker 只读挂载进 MySQL 容器。
+
 先确认 OpenSSL 可用：
 
 ```bash
@@ -262,7 +272,33 @@ sudo stat -c '%U %G %a %n' /opt/docker_mysql/secrets/mysql-root-password
 
 应输出 `root root 600`。不要用 `cat` 打印密码，不要把密码直接放进 `docker run`，后面通过 `MYSQL_ROOT_PASSWORD_FILE` 读取该文件。
 
+继续创建只供容器内健康检查、备份和恢复使用的 MySQL 客户端配置：
+
+```bash
+sudo vi /opt/docker_mysql/secrets/mysql-client.cnf
+```
+
+按 `i`，逐行输入下面内容。把 `这里填写同一个MySQL-root真实密码` 改成刚才保存到密码管理器的同一个 root 密码：
+
+```ini
+[client]
+user=root
+password=这里填写同一个MySQL-root真实密码
+```
+
+按 `Esc`，输入 `:wq` 保存，再逐条输入：
+
+```bash
+sudo chown root:root /opt/docker_mysql/secrets/mysql-client.cnf
+sudo chmod 600 /opt/docker_mysql/secrets/mysql-client.cnf
+sudo stat -c '%U %G %a %n' /opt/docker_mysql/secrets/mysql-client.cnf
+```
+
+**执行后的结果**：应输出 `root root 600`。这个文件通过只读挂载提供给 MySQL 容器，只用于直接执行官方客户端命令；不是 `.env`，也不是 Shell 脚本。修改 root 密码时，必须同时更新原始密码文件和这个客户端配置。
+
 ### 第四步：确认 MySQL 镜像中的用户 UID
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
 
 输入：
 
@@ -283,6 +319,8 @@ sudo chmod 640 /opt/docker_mysql/conf/ygh-low-memory.cnf
 
 ### 第五步：创建后续组件共用的 Docker 网络
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。`ygh-core` 是虚拟机 Docker Engine 内部网络，与 Windows Docker Desktop 的网络不是同一个网络。
+
 输入：
 
 ```bash
@@ -301,6 +339,8 @@ docker network create ygh-core
 
 ### 第一步：执行首次启动命令
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。该命令在虚拟机 Docker Engine 中创建 `ygh-mysql` 容器。
+
 输入完整命令：
 
 ```bash
@@ -313,9 +353,10 @@ docker run -d \
   -e TZ=Asia/Shanghai \
   -e MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root-password \
   -v /opt/docker_mysql/secrets/mysql-root-password:/run/secrets/mysql-root-password:ro,Z \
+  -v /opt/docker_mysql/secrets/mysql-client.cnf:/run/secrets/mysql-client.cnf:ro,Z \
   -v /opt/docker_mysql/conf/ygh-low-memory.cnf:/etc/mysql/conf.d/ygh-low-memory.cnf:ro,Z \
   -v /opt/docker_mysql/data:/var/lib/mysql:Z \
-  --health-cmd='MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysqladmin ping -h 127.0.0.1 -uroot --silent' \
+  --health-cmd='mysqladmin --defaults-extra-file=/run/secrets/mysql-client.cnf ping -h 127.0.0.1 --silent' \
   --health-interval=10s \
   --health-timeout=5s \
   --health-retries=20 \
@@ -332,6 +373,8 @@ docker run -d \
 **需要修改的内容**：客户虚拟机固定 IP 不同时，只替换 `-p` 前面的 `192.168.154.10`，并同步修改后面的防火墙和 IDEA URL。不要修改容器名、镜像版本、资源限制和容器内路径。三条日志参数把单个日志文件限制为 10MB、最多保留 3 个，必须保留，防止容器日志长期占满虚拟机磁盘。
 
 ### 第二步：等待 MySQL 健康
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
 
 输入：
 
@@ -351,6 +394,8 @@ docker logs --tail 200 ygh-mysql
 - root 密码文件错误：确认文件非空、权限为 600，并且挂载路径完全一致。
 
 ### 第三步：验证版本和项目参数
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端；进入容器内 MySQL 客户端后，提示符会变为 `mysql>`。
 
 进入 MySQL：
 
@@ -387,6 +432,8 @@ openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32; echo
 
 ### 第二步：进入不会保存 SQL 历史的 MySQL 客户端
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。命令执行后进入 `ygh-mysql` 容器内的 MySQL 客户端。
+
 输入：
 
 ```bash
@@ -396,6 +443,8 @@ docker exec -e MYSQL_HISTFILE=/dev/null -it ygh-mysql mysql -uroot -p
 输入 root 密码。后续 SQL 中所有 `CHANGE_TO_..._PASSWORD` 都必须在粘贴前替换为密码管理器中的实际密码。不要把占位符原样执行。
 
 ### 第三步：创建 Nacos 配置库和账号
+
+**在哪里操作**：`ygh-mysql` 容器内的 `mysql>` 提示符，不是在 Linux 的 `root@...#` 提示符输入 SQL。
 
 在 `mysql>` 中逐条输入：
 
@@ -409,6 +458,8 @@ SHOW GRANTS FOR 'nacos'@'%';
 每条成功后显示 `Query OK`。`SHOW GRANTS` 必须显示账号只对 `nacos_config` 有权限。Nacos 容器的安装和启动不在本文执行。
 
 ### 第四步：创建 auth、user、system 三组最小权限账号
+
+**在哪里操作**：`ygh-mysql` 容器内的 `mysql>` 提示符。
 
 逐组执行，上一组成功后再执行下一组：
 
@@ -442,6 +493,8 @@ SHOW GRANTS FOR 'ygh_system_migration'@'%';
 这三个 `_app` 账号此时只有登录权限，属于预期结果。它们的表级权限必须等 IDEA 首次启动相应服务、Flyway 建表完成后再授予，具体见第八部分。
 
 ### 第五步：逐个创建八个业务数据库和账号
+
+**在哪里操作**：`ygh-mysql` 容器内的 `mysql>` 提示符。每个 SQL 代码块单独粘贴，看到成功结果后再继续下一组。
 
 每个代码块单独执行并检查 `Query OK`：
 
@@ -536,6 +589,8 @@ EXIT;
 
 ### 第二步：使用 WinSCP 单独上传 SQL 文件
 
+**在哪里操作**：Windows 本机 WinSCP 图形界面。左侧是 Windows 文件，右侧是 Rocky Linux 虚拟机目录。
+
 打开 WinSCP，协议选择 `SFTP`，主机填写 `192.168.154.10`，端口填写 `22`，输入 SSH 用户和密码。左侧选中 `01-nacos-schema.sql`，右侧进入 `/opt/docker_mysql/import`，上传为：
 
 ```text
@@ -582,6 +637,8 @@ sudo firewall-cmd --list-rich-rules
 
 ### 第二步：从 Windows 检查端口
 
+**在哪里操作**：Windows 本机 PowerShell，不是在 Rocky Linux SSH 终端。
+
 退出 SSH 或新开 Windows PowerShell：
 
 ```powershell
@@ -592,11 +649,17 @@ Test-NetConnection 192.168.154.10 -Port 3306
 
 ## 第八部分：在 IDEA 中确认源码和 Flyway 后逐个迁移数据库
 
+**执行时机**：按总教程首次部署时，完成前七部分后先停止在这里，继续安装 Redis、Nacos、PGVector 和 Windows 本机环境。只有完成 `07` 号 Windows 开发环境文档并进入 `11` 号 IDEA 后端启动文档时，才返回执行本部分。此处不是 MySQL 容器启动前提，不能在 IDEA 尚未安装时提前执行。
+
 ### 第一步：理解每个服务为什么有两套账号
+
+**在哪里操作**：本步骤不输入命令；在 Windows 本机对照本文和项目源码确认账号用途。
 
 每个 Java 服务使用 `_migration` 账号执行 Flyway 建表和升级，使用 `_app` 账号处理业务请求。迁移账号有 DDL 权限，应用账号只有 DML 权限。不能为了省事让 Java 服务使用 root，也不能把迁移账号当作应用账号。
 
 ### 第二步：先确认 Flyway 在本项目中是什么
+
+**在哪里操作**：Windows 本机 IntelliJ IDEA 和项目源码。本步骤不下载软件、不输入部署命令。
 
 Flyway 不是一个需要客户另外下载的 Windows 软件，也不是 IDEA 左侧必须出现的项目目录，更不是 `Run` → `Edit Configurations...` 中必须出现的配置类型。本项目把 Flyway 作为 Maven 依赖放在 Java 服务中，启动迁移入口后由 Spring Boot 自动调用 Flyway，再读取各服务 `src\main\resources\db\migration` 中的 SQL 文件。
 
@@ -656,6 +719,8 @@ ygh-applications\ygh-system\ygh-system-service\src\main\java\com\yuegang\zhihui\
 
 ### 第七步：找不到 Main class 时逐项处理
 
+**在哪里操作**：Windows 本机 IntelliJ IDEA 的 Project、Maven 和 Run Configuration 界面。
+
 如果在运行配置的 `Main class` 中搜索不到迁移类，按下面顺序处理，每完成一项重新搜索一次：
 
 1. 确认 IDEA 打开的是包含根 `pom.xml` 的 `D:\ygh-ai-system`，不是内层单个目录，也不是 `ygh-deploy`。
@@ -682,6 +747,8 @@ ygh-applications\ygh-system\ygh-system-service\src\main\java\com\yuegang\zhihui\
 项目还提供 `com.yuegang.zhihui.user.UserMigrationApplication` 和 `com.yuegang.zhihui.system.SystemMigrationApplication`。这三个类是项目源码中专门用于数据库迁移的入口：不启动 HTTP 端口，关闭 Nacos 注册，Flyway 完成后自动退出。此处不要选择普通的 `AuthApplication`、`UserApplication` 或 `SystemApplication`。
 
 ### 第九步：逐服务填写数据库变量
+
+**在哪里操作**：Windows 本机 IntelliJ IDEA，依次打开三个迁移入口的 `Run` → `Edit Configurations...` → `Environment variables`。
 
 URL 公共格式为：
 
@@ -793,6 +860,8 @@ SELECT installed_rank,version,description,success FROM auth_db.flyway_schema_his
 
 ### 第十二步：Flyway 建表后授予 auth 应用账号表级权限
 
+**在哪里操作**：先在 Rocky Linux SSH 终端进入 `ygh-mysql` 的 root MySQL 客户端，再在 `mysql>` 提示符逐条输入 SQL。
+
 进入 root MySQL 客户端，输入：
 
 ```sql
@@ -886,6 +955,8 @@ EXIT;
 
 ### 第十五步：记录其余八个服务的后续迁移检查项
 
+**在哪里操作**：Windows 本机 IntelliJ IDEA 和项目交付记录。本步骤只记录后续核验项，不在 MySQL 安装阶段提前启动八个业务服务。
+
 product、inventory、order、wallet、knowledge、ai、training、notification 的 `_app` 账号已经在第五部分获得各自数据库的 DML 权限，不需要再执行表级授权。这些普通服务还依赖 Nacos，部分服务还依赖 Redis、RocketMQ、PGVector 或项目密钥，因此在 MySQL 配置阶段不要为了建表提前启动。
 
 等全部组件配置完成，执行项目启动操作文档时，必须按下面顺序一次只启动一个，并核对对应数据库：
@@ -924,22 +995,37 @@ docker logs --tail 200 ygh-mysql
 
 ### 第二步：手动备份全部数据库
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
+
+先创建备份目录并查看当前时间：
+
 ```bash
-backup_file="/opt/mysql-backups/mysql-all-$(date +%Y%m%d-%H%M%S).sql"
-docker exec ygh-mysql sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysqldump -uroot --all-databases --single-transaction --routines --events' > "$backup_file"
-sha256sum "$backup_file" > "$backup_file.sha256"
-ls -lh "$backup_file" "$backup_file.sha256"
+sudo mkdir -p /opt/mysql-backups
+sudo chmod 700 /opt/mysql-backups
+date '+%Y%m%d-%H%M%S'
 ```
 
-备份文件必须大于 0 字节。把 SQL 和 `.sha256` 一起复制到客户备份存储，不只保存在虚拟机系统盘。
+假设最后一条命令显示 `20260715-143000`，把下面三条命令中的 `20260715-143000` 手工改成刚才实际显示的值，然后逐条执行：
+
+```bash
+docker exec ygh-mysql mysqldump --defaults-extra-file=/run/secrets/mysql-client.cnf --all-databases --single-transaction --routines --events > /opt/mysql-backups/mysql-all-20260715-143000.sql
+sha256sum /opt/mysql-backups/mysql-all-20260715-143000.sql > /opt/mysql-backups/mysql-all-20260715-143000.sql.sha256
+ls -lh /opt/mysql-backups/mysql-all-20260715-143000.sql /opt/mysql-backups/mysql-all-20260715-143000.sql.sha256
+```
+
+**执行后的结果**：第一条备份命令正常时不会把 SQL 打到屏幕，而是写入指定文件；最后一条应显示 SQL 文件和 `.sha256` 文件，SQL 文件必须大于 0 字节。`mysqldump` 直接读取只读挂载的 `/run/secrets/mysql-client.cnf`，不调用 Shell 脚本，也不会批量启动任何组件。
+
+**注意事项**：把 SQL 和 `.sha256` 一起复制到客户备份存储，不只保存在虚拟机系统盘。不要把示例时间直接照抄，否则可能覆盖同名备份。
 
 ### 第三步：恢复前先保护现有数据
+
+**在哪里操作**：先在 Windows 本机 IDEA 手工停止全部 Java 服务；确认停止后，回到 Rocky Linux 虚拟机 SSH 终端执行校验和恢复命令。
 
 恢复会修改数据库，必须先停止 IDEA 中全部 Java 服务并再做一次当前备份。确认恢复文件的 SHA256 后才执行：
 
 ```bash
 sha256sum -c /opt/mysql-backups/要恢复的文件.sql.sha256
-docker exec -i ygh-mysql sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysql -uroot' < /opt/mysql-backups/要恢复的文件.sql
+docker exec -i ygh-mysql mysql --defaults-extra-file=/run/secrets/mysql-client.cnf < /opt/mysql-backups/要恢复的文件.sql
 ```
 
 校验必须显示 `OK`。恢复完成后重新检查数据库、账号、Flyway 历史和应用健康。不要在不知道备份来源和版本时直接恢复。
@@ -948,17 +1034,25 @@ docker exec -i ygh-mysql sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql-root-passwor
 
 ### 1. `Access denied for user`
 
+**在哪里排查**：先在 Windows 本机 IDEA 核对当前服务变量，再到 Rocky Linux SSH 终端进入 root MySQL 客户端检查授权。
+
 检查 IDEA 中的用户名和密码是否对应同一账号；检查账号 Host 是否为 `%`；执行 `SHOW GRANTS FOR '账号'@'%';`。不要改用 root 绕过权限错误。
 
 ### 2. `Unknown database`
+
+**在哪里排查**：Rocky Linux SSH 终端中的 root MySQL 客户端，以及 Windows 本机 IDEA 当前服务的 JDBC URL。
 
 进入 root MySQL 执行 `SHOW DATABASES;`，确认 URL 中的数据库名与实际名称完全一致，例如 `auth_db`，不是 `auth-db`。
 
 ### 3. `Communications link failure`
 
+**在哪里排查**：先在 Rocky Linux SSH 终端检查容器和防火墙，再在 Windows PowerShell 检查 3306 连通性。
+
 依次检查 `docker ps`、容器 Health、`Test-NetConnection`、3306 端口映射和 firewalld。连接失败不是 Flyway 问题。
 
 ### 4. 容器启动后立即退出
+
+**在哪里排查**：Rocky Linux 虚拟机 SSH 终端。
 
 执行：
 
@@ -970,5 +1064,7 @@ docker logs --tail 200 ygh-mysql
 重点检查配置项拼写、数据目录权限、SELinux 标签和 root 密码文件挂载。
 
 ### 5. 修改 root 密码文件后密码没有变化
+
+**在哪里排查**：Rocky Linux SSH 终端和 `ygh-mysql` 容器内的 root MySQL 客户端。
 
 官方 MySQL 镜像只在空数据目录首次初始化时读取 `MYSQL_ROOT_PASSWORD_FILE`。数据目录已经存在时，修改宿主机密码文件不会自动修改数据库中的 root 密码。必须登录 MySQL 后使用 `ALTER USER` 正式修改，并同步更新密码文件；不能删除数据目录重新初始化。

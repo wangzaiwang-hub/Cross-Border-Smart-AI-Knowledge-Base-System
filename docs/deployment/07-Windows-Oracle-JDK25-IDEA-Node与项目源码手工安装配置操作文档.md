@@ -504,16 +504,11 @@ D:\ygh-installers\nodejs-24.18.0
 输入：
 
 ```powershell
-$actual = (Get-FileHash 'D:\ygh-installers\nodejs-24.18.0\node-v24.18.0-x64.msi' -Algorithm SHA256).Hash.ToLowerInvariant()
-$expectedLine = Get-Content 'D:\ygh-installers\nodejs-24.18.0\SHASUMS256.txt' |
-  Where-Object { $_ -match 'node-v24\.18\.0-x64\.msi$' }
-$expected = ($expectedLine -split '\s+')[0].ToLowerInvariant()
-"EXPECTED=$expected"
-"ACTUAL=$actual"
-$actual -eq $expected
+Get-FileHash 'D:\ygh-installers\nodejs-24.18.0\node-v24.18.0-x64.msi' -Algorithm SHA256
+Select-String -Path 'D:\ygh-installers\nodejs-24.18.0\SHASUMS256.txt' -Pattern 'node-v24\.18\.0-x64\.msi$'
 ```
 
-**执行后的结果**：最后一行必须是 `True`。不是 `True` 时删除 MSI并重新从 Node.js 官方目录下载。
+**执行后的结果**：第一条命令的 `Hash` 与第二条命令中 MSI 文件名前面的 SHA256 必须逐字完全相同，不区分字母大小写。手工从第一个字符核对到最后一个字符；任何字符不同都要删除 MSI 并重新从 Node.js 官方目录下载。这里不使用 PowerShell 变量或校验脚本。
 
 ### 第五步：安装 Node.js
 
@@ -749,19 +744,17 @@ D:\ygh-ai-system
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-输入：
+逐条输入：
 
 ```powershell
-Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -ErrorAction SilentlyContinue |
-  Where-Object {
-    $_.Name -eq '.env' -or
-    $_.Extension -in '.pem','.key','.p12','.pfx','.jks' -or
-    $_.FullName -match '\\node_modules\\|\\target\\|\\\.git\\'
-  } |
-  Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -Filter '.env' -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system\*' -Recurse -Force -File -Include '*.pem','*.key','*.p12','*.pfx','*.jks' -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -Directory -Filter 'target' -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -Directory -Filter 'node_modules' -ErrorAction SilentlyContinue | Select-Object FullName
+Test-Path 'D:\ygh-ai-system\.git'
 ```
 
-**执行后的结果**：正式源码交付包不应包含真实 `.env`、私钥、证书私钥库、`.git`、`target` 或 `node_modules`。
+**执行后的结果**：前四条不输出文件或目录，最后一条输出 `False`。正式源码交付包不应包含真实 `.env`、私钥、证书私钥库、`.git`、`target` 或 `node_modules`。
 
 出现这些文件时不要直接使用。由交付方确认是否误带凭据，必要时立即轮换泄露凭据并重新制作干净压缩包。
 
@@ -769,18 +762,15 @@ Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -ErrorAction SilentlyCont
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-输入：
+逐条输入：
 
 ```powershell
-Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -ErrorAction SilentlyContinue |
-  Where-Object {
-    $_.Name -eq 'mvnw' -or
-    $_.Extension -in '.ps1','.sh','.bash','.bat','.cmd','.py'
-  } |
-  Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -Filter 'mvnw' -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -Filter 'mvnw.cmd' -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem 'D:\ygh-ai-system\*' -Recurse -Force -File -Include '*.ps1','*.sh','*.bash','*.bat','*.cmd','*.py' -ErrorAction SilentlyContinue | Select-Object FullName
 ```
 
-**执行后的结果**：不输出任何文件。出现文件时说明源码交付包仍带可执行脚本，停止部署并要求交付方重新制作源码包。不要由客户自己选择性删除，因为配置文件可能仍引用这些文件。
+**执行后的结果**：三条命令都不输出任何文件。出现文件时说明源码交付包仍带可执行脚本，停止部署并要求交付方重新制作源码包。不要由客户自己选择性删除，因为配置文件可能仍引用这些文件。
 
 ## 第五部分：在 IDEA 导入 Maven 多模块项目
 

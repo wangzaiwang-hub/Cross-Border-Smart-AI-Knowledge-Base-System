@@ -31,7 +31,7 @@ docker info | sed -n '/Registry Mirrors/,+5p'
 
 **执行后的结果**：Docker 必须同时显示 Client 和 Server；镜像代理应已配置。
 
-**失败时怎么处理**：提示 `docker: command not found` 或无法连接 daemon 时，停止本文，先按照 Redis 操作文档安装虚拟机 Docker Engine。PGVector 最终运行在 Rocky Linux 虚拟机内部的 Docker 中，不安装到 Windows、WSL2 或 Windows Docker Desktop。
+**失败时怎么处理**：提示 `docker: command not found` 或无法连接 daemon 时，停止本文，回到 `01-Rocky Linux虚拟机从零配置指南.md` 安装并验证虚拟机 Docker Engine。PGVector 最终运行在 Rocky Linux 虚拟机内部的 Docker 中，不安装到 Windows、WSL2 或 Windows Docker Desktop。
 
 ### 第三步：确认 ygh-core 网络存在
 
@@ -77,11 +77,11 @@ docker stats --no-stream
 
 ```bash
 ip -br address
-sudo ss -lntp | grep ':5432' || echo '5432 端口空闲'
+sudo ss -lntp | grep ':5432'
 docker ps -a --filter name=ygh-pgvector
 ```
 
-**执行后的结果**：虚拟机应具有 `192.168.154.10/24`，5432 应为空闲，不应存在同名旧容器。
+**执行后的结果**：虚拟机应具有 `192.168.154.10/24`；第二条命令没有输出表示 5432 空闲；第三条命令没有输出表示不存在同名旧容器。
 
 发现旧容器或旧 PostgreSQL 进程时先确认数据归属并完成备份，不能直接结束进程或执行 `docker rm -f`。
 
@@ -278,6 +278,28 @@ sudo stat -c '%U %G %a %n' /opt/docker_pgvector/secrets/postgres-password
 
 **执行后的结果**：显示 `root root 600`。后面使用官方 PostgreSQL 镜像支持的 `POSTGRES_PASSWORD_FILE` 读取密码，不把真实值写进启动命令。
 
+继续创建只供容器内备份和恢复使用的 PostgreSQL 密码文件：
+
+```bash
+sudo vi /opt/docker_pgvector/secrets/pgpass
+```
+
+按 `i` 输入下面一行，把最后的占位内容改成刚才保存到密码管理器的同一个数据库密码：
+
+```text
+*:*:*:ygh_vector:这里填写同一个ygh_vector真实密码
+```
+
+按 `Esc`，输入 `:wq` 保存。接着逐条输入：
+
+```bash
+sudo chown root:999 /opt/docker_pgvector/secrets/pgpass
+sudo chmod 640 /opt/docker_pgvector/secrets/pgpass
+sudo stat -c '%U %G %a %n' /opt/docker_pgvector/secrets/pgpass
+```
+
+**需要修改的内容**：这里暂按镜像检查得到的 PostgreSQL 组 ID `999` 设置。如果后面“确认镜像内 PostgreSQL 用户 UID/GID”显示的 GID 不是 `999`，必须把 `root:999` 中的 999 改成实际 GID 后重新执行。这个文件不是 `.env` 或脚本，它是 PostgreSQL 官方客户端识别的密码文件。
+
 ### 第三步：手工创建项目扩展初始化文件
 
 **在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
@@ -347,6 +369,7 @@ docker run -d \
   -e POSTGRES_USER=ygh_vector \
   -e POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password \
   -v /opt/docker_pgvector/secrets/postgres-password:/run/secrets/postgres-password:ro,Z \
+  -v /opt/docker_pgvector/secrets/pgpass:/run/secrets/pgpass:ro,Z \
   -v /opt/docker_pgvector/init/01-enable-vector.sql:/docker-entrypoint-initdb.d/01-enable-vector.sql:ro,Z \
   -v /opt/docker_pgvector/data:/var/lib/postgresql/data:Z \
   --health-cmd='pg_isready -U ygh_vector -d ygh_vector' \
@@ -498,6 +521,8 @@ Test-NetConnection 192.168.154.10 -Port 5432
 **执行后的结果**：必须显示 `TcpTestSucceeded : True`。失败时依次检查固定 IP、容器健康、端口映射和 firewalld 规则。
 
 ## 第六部分：在 IDEA 中配置 Search 服务并执行 Flyway
+
+**执行时机**：首次按总教程部署时，完成第五部分 Windows 5432 连通性检查后，先继续安装 Windows Docker Desktop 和 Elasticsearch。只有 Elasticsearch 索引准备完成并进入 `11` 号 IDEA 后端启动文档的 Search 步骤时，才返回执行本部分。PGVector 健康不代表 Search 的全部依赖已经就绪。
 
 ### 第一步：确认只有 Search 服务直接连接 PGVector
 
@@ -667,16 +692,23 @@ docker inspect ygh-pgvector --format 'Health={{.State.Health.Status}} Restarts={
 
 **在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
 
-输入：
+先输入下面三条命令创建备份目录并查看当前时间：
 
 ```bash
-backup_file="/opt/pgvector-backups/ygh-vector-$(date +%Y%m%d-%H%M%S).sql"
-docker exec ygh-pgvector sh -c 'PGPASSWORD="$(cat /run/secrets/postgres-password)" pg_dump -U ygh_vector -d ygh_vector --no-owner --no-privileges' > "$backup_file"
-sha256sum "$backup_file" > "$backup_file.sha256"
-ls -lh "$backup_file" "$backup_file.sha256"
+sudo mkdir -p /opt/pgvector-backups
+sudo chmod 700 /opt/pgvector-backups
+date '+%Y%m%d-%H%M%S'
 ```
 
-**执行后的结果**：SQL 文件大于 0 字节并生成 SHA256。把两份文件复制到客户备份存储，不只保存在虚拟机系统盘。
+假设时间显示为 `20260715-143000`，把下面三条命令中的示例时间手工改成实际值，然后逐条执行：
+
+```bash
+docker exec -e PGPASSFILE=/run/secrets/pgpass ygh-pgvector pg_dump -U ygh_vector -d ygh_vector --no-owner --no-privileges > /opt/pgvector-backups/ygh-vector-20260715-143000.sql
+sha256sum /opt/pgvector-backups/ygh-vector-20260715-143000.sql > /opt/pgvector-backups/ygh-vector-20260715-143000.sql.sha256
+ls -lh /opt/pgvector-backups/ygh-vector-20260715-143000.sql /opt/pgvector-backups/ygh-vector-20260715-143000.sql.sha256
+```
+
+**执行后的结果**：SQL 文件大于 0 字节并生成 SHA256。把两份文件复制到客户备份存储，不只保存在虚拟机系统盘。不要照抄示例时间，以免覆盖同名文件。
 
 向量数据可能包含客户文档内容的派生信息，备份文件不得提交到 Git 或通过公共聊天工具发送。
 
@@ -691,7 +723,7 @@ ls -lh "$backup_file" "$backup_file.sha256"
 ```bash
 sha256sum -c /opt/pgvector-backups/ygh-vector-20260714-120000.sql.sha256
 docker exec ygh-pgvector psql -v ON_ERROR_STOP=1 -U ygh_vector -d postgres -c "CREATE DATABASE ygh_vector_restore OWNER ygh_vector TEMPLATE template0;"
-docker exec -i ygh-pgvector sh -c 'PGPASSWORD="$(cat /run/secrets/postgres-password)" psql -v ON_ERROR_STOP=1 -U ygh_vector -d ygh_vector_restore' < /opt/pgvector-backups/ygh-vector-20260714-120000.sql
+docker exec -e PGPASSFILE=/run/secrets/pgpass -i ygh-pgvector psql -v ON_ERROR_STOP=1 -U ygh_vector -d ygh_vector_restore < /opt/pgvector-backups/ygh-vector-20260714-120000.sql
 docker exec ygh-pgvector psql -U ygh_vector -d ygh_vector_restore -c "SELECT extname,extversion FROM pg_extension WHERE extname IN ('vector','pgcrypto') ORDER BY extname;"
 docker exec ygh-pgvector psql -U ygh_vector -d ygh_vector_restore -c "SELECT installed_rank,version,description,success FROM flyway_schema_history ORDER BY installed_rank;"
 docker exec ygh-pgvector psql -U ygh_vector -d ygh_vector_restore -c "SELECT COUNT(*) AS embedding_count FROM search_embedding;"
@@ -765,9 +797,25 @@ sudo chmod 600 /opt/docker_pgvector/secrets/postgres-password
 sudo stat -c '%U %G %a %n' /opt/docker_pgvector/secrets/postgres-password
 ```
 
+再更新客户端密码文件：
+
+```bash
+sudo vi /opt/docker_pgvector/secrets/pgpass
+```
+
+按 `i`，把这一行冒号后的旧密码改成同一个新密码，其他字段不改；按 `Esc`，输入 `:wq` 保存。然后输入：
+
+```bash
+sudo chown root:999 /opt/docker_pgvector/secrets/pgpass
+sudo chmod 640 /opt/docker_pgvector/secrets/pgpass
+sudo stat -c '%U %G %a %n' /opt/docker_pgvector/secrets/pgpass
+```
+
+如果镜像内 PostgreSQL 组 ID 不是 999，仍使用前面实测的 GID。
+
 最后在 IDEA 的 `ygh-search-service` 运行配置中，把 `YGH_VECTOR_DB_PASSWORD` 改成同一个新密码。
 
-**执行后的结果**：第四部分远程密码认证重新通过，Search 重启成功。只修改密码文件不会自动修改数据库角色密码；两处必须保持一致。
+**执行后的结果**：第四部分远程密码认证重新通过，备份命令可以读取 `pgpass`，Search 重启成功。只修改密码文件不会自动修改数据库角色密码；数据库角色、两个密码文件和 IDEA 四处必须保持一致。
 
 ## 第八部分：常见错误逐项排查
 

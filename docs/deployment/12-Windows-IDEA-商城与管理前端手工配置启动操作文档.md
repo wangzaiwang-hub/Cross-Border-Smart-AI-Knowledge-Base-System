@@ -344,6 +344,8 @@ Get-NetTCPConnection -State Listen -LocalPort 5173,5174 |
 
 ### 第二十四步：处理浏览器能打开但接口失败
 
+**在哪里操作**：Windows 本机浏览器开发者工具、Windows PowerShell 和 IntelliJ IDEA。先查看浏览器失败请求，再检查 Gateway，最后检查具体后端服务；不在 Rocky Linux 虚拟机中启动或调试前端。
+
 | 现象 | 原因 | 操作 |
 |---|---|---|
 | 页面打开，接口 `ERR_CONNECTION_REFUSED` | Gateway 8080 未启动 | 回到后端文档启动 Auth、System、Gateway并检查健康 |

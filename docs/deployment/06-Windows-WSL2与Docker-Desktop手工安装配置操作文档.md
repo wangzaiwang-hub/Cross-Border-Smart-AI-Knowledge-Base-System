@@ -510,7 +510,7 @@ docker.io/library/alpine:latest
 输入：
 
 ```powershell
-docker run --rm alpine:latest sh -c 'cat /etc/alpine-release && echo docker-network-ok'
+docker run --rm alpine:latest cat /etc/alpine-release
 ```
 
 **执行后的结果**：显示 Alpine 版本和 `docker-network-ok`，命令结束后测试容器自动删除。
@@ -996,13 +996,10 @@ docker pull alpine:latest
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-先把第一行的 `19200` 修改为需要检查的实际端口，再完整输入：
+把命令中的 `19200` 替换为需要检查的实际端口，然后输入：
 
 ```powershell
-$port = 19200
-Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-  Where-Object { $_.LocalPort -eq $port } |
-  Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 19200 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
 ```
 
 查进程：
@@ -1044,7 +1041,7 @@ docker desktop status
 docker version
 docker info --format 'OSType={{.OSType}} Architecture={{.Architecture}} CPUs={{.NCPU}} Memory={{.MemTotal}} Mirrors={{json .RegistryConfig.Mirrors}}'
 docker pull alpine:latest
-docker run --rm alpine:latest sh -c 'cat /etc/alpine-release && echo docker-ok'
+docker run --rm alpine:latest cat /etc/alpine-release
 docker system df
 ```
 

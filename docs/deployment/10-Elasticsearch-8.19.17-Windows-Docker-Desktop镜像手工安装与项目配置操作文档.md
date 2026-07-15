@@ -107,9 +107,7 @@ wsl -d docker-desktop -u root sysctl vm.max_map_count
 输入：
 
 ```powershell
-Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-  Where-Object { $_.LocalPort -eq 19200 } |
-  Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 19200 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
 docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | Select-String -Pattern 'elasticsearch|NAMES'
 ```
 
@@ -388,7 +386,9 @@ exit
 
 ```powershell
 docker volume create ygh-elasticsearch-snapshots
-docker run --rm --user 0 --entrypoint bash -v ygh-elasticsearch-snapshots:/mnt/snapshots docker.elastic.co/elasticsearch/elasticsearch:8.19.17 -lc 'chown 1000:0 /mnt/snapshots && chmod 750 /mnt/snapshots && stat -c "%u:%g %a %n" /mnt/snapshots'
+docker run --rm --user 0 --entrypoint chown -v ygh-elasticsearch-snapshots:/mnt/snapshots docker.elastic.co/elasticsearch/elasticsearch:8.19.17 1000:0 /mnt/snapshots
+docker run --rm --user 0 --entrypoint chmod -v ygh-elasticsearch-snapshots:/mnt/snapshots docker.elastic.co/elasticsearch/elasticsearch:8.19.17 750 /mnt/snapshots
+docker run --rm --entrypoint stat -v ygh-elasticsearch-snapshots:/mnt/snapshots docker.elastic.co/elasticsearch/elasticsearch:8.19.17 -c "%u:%g %a %n" /mnt/snapshots
 ```
 
 **执行后的结果**：最后显示：
@@ -762,7 +762,7 @@ YGH_PRODUCT_SEARCH_INDEX=product-active
 按下面顺序确认：
 
 1. Rocky Linux 虚拟机中的 MySQL、Redis、Nacos 已健康。
-2. Windows Docker Desktop 中的 PGVector 已健康。
+2. Rocky Linux 虚拟机 Docker 中的 PGVector 已健康，Windows 可以访问 `192.168.154.10:5432`。
 3. Windows Docker Desktop 中的 Elasticsearch 已健康，两个索引已创建。
 4. IDEA 先启动 System 等 Search 依赖的后端服务。
 5. IDEA 再启动 `SearchApplication`。
@@ -815,20 +815,19 @@ curl.exe -u elastic -X POST "http://127.0.0.1:19200/_snapshot/ygh_fs_backup/_ver
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-先生成只包含日期时间的快照名：
+先查看当前时间：
 
 ```powershell
-$snapshotName = 'ygh-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
-$snapshotName
+Get-Date -Format 'yyyyMMdd-HHmmss'
 ```
 
-记录输出，然后输入：
+假设显示 `20260715-143000`，把下面 URL 中的示例时间手工改成实际值，然后输入：
 
 ```powershell
-curl.exe -u elastic -X PUT "http://127.0.0.1:19200/_snapshot/ygh_fs_backup/${snapshotName}?wait_for_completion=true" -H "Content-Type: application/json" -d '{"indices":"knowledge-v1,product-active","include_global_state":false}'
+curl.exe -u elastic -X PUT "http://127.0.0.1:19200/_snapshot/ygh_fs_backup/ygh-20260715-143000?wait_for_completion=true" -H "Content-Type: application/json" -d '{"indices":"knowledge-v1,product-active","include_global_state":false}'
 ```
 
-**执行后的结果**：JSON 中 `state` 为 `SUCCESS`，`failed` 分片数为 `0`。如果是 `PARTIAL` 或 `FAILED`，本次备份不合格，必须查看响应中的失败原因。
+**执行后的结果**：JSON 中 `state` 为 `SUCCESS`，`failed` 分片数为 `0`。如果是 `PARTIAL` 或 `FAILED`，本次备份不合格，必须查看响应中的失败原因。不要照抄示例时间，每个快照必须使用当前实际时间作为唯一名称。
 
 ### 第四步：查询快照
 
@@ -859,12 +858,17 @@ docker stop -t 60 ygh-elasticsearch
 New-Item -ItemType Directory -Force 'D:\ygh-backups\elasticsearch'
 ```
 
-4. 导出快照卷：
+4. 查看当前时间：
 
 ```powershell
-$archive = 'elasticsearch-snapshots-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.tar.gz'
-docker run --rm --user 0 --entrypoint tar -v ygh-elasticsearch-snapshots:/source:ro -v 'D:\ygh-backups\elasticsearch:/backup' docker.elastic.co/elasticsearch/elasticsearch:8.19.17 -czf "/backup/$archive" -C /source .
-Get-FileHash "D:\ygh-backups\elasticsearch\$archive" -Algorithm SHA256
+Get-Date -Format 'yyyyMMdd-HHmmss'
+```
+
+假设显示 `20260715-143000`，把下面两条命令中的示例时间手工改成实际值，再逐条输入以导出快照卷并计算哈希：
+
+```powershell
+docker run --rm --user 0 --entrypoint tar -v ygh-elasticsearch-snapshots:/source:ro -v 'D:\ygh-backups\elasticsearch:/backup' docker.elastic.co/elasticsearch/elasticsearch:8.19.17 -czf '/backup/elasticsearch-snapshots-20260715-143000.tar.gz' -C /source .
+Get-FileHash 'D:\ygh-backups\elasticsearch\elasticsearch-snapshots-20260715-143000.tar.gz' -Algorithm SHA256
 ```
 
 5. 重新启动：

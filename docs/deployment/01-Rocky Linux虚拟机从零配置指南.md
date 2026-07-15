@@ -39,6 +39,8 @@ Use local DHCP service to distribute IP address to VMs
 
 ### 第二步：设置 VMnet8 网段
 
+**在哪里操作**：Windows 本机 VMware“虚拟网络编辑器”，不是 Rocky Linux 终端。
+
 在 `VMnet8` 页面填写：
 
 ```text
@@ -89,6 +91,8 @@ Windows IP:  192.168.80.1
 
 ### 第三步：设置 DHCP 地址池
 
+**在哪里操作**：Windows 本机 VMware“虚拟网络编辑器”的 VMnet8 DHCP 设置窗口。
+
 点击：
 
 ```text
@@ -125,6 +129,8 @@ End IP address:   192.168.80.254
 
 ### 第四步：确认 Windows VMnet8 地址
 
+**在哪里操作**：Windows 本机 PowerShell。
+
 打开 Windows PowerShell，输入：
 
 ```powershell
@@ -150,6 +156,8 @@ Ethernet adapter VMware Network Adapter VMnet8:
 ## 第二部分：创建 Rocky Linux 虚拟机
 
 ### 第一步：下载 VMware Workstation Pro
+
+**在哪里操作**：Windows 本机浏览器和文件资源管理器。
 
 下载和安装位置：
 
@@ -187,6 +195,8 @@ VMware-workstation-full-xx.x.x.exe
 
 ### 第二步：安装 VMware Workstation Pro
 
+**在哪里操作**：Windows 本机 VMware 安装向导，需要使用有安装权限的 Windows 账号。
+
 安装位置：
 
 ```text
@@ -222,6 +232,8 @@ VMware Workstation Pro
 安装过程中如果提示重启 Windows，先重启，再继续后面的步骤。
 
 ### 第三步：下载 Rocky Linux Minimal ISO
+
+**在哪里操作**：Windows 本机浏览器下载，随后在 Windows PowerShell 校验文件。
 
 下载位置：
 
@@ -260,15 +272,11 @@ D:\ISO\Rocky-10.2-x86_64-minimal.iso.CHECKSUM
 下载完成后打开 Windows PowerShell，输入：
 
 ```powershell
-$actual=(Get-FileHash 'D:\ISO\Rocky-10.2-x86_64-minimal.iso' -Algorithm SHA256).Hash.ToLowerInvariant()
-$line=Get-Content 'D:\ISO\Rocky-10.2-x86_64-minimal.iso.CHECKSUM' | Where-Object {$_ -match 'Rocky-10\.2-x86_64-minimal\.iso$'}
-$expected=($line -split '=')[1].Trim().ToLowerInvariant()
-$actual
-$expected
-$actual -eq $expected
+Get-FileHash 'D:\ISO\Rocky-10.2-x86_64-minimal.iso' -Algorithm SHA256
+Select-String -Path 'D:\ISO\Rocky-10.2-x86_64-minimal.iso.CHECKSUM' -Pattern 'Rocky-10\.2-x86_64-minimal\.iso$'
 ```
 
-执行后的结果：两个 SHA256 完全相同，最后一行为 `True`。不是 `True` 时删除 ISO 并从 Rocky 官方仓库重新下载，不能继续安装。
+执行后的结果：第一条命令的 `Hash` 与第二条命令中该 ISO 对应的 SHA256 必须逐字完全相同，不区分字母大小写。手工从第一个字符核对到最后一个字符；任何字符不同都要删除 ISO 并从 Rocky 官方仓库重新下载，不能继续安装。这里不使用 PowerShell 变量或校验脚本。
 
 ### 第四步：创建虚拟机
 
@@ -338,6 +346,8 @@ ygh-rocky-dev
 
 ### 第五步：安装 Rocky Linux
 
+**在哪里操作**：Windows 本机 VMware 虚拟机控制台中的 Rocky Linux 安装界面。
+
 安装位置：
 
 ```text
@@ -387,6 +397,8 @@ Reboot System
 
 ### 第一步：查看网卡名称
 
+**在哪里操作**：Rocky Linux 虚拟机控制台。此时固定 IP 可能尚未完成，不依赖 SSH。
+
 登录 Rocky Linux，输入：
 
 ```bash
@@ -422,6 +434,8 @@ Wired connection 1
 ```
 
 ### 第二步：设置固定 IP
+
+**在哪里操作**：Rocky Linux 虚拟机控制台中的终端。
 
 输入：
 
@@ -478,6 +492,8 @@ sudo nmcli connection up ens160
 
 ### 第三步：测试虚拟机联网
 
+**在哪里操作**：Rocky Linux 虚拟机终端。
+
 输入：
 
 ```bash
@@ -522,6 +538,8 @@ sudo nmcli connection up ens160
 ## 第四部分：配置 SSH
 
 ### 第一步：安装并启动 SSH
+
+**在哪里操作**：Rocky Linux 虚拟机控制台终端。
 
 安装位置：
 
@@ -568,6 +586,8 @@ journalctl -u sshd -n 50 --no-pager
 
 ### 第二步：Windows 测试 SSH
 
+**在哪里操作**：Windows 本机 PowerShell，不在虚拟机控制台输入。
+
 打开 Windows PowerShell，输入：
 
 ```powershell
@@ -604,13 +624,23 @@ SSH 能登录到 Rocky Linux。
 
 ### 第三步：配置 SSH 免密
 
-在 Windows PowerShell 输入：
+**在哪里操作**：密钥生成和公钥上传命令在 Windows 本机 PowerShell 输入；失败后的权限检查在 Rocky Linux 终端输入。
+
+先在 Windows PowerShell 输入：
 
 ```powershell
-if (-not (Test-Path "$HOME\.ssh\id_ed25519")) { ssh-keygen -t ed25519 }
+Test-Path "$HOME\.ssh\id_ed25519"
 ```
 
-一路回车即可。
+如果输出 `True`，说明当前 Windows 用户已经有密钥，不能覆盖，直接执行下一条公钥上传命令。
+
+如果输出 `False`，再单独输入：
+
+```powershell
+ssh-keygen -t ed25519
+```
+
+命令询问保存位置和口令时按客户安全要求填写；测试环境可以一路回车使用默认路径。命令结束后再次执行 `Test-Path "$HOME\.ssh\id_ed25519"`，必须变为 `True`。
 
 继续输入：
 
@@ -673,6 +703,8 @@ sudo dnf remove -y podman buildah runc docker docker-client docker-client-latest
 
 ### 第二步：安装基础工具
 
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
+
 输入：
 
 ```bash
@@ -692,6 +724,8 @@ Complete!
 如果下载失败，先回到网络配置部分检查 DNS 和 NAT。
 
 ### 第三步：添加 Docker 官方软件源
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
 
 输入：
 
@@ -721,6 +755,8 @@ curl -I https://download.docker.com/linux/centos/docker-ce.repo
 
 ### 第四步：安装 Docker Engine
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。这里安装的是虚拟机 Docker Engine，不是 Windows Docker Desktop。
+
 安装位置：
 
 ```text
@@ -748,6 +784,8 @@ Complete!
 需要修改的内容：本文每个组件都使用独立的 `docker pull`、`docker run`、`docker stop` 和 `docker start`，不需要安装或调用 Compose 插件。
 
 ### 第五步：手动写入 Docker 配置
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端，配置文件位于虚拟机 `/etc/docker/daemon.json`。
 
 配置位置：
 
@@ -798,6 +836,8 @@ sudo dockerd --validate --config-file=/etc/docker/daemon.json
 
 ### 第六步：启动 Docker
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
+
 输入：
 
 ```bash
@@ -830,6 +870,8 @@ journalctl -u docker -n 100 --no-pager
 
 ### 第七步：把当前用户加入 docker 组
 
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端；重新登录动作回到 Windows PowerShell 完成。
+
 输入：
 
 ```bash
@@ -857,6 +899,8 @@ ssh wang@192.168.154.10
 如果 Linux 用户不是 `wang`，把命令里的 `wang` 改成实际用户名。
 
 ### 第八步：验证 Docker 安装
+
+**在哪里操作**：重新登录后的 Rocky Linux 虚拟机 SSH 终端。
 
 在 Rocky Linux 输入：
 
@@ -903,6 +947,8 @@ exit
 再重新 SSH 登录。
 
 ### 第九步：测试 Docker 镜像拉取
+
+**在哪里操作**：Rocky Linux 虚拟机 SSH 终端，不使用 Windows Docker Desktop 的 Docker 命令。
 
 输入：
 
@@ -953,8 +999,11 @@ curl -I --connect-timeout 10 https://docker.1ms.run/v2/
 先备份当前 Docker 配置：
 
 ```bash
-sudo cp -a /etc/docker/daemon.json /etc/docker/daemon.json.bak.$(date +%Y%m%d-%H%M%S)
+date '+%Y%m%d-%H%M%S'
+sudo cp -a /etc/docker/daemon.json /etc/docker/daemon.json.bak.20260715-143000
 ```
+
+第二条命令中的 `20260715-143000` 是示例。必须改成第一条命令刚显示的实际时间，再输入第二条命令；不要原样照抄示例时间。如果提示 `/etc/docker/daemon.json` 不存在，说明这是第一次配置，可以直接进入编辑步骤。
 
 输入：
 
@@ -1034,6 +1083,8 @@ docker image inspect mysql:8.4.10 --format '{{.RepoTags}} {{.Architecture}} {{.O
 
 ### 第一步：启动 firewalld
 
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
+
 安装和运行位置：
 
 ```text
@@ -1073,6 +1124,8 @@ sudo systemctl enable --now firewalld
 
 ### 第二步：确认 Windows VMnet8 地址
 
+**在哪里操作**：Windows 本机 PowerShell，不是在虚拟机终端中。
+
 在 Windows PowerShell 输入：
 
 ```powershell
@@ -1092,6 +1145,8 @@ ipconfig
 下面所有 `source address=192.168.154.1/32` 都必须改成客户 Windows VMnet8 地址。
 
 ### 第三步：开放 MySQL 端口
+
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
 
 端口位置：
 
@@ -1122,6 +1177,8 @@ success
 
 ### 第四步：开放 Redis 端口
 
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
+
 端口位置：
 
 ```text
@@ -1145,6 +1202,8 @@ success
 ```
 
 ### 第五步：开放 Nacos 端口
+
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
 
 端口位置：
 
@@ -1184,6 +1243,8 @@ success
 
 ### 第六步：开放 PGVector 端口
 
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
+
 端口位置：
 
 ```text
@@ -1207,6 +1268,8 @@ success
 ```
 
 ### 第七步：重新加载防火墙
+
+**在哪里操作**：通过 SSH 登录后的 Rocky Linux 虚拟机终端。
 
 输入：
 

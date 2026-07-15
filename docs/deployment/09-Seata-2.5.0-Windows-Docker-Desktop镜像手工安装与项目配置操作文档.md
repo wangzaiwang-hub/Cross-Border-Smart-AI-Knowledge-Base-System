@@ -69,9 +69,7 @@ ipconfig
 输入：
 
 ```powershell
-Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-  Where-Object { $_.LocalPort -eq 8091 } |
-  Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 8091 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
 docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | Select-String -Pattern 'seata|NAMES'
 ```
 
@@ -400,7 +398,7 @@ docker run -d `
   -e "JVM_MaxDirectMemorySize=128m" `
   -v ygh-seata-session:/seata-server/sessionStore `
   -v ygh-seata-logs:/root/logs/seata `
-  --health-cmd="bash -c '</dev/tcp/127.0.0.1/8091'" `
+  --health-cmd="pgrep -f org.apache.seata.server.ServerApplication" `
   --health-interval=15s `
   --health-timeout=5s `
   --health-retries=20 `
@@ -413,7 +411,7 @@ docker run -d `
   apache/seata-server:2.5.0
 ```
 
-**执行后的结果**：Docker 输出容器 ID。所有参数都在当前命令中逐项填写，没有读取外部批量配置或启动文件。
+**执行后的结果**：Docker 输出容器 ID。所有参数都在当前命令中逐项填写，没有读取外部批量配置或启动文件。健康检查直接确认 Seata Java 主进程存在，不调用 Bash 脚本；后续仍必须通过日志和 8091 端口共同确认服务真正可用。
 
 ### 第二步：等待容器健康
 
@@ -639,23 +637,33 @@ docker inspect ygh-seata --format 'Status={{.State.Status}} Health={{.State.Heal
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-先停止 JUnit 测试并执行 `docker stop -t 45 ygh-seata`。然后输入：
+先停止 JUnit 测试并执行 `docker stop -t 45 ygh-seata`。然后查看当前时间：
 
 ```powershell
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-docker run --rm --entrypoint bash `
-  -v ygh-seata-session:/session:ro `
-  -v ygh-seata-logs:/logs:ro `
+Get-Date -Format 'yyyyMMdd-HHmmss'
+```
+
+假设显示 `20260715-143000`，把下面命令中的示例时间手工改成实际值，再输入完整命令：
+
+```powershell
+docker run --rm --entrypoint tar `
+  -v ygh-seata-session:/source/session:ro `
+  -v ygh-seata-logs:/source/logs:ro `
   -v "D:\ygh-backups\seata:/backup" `
   apache/seata-server:2.5.0 `
-  -lc "tar czf /backup/seata-$stamp.tar.gz -C / session logs"
-Get-FileHash "D:\ygh-backups\seata\seata-$stamp.tar.gz" -Algorithm SHA256
-Get-Item "D:\ygh-backups\seata\seata-$stamp.tar.gz" | Select-Object FullName,Length
+  czf /backup/seata-20260715-143000.tar.gz -C /source session logs
+```
+
+返回 PowerShell 提示符后逐条输入：
+
+```powershell
+Get-FileHash 'D:\ygh-backups\seata\seata-20260715-143000.tar.gz' -Algorithm SHA256
+Get-Item 'D:\ygh-backups\seata\seata-20260715-143000.tar.gz' | Select-Object FullName,Length
 ```
 
 **执行后的结果**：生成大于 0 字节的压缩包并输出 SHA256。
 
-**注意事项**：必须有 `--entrypoint bash`。没有它时辅助容器会执行 Seata 固定入口并持续运行，而不是执行备份命令。
+**注意事项**：必须有 `--entrypoint tar`。没有它时辅助容器会执行 Seata 固定入口并持续运行，而不是执行备份命令。不要照抄示例时间，以免覆盖同名文件。
 
 ### 第三步：恢复到新的验证卷
 
@@ -667,13 +675,13 @@ Get-Item "D:\ygh-backups\seata\seata-$stamp.tar.gz" | Select-Object FullName,Len
 Get-FileHash 'D:\ygh-backups\seata\seata-20260714-120000.tar.gz' -Algorithm SHA256
 docker volume create ygh-seata-session-restore
 docker volume create ygh-seata-logs-restore
-docker run --rm --entrypoint bash `
-  -v ygh-seata-session-restore:/restore-session `
-  -v ygh-seata-logs-restore:/restore-logs `
+docker run --rm --entrypoint tar `
+  -v ygh-seata-session-restore:/restore/session `
+  -v ygh-seata-logs-restore:/restore/logs `
   -v "D:\ygh-backups\seata:/backup:ro" `
   apache/seata-server:2.5.0 `
-  -lc "mkdir -p /work && tar xzf /backup/seata-20260714-120000.tar.gz -C /work && cp -a /work/session/. /restore-session/ && cp -a /work/logs/. /restore-logs/"
-docker run --rm --entrypoint bash -v ygh-seata-session-restore:/data:ro apache/seata-server:2.5.0 -lc "find /data -maxdepth 2 -type f -printf '%p %s bytes\n'"
+  xzf /backup/seata-20260714-120000.tar.gz -C /restore
+docker run --rm --entrypoint find -v ygh-seata-session-restore:/data:ro apache/seata-server:2.5.0 /data -maxdepth 2 -type f -printf '%p %s bytes\n'
 ```
 
 **执行后的结果**：新验证卷中出现会话文件；原 `ygh-seata-session` 和 `ygh-seata-logs` 没有被覆盖。

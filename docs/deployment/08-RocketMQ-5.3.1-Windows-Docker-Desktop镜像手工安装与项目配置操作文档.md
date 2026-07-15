@@ -71,9 +71,13 @@ ipconfig
 输入：
 
 ```powershell
-Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-  Where-Object { $_.LocalPort -in 19876,10909,10911,10912,20909,20911,20912 } |
-  Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 19876 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 10909 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 10911 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 10912 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 20909 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 20911 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
+Get-NetTCPConnection -State Listen -LocalPort 20912 -ErrorAction SilentlyContinue | Select-Object LocalAddress,LocalPort,OwningProcess
 docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 ```
 
@@ -350,8 +354,9 @@ docker volume inspect ygh-rocketmq-store
 输入：
 
 ```powershell
-docker run --rm --user 0:0 -v ygh-rocketmq-store:/home/rocketmq/store apache/rocketmq:5.3.1 sh -c "chown -R 3000:3000 /home/rocketmq/store"
-docker run --rm -v ygh-rocketmq-store:/home/rocketmq/store apache/rocketmq:5.3.1 sh -c "id; ls -ld /home/rocketmq/store"
+docker run --rm --user 0:0 --entrypoint chown -v ygh-rocketmq-store:/home/rocketmq/store apache/rocketmq:5.3.1 -R 3000:3000 /home/rocketmq/store
+docker run --rm --entrypoint id -v ygh-rocketmq-store:/home/rocketmq/store apache/rocketmq:5.3.1
+docker run --rm --entrypoint ls -v ygh-rocketmq-store:/home/rocketmq/store apache/rocketmq:5.3.1 -ld /home/rocketmq/store
 ```
 
 **执行后的结果**：第一条命令无错误；第二条显示容器用户 UID/GID 为 3000，store 目录可访问。该步骤只初始化一个数据卷，不是安装或启动脚本。
@@ -721,31 +726,48 @@ docker exec ygh-rocketmq-broker sh mqadmin topicRoute -n ygh-rocketmq-namesrv:98
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-输入：
+先查看当前时间：
 
 ```powershell
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-Copy-Item 'D:\ygh-deploy\rocketmq\conf\broker.conf' "D:\ygh-backups\rocketmq\broker-$stamp.conf"
-Get-FileHash "D:\ygh-backups\rocketmq\broker-$stamp.conf" -Algorithm SHA256
+Get-Date -Format 'yyyyMMdd-HHmmss'
 ```
 
-**执行后的结果**：备份目录出现带时间的配置文件并输出 SHA256。这里的 `$stamp` 只是当前 PowerShell 会话中的文件名变量，不是项目配置文件或启动脚本。
+假设显示 `20260715-143000`，把下面两条命令中的示例时间手工改成实际值，然后逐条输入：
+
+```powershell
+Copy-Item 'D:\ygh-deploy\rocketmq\conf\broker.conf' 'D:\ygh-backups\rocketmq\broker-20260715-143000.conf'
+Get-FileHash 'D:\ygh-backups\rocketmq\broker-20260715-143000.conf' -Algorithm SHA256
+```
+
+**执行后的结果**：备份目录出现带时间的配置文件并输出 SHA256。不要照抄示例时间，以免覆盖同名备份。
 
 ### 第四步：停止 Broker 后备份消息数据卷
 
 **在哪里操作**：Windows 本机 PowerShell。
 
-先按第一步停止 Java 服务、Broker 和 NameServer，再输入：
+先按第一步停止 Java 服务、Broker 和 NameServer，再输入当前时间：
 
 ```powershell
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+Get-Date -Format 'yyyyMMdd-HHmmss'
+```
+
+假设显示 `20260715-143000`，把下面命令中的示例时间手工改成实际值。然后输入这一条完整的 `docker run` 命令：
+
+```powershell
 docker run --rm `
   --user 0:0 `
+  --entrypoint tar `
   -v ygh-rocketmq-store:/source:ro `
   -v "D:\ygh-backups\rocketmq:/backup" `
-  apache/rocketmq:5.3.1 sh -c "cd /source && tar czf /backup/rocketmq-store-$stamp.tar.gz ."
-Get-FileHash "D:\ygh-backups\rocketmq\rocketmq-store-$stamp.tar.gz" -Algorithm SHA256
-Get-Item "D:\ygh-backups\rocketmq\rocketmq-store-$stamp.tar.gz" | Select-Object FullName,Length
+  apache/rocketmq:5.3.1 `
+  czf /backup/rocketmq-store-20260715-143000.tar.gz -C /source .
+```
+
+看到命令返回 PowerShell 提示符后，再逐条输入：
+
+```powershell
+Get-FileHash 'D:\ygh-backups\rocketmq\rocketmq-store-20260715-143000.tar.gz' -Algorithm SHA256
+Get-Item 'D:\ygh-backups\rocketmq\rocketmq-store-20260715-143000.tar.gz' | Select-Object FullName,Length
 ```
 
 **执行后的结果**：生成大于 0 字节的压缩包和 SHA256。该备份可能包含客户消息内容，不得提交 Git 或通过公共聊天工具发送。
@@ -760,10 +782,14 @@ Get-Item "D:\ygh-backups\rocketmq\rocketmq-store-$stamp.tar.gz" | Select-Object 
 Get-FileHash 'D:\ygh-backups\rocketmq\rocketmq-store-20260714-120000.tar.gz' -Algorithm SHA256
 docker volume create ygh-rocketmq-store-restore
 docker run --rm --user 0:0 `
+  --entrypoint tar `
   -v ygh-rocketmq-store-restore:/restore `
   -v "D:\ygh-backups\rocketmq:/backup:ro" `
-  apache/rocketmq:5.3.1 sh -c "cd /restore && tar xzf /backup/rocketmq-store-20260714-120000.tar.gz && chown -R 3000:3000 /restore"
-docker run --rm -v ygh-rocketmq-store-restore:/restore apache/rocketmq:5.3.1 sh -c "du -sh /restore; find /restore -maxdepth 2 -type f | head"
+  apache/rocketmq:5.3.1 `
+  xzf /backup/rocketmq-store-20260714-120000.tar.gz -C /restore
+docker run --rm --user 0:0 --entrypoint chown -v ygh-rocketmq-store-restore:/restore apache/rocketmq:5.3.1 -R 3000:3000 /restore
+docker run --rm --entrypoint du -v ygh-rocketmq-store-restore:/restore apache/rocketmq:5.3.1 -sh /restore
+docker run --rm --entrypoint find -v ygh-rocketmq-store-restore:/restore apache/rocketmq:5.3.1 /restore -maxdepth 2 -type f
 ```
 
 **执行后的结果**：新卷中出现 RocketMQ store 文件，原 `ygh-rocketmq-store` 未被覆盖。正式替换前必须在维护窗口用新容器名和不冲突端口验证，不得直接向正在运行的卷解压。

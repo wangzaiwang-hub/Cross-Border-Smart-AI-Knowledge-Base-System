@@ -31,7 +31,7 @@ docker info | sed -n '/Registry Mirrors/,+5p'
 
 **执行后的结果**：`docker version` 必须同时显示 Client 和 Server；Registry Mirrors 应显示已经配置的镜像代理或客户企业仓库。
 
-**失败时怎么处理**：提示 `docker: command not found` 或无法连接 daemon 时，不继续安装 Nacos，先按照 Redis 操作文档完成 Rocky Linux Docker Engine 和镜像代理配置。Nacos 最终安装在 Rocky Linux 虚拟机内部的 Docker 中，不安装到 Windows、WSL2 或 Windows Docker Desktop。
+**失败时怎么处理**：提示 `docker: command not found` 或无法连接 daemon 时，不继续安装 Nacos，回到 `01-Rocky Linux虚拟机从零配置指南.md` 完成 Docker Engine 和镜像源配置。Nacos 最终安装在 Rocky Linux 虚拟机内部的 Docker 中，不安装到 Windows、WSL2 或 Windows Docker Desktop。
 
 ### 第三步：确认 MySQL 容器健康
 
@@ -108,11 +108,11 @@ permissions
 
 ```bash
 ip -br address
-sudo ss -lntp | grep -E ':(8080|8848|9848)\b' || echo 'Nacos 三个端口均空闲'
+sudo ss -lntp | grep -E ':(8080|8848|9848)\b'
 docker ps -a --filter name=ygh-nacos
 ```
 
-**执行后的结果**：虚拟机应具有 `192.168.154.10/24`；三个端口应为空闲；不应存在名为 `ygh-nacos` 的旧容器。
+**执行后的结果**：虚拟机应具有 `192.168.154.10/24`；第二条命令没有输出表示三个端口空闲；第三条命令没有输出表示不存在名为 `ygh-nacos` 的旧容器。
 
 **需要修改的内容**：如果发现旧容器，不要直接执行 `docker rm -f`。先运行 `docker inspect ygh-nacos` 和 `docker logs --tail 200 ygh-nacos`，确认它是否属于现有系统。端口被其他程序占用时先查清进程归属。
 
@@ -390,13 +390,13 @@ sudo stat -c '%U %G %a %n' /opt/docker_nacos/secrets/*
 输入：
 
 ```bash
-sudo test -s /opt/docker_nacos/secrets/mysql-password && echo 'OK mysql-password' || echo 'EMPTY mysql-password'
-sudo test -s /opt/docker_nacos/secrets/auth-token && echo 'OK auth-token' || echo 'EMPTY auth-token'
-sudo test -s /opt/docker_nacos/secrets/identity-key && echo 'OK identity-key' || echo 'EMPTY identity-key'
-sudo test -s /opt/docker_nacos/secrets/identity-value && echo 'OK identity-value' || echo 'EMPTY identity-value'
+sudo stat -c '%s bytes %n' /opt/docker_nacos/secrets/mysql-password
+sudo stat -c '%s bytes %n' /opt/docker_nacos/secrets/auth-token
+sudo stat -c '%s bytes %n' /opt/docker_nacos/secrets/identity-key
+sudo stat -c '%s bytes %n' /opt/docker_nacos/secrets/identity-value
 ```
 
-**执行后的结果**：四行都以 `OK` 开头，不应出现 `EMPTY`。这条命令只检查文件大小，不打印密钥。
+**执行后的结果**：四行都应显示大于 `0 bytes` 的文件大小；任何一行显示 `0 bytes` 都必须返回对应密钥创建步骤重新填写。这些命令只检查文件大小，不打印密钥内容。
 
 ## 第四部分：手工启动 Nacos 3.1.1 容器
 
@@ -771,6 +771,8 @@ http://192.168.154.10:8080/index.html
 
 ## 第八部分：在 IDEA 中逐个配置 Nacos 服务发现
 
+**执行时机**：首次按总教程部署时，完成第七部分的 Nacos 控制台和 Windows 连通性检查后，先继续部署 PGVector 和 Windows 本机组件。进入 `11` 号 IDEA 后端启动文档后，再返回本部分核对公共 Nacos 变量和注册地址。不要为了验证 Nacos 而提前启动一个依赖尚未安装完整的 Java 服务。
+
 ### 第一步：打开一个 Java 服务运行配置
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
@@ -940,16 +942,23 @@ docker inspect ygh-nacos --format '{{.HostConfig.RestartPolicy.Name}}'
 
 **在哪里操作**：Rocky Linux 虚拟机 SSH 终端。
 
-输入：
+先输入下面三条命令创建备份目录并查看当前时间：
 
 ```bash
-backup_file="/opt/nacos-backups/nacos-config-$(date +%Y%m%d-%H%M%S).sql"
-docker exec ygh-mysql sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysqldump -uroot --single-transaction --routines --events nacos_config' > "$backup_file"
-sha256sum "$backup_file" > "$backup_file.sha256"
-ls -lh "$backup_file" "$backup_file.sha256"
+sudo mkdir -p /opt/nacos-backups
+sudo chmod 700 /opt/nacos-backups
+date '+%Y%m%d-%H%M%S'
 ```
 
-**执行后的结果**：SQL 文件必须大于 0 字节，并生成对应 `.sha256`。把两者一起复制到客户备份存储，不只保存在虚拟机系统盘。
+假设时间显示为 `20260715-143000`，把下面三条命令中的示例时间手工改成实际值，然后逐条执行：
+
+```bash
+docker exec ygh-mysql mysqldump --defaults-extra-file=/run/secrets/mysql-client.cnf --single-transaction --routines --events nacos_config > /opt/nacos-backups/nacos-config-20260715-143000.sql
+sha256sum /opt/nacos-backups/nacos-config-20260715-143000.sql > /opt/nacos-backups/nacos-config-20260715-143000.sql.sha256
+ls -lh /opt/nacos-backups/nacos-config-20260715-143000.sql /opt/nacos-backups/nacos-config-20260715-143000.sql.sha256
+```
+
+**执行后的结果**：SQL 文件必须大于 0 字节，并生成对应 `.sha256`。把两者一起复制到客户备份存储，不只保存在虚拟机系统盘。不要照抄示例时间，以免覆盖同名文件。
 
 这个备份包含命名空间、配置、Nacos 用户和权限。不要把 SQL 文件发到聊天工具或提交到项目仓库。
 
@@ -961,7 +970,7 @@ ls -lh "$backup_file" "$backup_file.sha256"
 
 ```bash
 sha256sum -c /opt/nacos-backups/要恢复的文件.sql.sha256
-docker exec -i ygh-mysql sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysql -uroot nacos_config' < /opt/nacos-backups/要恢复的文件.sql
+docker exec -i ygh-mysql mysql --defaults-extra-file=/run/secrets/mysql-client.cnf nacos_config < /opt/nacos-backups/要恢复的文件.sql
 docker start ygh-nacos
 ```
 

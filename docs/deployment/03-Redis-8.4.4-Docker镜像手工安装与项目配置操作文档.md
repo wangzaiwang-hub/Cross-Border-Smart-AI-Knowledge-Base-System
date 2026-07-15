@@ -1,5 +1,7 @@
 # Redis 8.4.4 Docker 镜像手工安装与项目配置操作文档
 
+按 `00` 总教程执行时，Docker Engine 已由 `01` 号虚拟机指南安装并验证，因此先执行第一部分第一步确认位置，然后直接从第二部分开始；第一部分其余 Docker 安装步骤只用于单独拿到本文、且虚拟机确实没有 Docker 的情况，不能重复卸载已经正常运行的 Docker。
+
 ## 第一部分：在 Rocky Linux 虚拟机中手动安装 Docker
 
 ### 第一步：确认命令运行位置和虚拟机网络
@@ -118,42 +120,37 @@ sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
 先确认虚拟机和 Docker 服务没有配置代理：
 
 ```bash
-env | grep -Ei '^(http|https|all|no)_proxy=' || true
+env | grep -Ei '^(http|https|all|no)_proxy='
 systemctl show docker --property=Environment --no-pager
 docker info --format 'HTTP={{.HTTPProxy}} HTTPS={{.HTTPSProxy}} NOPROXY={{.NoProxy}}'
 ```
 
-三条命令均不得出现 HTTP、HTTPS 或 SOCKS 代理地址。然后执行直连 `/v2/` 检查；`--noproxy '*'` 用于强制 curl 不读取任何代理设置：
+三条命令均不得出现 HTTP、HTTPS 或 SOCKS 代理地址。然后逐个执行下面六条 `/v2/` 检查命令；`--noproxy '*'` 用于强制 curl 不读取任何代理设置。每执行一条就记录 HTTP 状态，再执行下一条，禁止写循环批量检测：
 
 ```bash
-for host in \
-  docker.1ms.run \
-  docker.m.daocloud.io \
-  docker.1panel.live \
-  docker.xuanyuan.me \
-  dockerproxy.com \
-  dockerpull.com
-do
-  curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null \
-    -w "$host HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n" \
-    "https://$host/v2/"
-done
+curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null -w 'docker.1ms.run HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n' 'https://docker.1ms.run/v2/'
+curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null -w 'docker.m.daocloud.io HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n' 'https://docker.m.daocloud.io/v2/'
+curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null -w 'docker.1panel.live HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n' 'https://docker.1panel.live/v2/'
+curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null -w 'docker.xuanyuan.me HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n' 'https://docker.xuanyuan.me/v2/'
+curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null -w 'dockerproxy.com HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n' 'https://dockerproxy.com/v2/'
+curl --noproxy '*' --connect-timeout 5 --max-time 10 -sS -o /dev/null -w 'dockerpull.com HTTP=%{http_code} CONNECT=%{time_connect}s TLS=%{time_appconnect}s TOTAL=%{time_total}s IP=%{remote_ip}\n' 'https://dockerpull.com/v2/'
 ```
 
-`/v2/` 可达不代表镜像一定能拉取。继续真实拉取 Alpine 和 Nginx；每次最多等待 45 秒：
+`/v2/` 可达不代表镜像一定能拉取。对状态为 `200` 或 `401` 的地址，分别执行 Alpine 和 Nginx 的真实拉取。下面每一行都是独立命令；某个地址两条都成功后即可记录为当前可用源，不需要继续拉取其他地址：
 
 ```bash
-for host in \
-  docker.1ms.run \
-  docker.m.daocloud.io \
-  docker.1panel.live \
-  docker.xuanyuan.me \
-  dockerproxy.com \
-  dockerpull.com
-do
-  timeout 45s docker pull --platform linux/amd64 "$host/library/alpine:3.20"
-  timeout 45s docker pull --platform linux/amd64 "$host/library/nginx:alpine"
-done
+timeout 45s docker pull --platform linux/amd64 docker.1ms.run/library/alpine:3.20
+timeout 45s docker pull --platform linux/amd64 docker.1ms.run/library/nginx:alpine
+timeout 45s docker pull --platform linux/amd64 docker.m.daocloud.io/library/alpine:3.20
+timeout 45s docker pull --platform linux/amd64 docker.m.daocloud.io/library/nginx:alpine
+timeout 45s docker pull --platform linux/amd64 docker.1panel.live/library/alpine:3.20
+timeout 45s docker pull --platform linux/amd64 docker.1panel.live/library/nginx:alpine
+timeout 45s docker pull --platform linux/amd64 docker.xuanyuan.me/library/alpine:3.20
+timeout 45s docker pull --platform linux/amd64 docker.xuanyuan.me/library/nginx:alpine
+timeout 45s docker pull --platform linux/amd64 dockerproxy.com/library/alpine:3.20
+timeout 45s docker pull --platform linux/amd64 dockerproxy.com/library/nginx:alpine
+timeout 45s docker pull --platform linux/amd64 dockerpull.com/library/alpine:3.20
+timeout 45s docker pull --platform linux/amd64 dockerpull.com/library/nginx:alpine
 ```
 
 **如何判断结果**：
@@ -168,7 +165,7 @@ done
 
 **2026-07-14 无 VPN、无代理真实检查结果**：
 
-测试位置为项目 Rocky Linux 10.0 虚拟机 `192.168.154.129` 的原生 Docker Engine。虚拟机代理环境变量为空，`docker.service` 的 `Environment` 为空，`docker info` 的 HTTP/HTTPS Proxy 为空；所有请求经 VMware NAT 默认路由直接访问公网。Windows Docker Desktop 自带的 `docker.internal:3128` 转发结果没有计入本表。
+下表是早期隔离验证环境的实测记录，只用于说明判断方法，不是客户现场的配置结论。客户必须以上面六组逐条命令的当前输出为准；不能因为表中某个地址曾经成功，就跳过现场检测或直接写入 Docker 配置。Windows Docker Desktop 自带的内部转发结果不计入虚拟机 Docker Engine 的可用性判断。
 
 | 排名 | 地址 | `/v2/` 直连 | Alpine 3.20 | Nginx Alpine | Redis 8.4.4 | 本次结论 |
 |---:|---|---|---|---|---|---|
@@ -193,10 +190,11 @@ Redis 复核并不只检查“拉取成功”：四个可用站的镜像均为 `
 
 ```bash
 sudo mkdir -p /etc/docker
-sudo cp -a /etc/docker/daemon.json "/etc/docker/daemon.json.bak-$(date +%Y%m%d-%H%M%S)"
+date '+%Y%m%d-%H%M%S'
+sudo cp -a /etc/docker/daemon.json /etc/docker/daemon.json.bak-20260715-143000
 ```
 
-如果第二条提示文件不存在，说明这是第一次配置，可以忽略该提示。输入：
+第三条命令中的 `20260715-143000` 是示例，必须改成第二条命令实际显示的时间。如果第三条提示文件不存在，说明这是第一次配置，可以忽略该提示。输入：
 
 ```bash
 sudo vim /etc/docker/daemon.json
@@ -424,8 +422,10 @@ requirepass CHANGE_TO_STRONG_PASSWORD
 
 ```bash
 sudo grep -E '^(bind|protected-mode|port|daemonize|logfile|dir|appendonly|appendfsync|maxmemory|maxmemory-policy)' /opt/docker_redis/conf/redis.conf
-sudo grep -q '^requirepass .' /opt/docker_redis/conf/redis.conf && echo 'Redis 密码已配置'
+sudo grep '^requirepass .' /opt/docker_redis/conf/redis.conf
 ```
+
+**执行结果及原因**：最后一条命令应输出一行以 `requirepass` 开头的配置。不要把这一行截图或发给他人，因为其中包含 Redis 真实密码。
 
 **执行结果及原因**：第一条命令显示项目要求的配置值；第二条只显示 `Redis 密码已配置`，不会把真实密码打印到终端。
 
@@ -470,11 +470,11 @@ sudo ls -l /opt/docker_redis/conf/redis.conf
 输入：
 
 ```bash
-sudo ss -lntp | grep ':6379' || echo '6379 端口空闲'
+sudo ss -lntp | grep ':6379'
 sudo docker ps -a --filter name=ygh-redis
 ```
 
-**执行结果及原因**：第一条应显示 `6379 端口空闲`；第二条不应存在同名容器。
+**执行结果及原因**：第一条没有输出表示 6379 端口空闲；第二条没有输出表示不存在同名容器。任何一条出现内容都必须先确认旧进程或旧容器的数据归属。
 
 如果源码版 Redis 占用端口，先用其真实密码停止：
 
@@ -493,19 +493,28 @@ sudo docker ps -a --filter name=ygh-redis
 ```bash
 sudo docker run -d \
   --name ygh-redis \
+  --network ygh-core \
   --cpus="0.20" \
   --memory="128m" \
   -p 192.168.154.10:6379:6379 \
+  -e TZ=Asia/Shanghai \
   -v /opt/docker_redis/conf/redis.conf:/etc/redis/redis.conf:ro,Z \
   -v /opt/docker_redis/data:/data:Z \
+  --health-cmd='redis-cli -a "$(sed -n "s/^requirepass //p" /etc/redis/redis.conf)" ping | grep -q PONG' \
+  --health-interval=10s \
+  --health-timeout=3s \
+  --health-retries=10 \
+  --log-driver=json-file \
+  --log-opt=max-size=5m \
+  --log-opt=max-file=3 \
   --restart unless-stopped \
   redis:8.4.4 \
   redis-server /etc/redis/redis.conf
 ```
 
-**执行结果及原因**：Docker 输出一串容器 ID。`-p` 把虚拟机固定 IP 的 6379 映射到容器；两个 `-v` 分别挂载配置和数据；`:Z` 让 SELinux 为挂载目录设置容器可访问标签；`unless-stopped` 让虚拟机重启后自动恢复容器。
+**执行结果及原因**：Docker 输出一串容器 ID。`--network ygh-core` 与项目虚拟机组件网络一致；`-p` 把虚拟机固定 IP 的 6379 映射到容器；两个 `-v` 分别挂载配置和数据；`:Z` 让 SELinux 为挂载目录设置容器可访问标签；健康检查从只读配置中读取密码并执行 `PING`，不会把密码写入命令；日志限制为 5MB × 3；`unless-stopped` 让虚拟机重启后恢复容器。
 
-**哪些内容需要修改**：如果客户虚拟机固定 IP 不是 `192.168.154.10`，只修改 `-p` 前面的宿主机 IP，并同步修改 IDEA 中的 `YGH_REDIS_HOST`。容器名、镜像版本、CPU、内存和容器内路径保持不变。
+**哪些内容需要修改**：如果客户虚拟机固定 IP 不是 `192.168.154.10`，只修改 `-p` 前面的宿主机 IP，并同步修改 IDEA 中的 `YGH_REDIS_HOST`。容器名、`ygh-core` 网络、镜像版本、CPU、内存、健康检查和容器内路径保持不变。
 
 ### 第八步：检查容器状态和 Redis 参数
 
@@ -573,6 +582,8 @@ Test-NetConnection 192.168.154.10 -Port 6379
 如果为 `False`，依次检查虚拟机 IP、`docker ps`、`docker logs ygh-redis`、6379 端口映射和 firewalld 规则。不要把 Redis 改装到 Windows Docker Desktop 来绕过问题。
 
 ### 第十一步：在 IDEA 中把 Java 项目连接到 Redis
+
+**执行时机**：首次按总教程部署时，完成第十步端口检查后先跳过本步骤。进入 `11-Windows-IDEA-14个Java服务手工配置与启动操作文档.md`，逐个创建 Gateway、Auth 和 Product 运行配置时，再按本步骤填写对应 Redis 变量。此处不能提前启动 Java 服务。
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
@@ -672,6 +683,8 @@ sudo docker run --rm redis:8.4.4 redis-server --version
 
 ### 第二步：保存并复制 RDB
 
+**在哪里运行**：旧 Redis 所在的 Rocky Linux 虚拟机终端。下面路径适用于本项目原有源码版 Redis；如果旧 Redis 的 `dir` 配置不是 `/usr/local/redis/dbcache`，先执行 `CONFIG GET dir`，再把复制命令中的源路径改成实际目录。
+
 ```bash
 /usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD SAVE
 sudo mkdir -p /opt/redis-backup
@@ -683,14 +696,18 @@ sudo ls -lh /opt/redis-backup/dump.rdb
 
 ### 第三步：停止旧 Redis并释放端口
 
+**在哪里运行**：旧 Redis 所在的 Rocky Linux 虚拟机终端。
+
 ```bash
 /usr/local/redis/bin/redis-cli -a CHANGE_TO_STRONG_PASSWORD shutdown
-sudo ss -lntp | grep ':6379' || echo '旧 Redis 已停止，6379 端口已释放'
+sudo ss -lntp | grep ':6379'
 ```
 
-只有看到端口已释放后才能继续。旧 Redis 停止后不要再次启动。
+这条命令没有输出才表示 6379 端口已经释放，此时才能继续。旧 Redis 停止后不要再次启动。
 
 ### 第四步：把 RDB 放入项目数据目录
+
+**在哪里运行**：准备运行 `ygh-redis` Docker 容器的 Rocky Linux 虚拟机终端。
 
 ```bash
 sudo mkdir -p /opt/docker_redis/data
@@ -702,6 +719,8 @@ sudo chmod 750 /opt/docker_redis/data
 然后按照第三部分创建 `redis.conf` 并启动 `ygh-redis`。Redis 容器首次启动时会从 `/data/dump.rdb` 加载旧数据，并继续使用 AOF 持久化。
 
 ### 第五步：核对迁移结果
+
+**在哪里运行**：已经启动 `ygh-redis` 容器的 Rocky Linux 虚拟机终端。
 
 ```bash
 sudo docker exec -it ygh-redis redis-cli
