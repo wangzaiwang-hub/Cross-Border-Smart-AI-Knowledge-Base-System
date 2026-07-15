@@ -630,7 +630,7 @@ ygh-applications\ygh-system\ygh-system-service\src\main\java\com\yuegang\zhihui\
 
 **执行后的结果**：三个 `*-service` 出现在 Maven 树中，源码目录显示为蓝色 Sources Root，Java 文件中的 `SpringApplicationBuilder` 等类没有红色报错。
 
-如果 `ygh-deploy` 没有出现在 Maven 树中，这是正常的：它是 Docker 配置目录，不是 Java Maven 模块。不要从 `ygh-deploy\scripts` 启动项目。
+如果 `ygh-deploy` 没有出现在 Maven 树中，这是正常的：它是 Docker 配置目录，不是 Java Maven 模块。当前交付版本没有部署脚本目录，Java 服务只能从对应 `*-service` 模块的 IDEA `Application` 运行配置启动。
 
 ### 第五步：确认 JDK 和 Flyway Maven 依赖已经识别
 

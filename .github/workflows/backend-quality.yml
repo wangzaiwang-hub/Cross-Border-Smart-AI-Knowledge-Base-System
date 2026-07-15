@@ -22,12 +22,9 @@ jobs:
           java-version: "25"
           cache: maven
       - name: Verify reactor
-        run: ./mvnw --batch-mode --no-transfer-progress clean verify
+        run: mvn --batch-mode --no-transfer-progress clean verify
       - name: Generate CycloneDX SBOM
-        run: ./mvnw --batch-mode --no-transfer-progress -Prelease-sbom package -DskipTests
-      - name: Audit SBOM licenses
-        shell: pwsh
-        run: ./ygh-deploy/scripts/audit-sbom.ps1
+        run: mvn --batch-mode --no-transfer-progress -Prelease-sbom package -DskipTests
       - name: Scan repository dependencies and configuration
         # v0.36.0; pin the verified commit to reduce third-party action supply-chain risk.
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

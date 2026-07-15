@@ -14,13 +14,19 @@ class MigrationIsolationTest {
 
     private static Path locateReactorRoot() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        while (current != null && !Files.isRegularFile(current.resolve("mvnw.cmd"))) {
+        while (current != null && !isReactorRoot(current)) {
             current = current.getParent();
         }
         if (current == null) {
             throw new IllegalStateException("Unable to locate Maven reactor root from user.dir");
         }
         return current;
+    }
+
+    private static boolean isReactorRoot(Path path) {
+        return Files.isRegularFile(path.resolve("pom.xml"))
+                && Files.isDirectory(path.resolve("ygh-applications"))
+                && Files.isDirectory(path.resolve("ygh-tests"));
     }
 
     @Test void everyStatefulServiceOwnsVersionedFlywayMigrations() throws IOException {

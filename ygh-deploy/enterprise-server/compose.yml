@@ -122,7 +122,6 @@ services:
     environment: {MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?required}"}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../constrained-dev/mysql/init:/docker-entrypoint-initdb.d:ro
     networks: [ygh-backend]
     mem_limit: 2g
     logging: *service-logging
@@ -190,9 +189,7 @@ services:
   rocketmq-namesrv:
     image: apache/rocketmq:5.3.1
     restart: unless-stopped
-    command: [sh, /home/rocketmq/ygh-entrypoint.sh, namesrv]
-    volumes:
-      - ../constrained-dev/rocketmq/ygh-entrypoint.sh:/home/rocketmq/ygh-entrypoint.sh:ro
+    command: [sh, mqnamesrv]
     networks: [ygh-backend]
     mem_limit: 384m
     logging: *service-logging
@@ -203,10 +200,9 @@ services:
     restart: unless-stopped
     depends_on:
       rocketmq-namesrv: {condition: service_healthy}
-    command: [sh, /home/rocketmq/ygh-entrypoint.sh, broker, -n, rocketmq-namesrv:9876, -c, /home/rocketmq/rocketmq-5.3.1/conf/broker.conf]
+    command: [sh, mqbroker, -n, rocketmq-namesrv:9876, -c, /home/rocketmq/rocketmq-5.3.1/conf/broker.conf]
     environment: {NAMESRV_ADDR: rocketmq-namesrv:9876}
     volumes:
-      - ../constrained-dev/rocketmq/ygh-entrypoint.sh:/home/rocketmq/ygh-entrypoint.sh:ro
       - ../constrained-dev/rocketmq/broker.conf:/home/rocketmq/rocketmq-5.3.1/conf/broker.conf:ro
       - rocketmq-store:/home/rocketmq/store
     networks: [ygh-backend]

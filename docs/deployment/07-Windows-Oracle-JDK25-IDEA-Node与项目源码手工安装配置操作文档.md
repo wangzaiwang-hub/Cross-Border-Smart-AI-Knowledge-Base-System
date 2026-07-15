@@ -11,7 +11,7 @@
 ```text
 软件：Oracle JDK 25.0.3 LTS
 安装位置：C:\Program Files\Java\jdk-25
-用途：IDEA 运行 14 个 Java 服务，Maven Wrapper 编译和测试项目
+用途：IDEA 运行 14 个 Java 服务，手工安装的 Apache Maven 编译和测试项目
 源码目标级别：Java 24，由根 pom.xml 的 maven.compiler.release=24 固定
 Maven 自身运行 JDK：Oracle JDK 25
 ```
@@ -233,7 +233,7 @@ javac 25.0.3
 
 `where.exe java` 第一行必须是 `C:\Program Files\Java\jdk-25\bin\java.exe`。
 
-**实测说明**：项目已使用 Oracle Corporation JDK 25.0.3 和 Maven Wrapper 3.9.16 完成 Search 依赖链编译，不是只用 OpenJDK 推测兼容。
+**实测说明**：项目已使用 Oracle Corporation JDK 25.0.3 和 Apache Maven 3.9.16 完成 Search 依赖链编译，不是只用 OpenJDK 推测兼容。
 
 ### 第十三步：处理 java 仍指向旧版本
 
@@ -254,7 +254,7 @@ $env:Path -split ';' | Select-String -Pattern 'Java|Adoptium|jdk|javapath'
 4. 关闭所有 IDEA、终端和 PowerShell后重新打开。
 5. 再次执行第十二步。
 
-## 第二部分：下载和安装 IntelliJ IDEA
+## 第二部分：下载和安装 IntelliJ IDEA 与 Apache Maven
 
 ### 第一步：从 JetBrains 官方页面下载安装包
 
@@ -378,6 +378,65 @@ Oracle JDK 25.0.3
 6. 点击 `OK` 或 `Apply`。
 
 **执行后的结果**：IDEA 的 SDK 列表显示 Oracle JDK 25.0.3，不使用 IDEA 自动下载的其他 JDK。
+
+### 第九步：从 Apache 官方地址下载 Maven 3.9.16
+
+**在哪里操作**：Windows 本机浏览器。
+
+1. 打开 Apache Maven 官方下载页面：`https://maven.apache.org/download.cgi`。
+2. 找到 Maven 3.9.16 的 `Binary zip archive`。
+3. 下载 `apache-maven-3.9.16-bin.zip` 到 Windows 的“下载”目录。
+4. 如果官方下载页已经显示更新版本，不要自行改版本。本项目固定使用 3.9.16，直接下载地址为：`https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip`。
+
+### 第十步：校验 Maven 压缩包
+
+**在哪里操作**：Windows 本机 PowerShell。
+
+```powershell
+Get-FileHash "$env:USERPROFILE\Downloads\apache-maven-3.9.16-bin.zip" -Algorithm SHA256
+```
+
+**执行后的结果**：SHA256 必须是：
+
+```text
+5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce
+```
+
+不一致时删除文件，重新从上面的 Apache Maven 官方地址下载，不能继续解压。
+
+### 第十一步：手工解压 Maven 到固定目录
+
+**在哪里操作**：Windows 本机资源管理器。
+
+1. 在 `C:\` 下新建 `DevTools` 目录；系统要求管理员权限时点击允许。
+2. 右键 `apache-maven-3.9.16-bin.zip`，点击 `全部解压缩...`。
+3. 目标目录选择 `C:\DevTools`。
+4. 解压后确认文件实际位于 `C:\DevTools\apache-maven-3.9.16\bin\mvn.cmd`。
+
+这里的 `mvn.cmd` 是 Apache Maven 安装程序自带的 Windows 命令入口，不在项目源码包中；甲方验收禁止的是项目内附带部署、批处理和可执行脚本。
+
+### 第十二步：配置 MAVEN_HOME 和 Path
+
+**在哪里操作**：Windows 本机“环境变量”窗口。
+
+1. 按 `Win + R`，输入 `sysdm.cpl`，按回车。
+2. 点击 `高级` → `环境变量`。
+3. 在“系统变量”点击 `新建`，变量名填写 `MAVEN_HOME`，变量值填写 `C:\DevTools\apache-maven-3.9.16`。
+4. 选择系统变量 `Path`，点击 `编辑` → `新建`，填写 `%MAVEN_HOME%\bin`。
+5. 把 `%MAVEN_HOME%\bin` 移到旧 Maven 路径前面。
+6. 连续点击 `确定` 关闭所有窗口，然后完全退出并重新打开 PowerShell 和 IDEA。
+
+### 第十三步：验证 Maven 使用 Oracle JDK 25
+
+**在哪里操作**：新打开的 Windows PowerShell。
+
+```powershell
+echo $env:MAVEN_HOME
+where.exe mvn
+mvn --version
+```
+
+**执行后的结果**：`MAVEN_HOME` 为 `C:\DevTools\apache-maven-3.9.16`，`where.exe mvn` 首行位于该目录，版本显示 `Apache Maven 3.9.16`、`Java version: 25.0.3` 和 `vendor: Oracle Corporation`。
 
 ## 第三部分：下载和安装 Node.js 24.18.0 LTS 与 pnpm 10.13.1
 
@@ -583,7 +642,7 @@ Get-FileHash 'D:\ygh-delivery\source\ygh-ai-system-source.zip' -Algorithm SHA256
 4. 点击“应用”。
 5. 点击“确定”。
 
-**执行后的结果**：ZIP 内的 Maven Wrapper `.cmd` 和其他文件不会继承互联网下载阻止标记。没有“解除锁定”选项时说明文件未被阻止，直接进入下一步。
+**执行后的结果**：ZIP 内的项目源码文件不会继承互联网下载阻止标记。没有“解除锁定”选项时说明文件未被阻止，直接进入下一步。
 
 ### 第四步：确认目标目录为空
 
@@ -630,11 +689,10 @@ D:\ygh-ai-system
 ```powershell
 Get-ChildItem 'D:\ygh-ai-system' -Force | Select-Object Name,Mode
 Test-Path 'D:\ygh-ai-system\pom.xml'
-Test-Path 'D:\ygh-ai-system\mvnw.cmd'
 Test-Path 'D:\ygh-ai-system\ygh-web\package.json'
 ```
 
-**执行后的结果**：三个 `Test-Path` 都返回 `True`。
+**执行后的结果**：两个 `Test-Path` 都返回 `True`。
 
 如果只有 `D:\ygh-ai-system\ygh-ai-system-source\pom.xml` 存在，说明 ZIP 多套一层。将内层目录整体移动为 `D:\ygh-ai-system`，确保根 `pom.xml` 直接位于目标目录下。
 
@@ -653,8 +711,7 @@ Get-ChildItem 'D:\ygh-ai-system' -Directory | Select-Object Name
 ```text
 D:\ygh-ai-system
 ├─ pom.xml                    Maven 根工程，IDEA 必须从这里导入
-├─ mvnw.cmd                   Maven Wrapper 的 Windows 标准入口，不是项目部署脚本
-├─ .mvn\                      Maven Wrapper 固定版本配置
+├─ .mvn\                      Maven 编码和运行参数配置，不包含 Wrapper
 ├─ ygh-dependencies\          Java 依赖版本管理模块
 ├─ ygh-common\                公共 Java 基础模块，不单独启动
 ├─ ygh-platform\              平台服务
@@ -684,7 +741,7 @@ D:\ygh-ai-system
 
 `target` 是 Maven 编译产生的临时目录，不是源码模块，也不应出现在正式交付压缩包中。IDEA 中看到橙色 `target` 不代表多了一个项目；交付前应由交付方制作不包含 `target` 的干净压缩包。
 
-`ygh-deploy\scripts` 以及其他 `.ps1`、`.sh` 文件属于现有仓库中的自动化部署或检查脚本。当前客户交付要求是逐项手工安装、配置并在 IDEA 中启动，因此客户不要进入这些目录执行脚本。交付方必须在最终源码包制作前完成脚本清理及其引用调整，不能把脚本写成客户部署入口。
+正式交付源码中不应存在 `mvnw`、`mvnw.cmd`、`.ps1`、`.sh`、`.bat`、项目内 `.cmd` 或 `.py` 自动化文件，也不应存在 `ygh-deploy\scripts`、`ygh-deploy\constrained-dev\scripts`、`ygh-web\scripts` 目录。数据库 `db\migration\*.sql` 是 Flyway 业务迁移文件，必须保留，不属于部署批处理。
 
 缺少任何业务根目录时，源码交付包不完整，不能继续导入 IDEA；但 `ygh-deploy` 不会显示在 IDEA 的 Maven 模块列表中，因为它没有 `pom.xml`，这属于正常现象。
 
@@ -708,26 +765,22 @@ Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -ErrorAction SilentlyCont
 
 出现这些文件时不要直接使用。由交付方确认是否误带凭据，必要时立即轮换泄露凭据并重新制作干净压缩包。
 
-### 第九步：确认 Maven Wrapper 文件完整
+### 第九步：确认项目不携带可执行脚本
 
 **在哪里操作**：Windows 本机 PowerShell。
 
 输入：
 
 ```powershell
-Get-Item 'D:\ygh-ai-system\mvnw','D:\ygh-ai-system\mvnw.cmd','D:\ygh-ai-system\.mvn\wrapper\maven-wrapper.properties' |
-  Select-Object FullName,Length
-Get-Content 'D:\ygh-ai-system\.mvn\wrapper\maven-wrapper.properties'
+Get-ChildItem 'D:\ygh-ai-system' -Recurse -Force -File -ErrorAction SilentlyContinue |
+  Where-Object {
+    $_.Name -eq 'mvnw' -or
+    $_.Extension -in '.ps1','.sh','.bash','.bat','.cmd','.py'
+  } |
+  Select-Object FullName
 ```
 
-**执行后的结果**：配置中必须包含：
-
-```text
-distributionUrl=https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip
-distributionSha256Sum=5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce
-```
-
-客户不需要另外下载或安装 Maven，项目 Wrapper 会下载并校验 Maven 3.9.16。
+**执行后的结果**：不输出任何文件。出现文件时说明源码交付包仍带可执行脚本，停止部署并要求交付方重新制作源码包。不要由客户自己选择性删除，因为配置文件可能仍引用这些文件。
 
 ## 第五部分：在 IDEA 导入 Maven 多模块项目
 
@@ -773,7 +826,7 @@ D:\ygh-ai-system
 
 **注意事项**：不要把 Language level 强制改为 25 后修改 `pom.xml`。当前项目故意以 JDK 25 运行、Java 24 为源码/字节码目标，以兼容完整 Reactor 导入。
 
-### 第四步：设置 Maven 使用项目 Wrapper
+### 第四步：设置 IDEA 使用手工安装的 Apache Maven
 
 **在哪里操作**：Windows 本机 IntelliJ IDEA。
 
@@ -781,12 +834,12 @@ D:\ygh-ai-system
 2. 展开 `Build, Execution, Deployment`。
 3. 展开 `Build Tools`。
 4. 点击 `Maven`。
-5. `Maven home path` 选择 `Use Maven wrapper`。
+5. `Maven home path` 点击右侧选择按钮，选择 `C:\DevTools\apache-maven-3.9.16`。
 6. `User settings file` 保持客户实际 `%USERPROFILE%\.m2\settings.xml`；没有自定义设置时使用默认。
 7. `Local repository` 保持 `%USERPROFILE%\.m2\repository`。
 8. 不勾选 `Work offline`。
 
-**执行后的结果**：IDEA 使用项目锁定的 Maven 3.9.16，不使用电脑中不明版本的全局 Maven。
+**执行后的结果**：IDEA 显示 Maven 3.9.16，路径是客户刚刚手工安装的目录，不依赖项目 Wrapper。
 
 ### 第五步：设置 Maven Importer 和 Runner JDK
 
@@ -830,7 +883,7 @@ D:\ygh-ai-system
 
 ```powershell
 cd 'D:\ygh-ai-system'
-.\mvnw.cmd --version
+mvn --version
 ```
 
 **执行后的结果**必须包含：
@@ -851,7 +904,7 @@ vendor: Oracle Corporation
 
 ```powershell
 cd 'D:\ygh-ai-system'
-.\mvnw.cmd -DskipTests compile
+mvn -DskipTests compile
 ```
 
 **执行后的结果**：所有模块完成后显示：
@@ -977,7 +1030,7 @@ Test-Path "$env:JAVA_HOME\bin\javac.exe"
 重新执行：
 
 ```powershell
-.\mvnw.cmd --version
+mvn --version
 ```
 
 ### 第三步：处理 Unsupported class file major version
@@ -990,7 +1043,7 @@ Test-Path "$env:JAVA_HOME\bin\javac.exe"
 
 ```powershell
 java -version
-.\mvnw.cmd --version
+mvn --version
 ```
 
 两者都必须是 Java 25。IDEA 对应运行配置中的 `JRE` 也必须选择 Oracle JDK 25.0.3。
@@ -1050,8 +1103,6 @@ pnpm.cmd install --frozen-lockfile
 
 ```powershell
 Test-Path 'D:\ygh-ai-system\pom.xml'
-Test-Path 'D:\ygh-ai-system\mvnw.cmd'
-Test-Path 'D:\ygh-ai-system\.mvn\wrapper\maven-wrapper.properties'
 Test-Path 'D:\ygh-ai-system\ygh-web\package.json'
 Test-Path 'D:\ygh-ai-system\ygh-web\pnpm-lock.yaml'
 ```
@@ -1075,7 +1126,7 @@ javac -version
 node --version
 pnpm --version
 cd 'D:\ygh-ai-system'
-.\mvnw.cmd --version
+mvn --version
 Test-Path '.\pom.xml'
 Test-Path '.\ygh-web\package.json'
 ```
@@ -1089,11 +1140,11 @@ Test-Path '.\ygh-web\package.json'
 1. `JAVA_HOME` 指向 `C:\Program Files\Java\jdk-25`。
 2. Java 和 Javac 都是 25.0.3。
 3. `java.vendor` 为 `Oracle Corporation`，不是 OpenJDK 发行商。
-4. Maven Wrapper 是 3.9.16，运行时是 Oracle JDK 25.0.3。
+4. 手工安装的 Apache Maven 是 3.9.16，运行时是 Oracle JDK 25.0.3。
 5. IDEA Project SDK、Maven Importer 和 Maven Runner 都是 Oracle JDK 25.0.3。
 6. IDEA Language level 按当前根 POM 使用 24，不擅自修改项目编译级别。
 7. Node.js 是 24.18.0 LTS，pnpm 是 10.13.1。
-8. 源码位于 `D:\ygh-ai-system`，根 `pom.xml`、Wrapper 和前端锁文件完整。
+8. 源码位于 `D:\ygh-ai-system`，根 `pom.xml` 和前端锁文件完整，项目内没有可执行脚本。
 9. Maven `-DskipTests compile` 显示 `BUILD SUCCESS`。
 10. `pnpm install --frozen-lockfile`、`pnpm run type-check` 和 `pnpm run build`通过。
 11. 客户没有安装 Git，也没有执行 `git clone`。
