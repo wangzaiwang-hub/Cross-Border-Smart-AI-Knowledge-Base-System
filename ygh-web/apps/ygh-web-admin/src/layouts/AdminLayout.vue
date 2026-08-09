@@ -20,6 +20,7 @@ import {
     Setting,
     SwitchButton,
     User,
+    Warning,
 } from "@element-plus/icons-vue";
 import { getDashboard } from "@/api/operations";
 import { useHttp } from "@/api/client";
@@ -30,6 +31,15 @@ const collapsed = ref(false);
 const title = computed(() => String(route.meta.title || "运营后台"));
 const serviceHealth = ref<{ healthy: number; total: number }>();
 const pendingCount = ref(0);
+const noticeIcon = computed(() => (pendingCount.value > 0 ? Warning : Bell));
+const noticeTip = computed(() =>
+    pendingCount.value > 0
+        ? "核心服务异常，点击查看运营总览"
+        : "通知与补偿",
+);
+const openNotice = () => {
+    router.push(pendingCount.value > 0 ? "/dashboard" : "/notifications");
+};
 const groups = [
     {
         name: "工作台",
@@ -134,13 +144,18 @@ onMounted(async () => {
                     <small>粤港甄选 /</small><b>{{ title }}</b>
                 </div>
                 <div class="header-actions">
-                    <el-badge :value="pendingCount" :hidden="pendingCount === 0"
-                        ><el-button
-                            text
-                            circle
-                            :icon="Bell"
-                            @click="router.push('/notifications')" /></el-badge
-                    ><span class="operator"
+                    <el-tooltip :content="noticeTip" placement="bottom">
+                        <el-badge
+                            :value="pendingCount"
+                            :hidden="pendingCount === 0"
+                            ><el-button
+                                text
+                                circle
+                                :icon="noticeIcon"
+                                @click="openNotice"
+                        /></el-badge>
+                    </el-tooltip>
+                    <span class="operator"
                         ><el-avatar :size="32">管</el-avatar
                         ><b>{{
                             session.user?.displayName || "运营管理员"
