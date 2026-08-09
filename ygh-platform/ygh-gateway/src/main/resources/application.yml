@@ -88,7 +88,7 @@ ygh:
     request:
       max-size: ${YGH_GATEWAY_REQUEST_MAX_SIZE:2MB}
       upload-max-size: ${YGH_GATEWAY_UPLOAD_MAX_SIZE:50MB}
-      upload-paths: ${YGH_GATEWAY_UPLOAD_PATHS:/api/v1/knowledge/documents,/api/v1/training/documents,/api/v1/products/images}
+      upload-paths: ${YGH_GATEWAY_UPLOAD_PATHS:/api/v1/knowledge/documents,/api/v1/training/documents,/api/v1/training/admin/chapters/*/documents,/api/v1/products/images}
     sentinel:
       auth-qps: ${YGH_GATEWAY_AUTH_QPS:20}
       auth-burst: ${YGH_GATEWAY_AUTH_BURST:5}

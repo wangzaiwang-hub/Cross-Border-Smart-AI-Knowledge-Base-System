@@ -22,6 +22,7 @@ class GatewayEdgeProtectionTest {
     private static final Set<String> UPLOAD_PATHS = Set.of(
             "/api/v1/knowledge/documents",
             "/api/v1/training/documents",
+            "/api/v1/training/admin/chapters/*/documents",
             "/api/v1/products/images");
 
     @Test
@@ -149,7 +150,7 @@ class GatewayEdgeProtectionTest {
     }
 
     @Test
-    void multipartIsAllowedOnlyOnExactUploadPathsAndUsesLargerLimit() {
+    void multipartIsAllowedOnlyOnDeclaredUploadPathsAndUsesLargerLimit() {
         var denied = exchange(MockServerHttpRequest.post("/api/v1/orders/import")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body("1234"));
@@ -184,6 +185,28 @@ class GatewayEdgeProtectionTest {
         assertThat(allowedCalls).hasValue(1);
         assertThat(allowed.getResponse().getStatusCode()).isNull();
 
+        var dynamicTrainingUpload = exchange(MockServerHttpRequest
+                .post("/api/v1/training/admin/chapters/5803040178821023063/documents")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .contentLength(12)
+                .body("123456789012"));
+        AtomicInteger dynamicCalls = new AtomicInteger();
+        guard(8, 16).filter(dynamicTrainingUpload, ignored -> {
+            dynamicCalls.incrementAndGet();
+            return Mono.empty();
+        }).block();
+
+        assertThat(dynamicCalls).hasValue(1);
+        assertThat(dynamicTrainingUpload.getResponse().getStatusCode()).isNull();
+
+        var unsafeExtraSegment = exchange(MockServerHttpRequest
+                .post("/api/v1/training/admin/chapters/5803040178821023063/extra/documents")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .contentLength(12)
+                .body("123456789012"));
+        guard(8, 16).filter(unsafeExtraSegment, ignored -> Mono.empty()).block();
+        assertThat(unsafeExtraSegment.getResponse().getStatusCode().value()).isEqualTo(403);
+
         var chunkedUpload = exchange(MockServerHttpRequest.post("/api/v1/knowledge/documents")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body("1234"));
@@ -217,6 +240,9 @@ class GatewayEdgeProtectionTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new GatewayRequestGuardFilter(
                 8, 16, Set.of("/api/v1/knowledge/documents/"), writer))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new GatewayRequestGuardFilter(
+                8, 16, Set.of("/api/v1/knowledge/**"), writer))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(GatewayEdgeConfiguration.parsePaths(" /one, ,/two "))
                 .containsExactlyInAnyOrder("/one", "/two");

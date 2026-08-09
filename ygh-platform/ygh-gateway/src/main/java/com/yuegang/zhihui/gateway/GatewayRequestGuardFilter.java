@@ -1,8 +1,10 @@
 package com.yuegang.zhihui.gateway;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferLimitException;
@@ -20,11 +22,12 @@ import reactor.core.publisher.Mono;
 final class GatewayRequestGuardFilter implements WebFilter, Ordered {
 
     static final long MAX_CONFIGURABLE_BYTES = 100L * 1024 * 1024;
-    private static final Pattern SAFE_UPLOAD_PATH = Pattern.compile("/api/v1/[A-Za-z0-9/_-]+");
+    private static final Pattern SAFE_UPLOAD_PATH = Pattern.compile(
+            "/api/v1/(?:[A-Za-z0-9_-]+|\\*)(?:/(?:[A-Za-z0-9_-]+|\\*))*");
 
     private final long requestMaxBytes;
     private final long uploadMaxBytes;
-    private final Set<String> uploadPaths;
+    private final Set<Pattern> uploadPathPatterns;
     private final GatewaySecurityErrorWriter errorWriter;
 
     GatewayRequestGuardFilter(
@@ -44,7 +47,9 @@ final class GatewayRequestGuardFilter implements WebFilter, Ordered {
         }
         this.requestMaxBytes = requestMaxBytes;
         this.uploadMaxBytes = uploadMaxBytes;
-        this.uploadPaths = Set.copyOf(uploadPaths);
+        this.uploadPathPatterns = uploadPaths.stream()
+                .map(GatewayRequestGuardFilter::compileUploadPathPattern)
+                .collect(Collectors.toUnmodifiableSet());
         this.errorWriter = Objects.requireNonNull(errorWriter, "errorWriter must not be null");
     }
 
@@ -56,7 +61,7 @@ final class GatewayRequestGuardFilter implements WebFilter, Ordered {
         String path = exchange.getRequest().getPath().pathWithinApplication().value();
         boolean allowedUpload = multipart
                 && HttpMethod.POST.equals(exchange.getRequest().getMethod())
-                && uploadPaths.contains(path);
+                && uploadPathPatterns.stream().anyMatch(pattern -> pattern.matcher(path).matches());
         if (multipart && !allowedUpload) {
             return errorWriter.uploadPathRejected(exchange);
         }
@@ -88,6 +93,13 @@ final class GatewayRequestGuardFilter implements WebFilter, Ordered {
     private static boolean isSafeUploadPath(String path) {
         return path != null && SAFE_UPLOAD_PATH.matcher(path).matches()
                 && !path.contains("//") && !path.endsWith("/");
+    }
+
+    private static Pattern compileUploadPathPattern(String path) {
+        String regex = Arrays.stream(path.substring(1).split("/"))
+                .map(segment -> "*".equals(segment) ? "[A-Za-z0-9_-]+" : Pattern.quote(segment))
+                .collect(Collectors.joining("/", "/", ""));
+        return Pattern.compile("^" + regex + "$");
     }
 
     private static Mono<Void> replay(
