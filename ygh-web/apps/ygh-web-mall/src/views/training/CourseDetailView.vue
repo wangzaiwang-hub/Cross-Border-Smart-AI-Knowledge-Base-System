@@ -38,26 +38,35 @@ function unlocked(chapter: Chapter) {
         .every((x) => recordMap.value[x.id]?.completed);
 }
 onMounted(async () => {
+    const id = String(route.params.id);
     try {
-        const id = String(route.params.id);
-        const [courses, chapterList, gateList] = await Promise.all([
-            listCourses(),
-            listChapters(id),
-            listGates(id),
-        ]);
+        const courses = await listCourses();
         course.value = courses.find((x) => x.id === id);
-        chapters.value = chapterList;
-        gates.value = gateList;
-        if (assignmentId.value)
+        if (!course.value) ElMessage.warning("当前账号暂无该课程访问权限");
+    } catch {
+        ElMessage.error("课程详情加载失败");
+    }
+    try {
+        chapters.value = await listChapters(id);
+    } catch {
+        ElMessage.error("课程章节加载失败");
+    }
+    try {
+        gates.value = await listGates(id);
+    } catch {
+        ElMessage.warning("课程关卡加载失败，章节仍可查看");
+    }
+    if (assignmentId.value) {
+        try {
             [progress.value, records.value] = await Promise.all([
                 getProgress(assignmentId.value),
                 listChapterProgress(assignmentId.value),
             ]);
-    } catch {
-        ElMessage.error("课程详情加载失败");
-    } finally {
-        loading.value = false;
+        } catch {
+            ElMessage.warning("学习进度加载失败，已显示课程基础内容");
+        }
     }
+    loading.value = false;
 });
 </script>
 <template>
