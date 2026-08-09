@@ -827,6 +827,7 @@ export const uploadTrainingDocument = async (
     await useHttp().post(
         `/api/v1/training/admin/chapters/${chapterId}/documents`,
         body,
+        { timeout: 60_000 },
     );
 };
 export const publishTrainingCourse = async (

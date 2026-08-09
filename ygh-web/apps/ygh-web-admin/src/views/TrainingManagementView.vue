@@ -337,6 +337,16 @@ async function uploadDocument() {
         saving.value = false;
     }
 }
+async function saveSelectedDocument(event: Event) {
+    const input = event.target as HTMLInputElement;
+    documentFile.value = input.files?.[0];
+    if (!documentFile.value) return;
+    if (!selectedChapterId.value) {
+        ElMessage.warning("请先选择章节");
+        return;
+    }
+    await uploadDocument();
+}
 async function savePath() {
     saving.value = true;
     try {
@@ -695,17 +705,14 @@ onMounted(load);
                                 :key="documentFileInputKey"
                                 type="file"
                                 accept=".pdf,.docx,.txt,.md"
-                                @change="
-                                    documentFile = (
-                                        $event.target as HTMLInputElement
-                                    ).files?.[0]
-                                "
+                                :disabled="saving"
+                                @change="saveSelectedDocument"
                             />
                             <el-button
                                 :disabled="!documentFile"
                                 :loading="saving"
                                 @click="uploadDocument"
-                                >上传</el-button
+                                >保存文档</el-button
                             >
                         </el-form-item>
                     </el-form>
