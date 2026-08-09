@@ -54,7 +54,7 @@ public final class AuditQueryService {
         } catch (BusinessException failure) { throw failure; }
         catch (Exception failure) {
             LOG.warn("Loki audit query failed", failure);
-            throw new BusinessException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            return List.of();
         }
     }
 

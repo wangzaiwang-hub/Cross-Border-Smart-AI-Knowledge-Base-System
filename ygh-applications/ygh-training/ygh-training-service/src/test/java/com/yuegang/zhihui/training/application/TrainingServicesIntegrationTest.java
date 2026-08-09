@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuegang.zhihui.common.core.BusinessException;
+import com.yuegang.zhihui.common.core.ErrorCode;
 import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import com.yuegang.zhihui.training.api.*;
 import com.yuegang.zhihui.training.security.TrainingUserContext;
@@ -34,8 +35,12 @@ class TrainingServicesIntegrationTest {
                     new SaveCourseRequest("跨境通关基础", "岗位必修", 30, 80));
             ChapterView chapter = content.createChapter(
                     new SaveChapterRequest(course.id(), "申报准备", 1, 30));
+            assertBusinessError(() -> content.createChapter(
+                    new SaveChapterRequest(course.id(), "重复顺序", 1, 30)), ErrorCode.BUSINESS_CONFLICT);
             GateView gate = content.createGate(
                     new SaveGateRequest(chapter.id(), "通关测验", 80, 2));
+            assertBusinessError(() -> content.createGate(
+                    new SaveGateRequest(chapter.id(), "重复关卡", 80, 2)), ErrorCode.BUSINESS_CONFLICT);
             QuestionView question = content.createQuestion(new SaveQuestionRequest(
                     gate.id(), "SINGLE", "申报前应核对什么？", List.of("资料", "忽略"),
                     "资料", "核对申报资料", 100));
@@ -151,5 +156,10 @@ class TrainingServicesIntegrationTest {
             assertThatThrownBy(() -> records.progress(7, assignment.assignmentId()))
                     .isInstanceOf(BusinessException.class);
         }
+    }
+
+    private static void assertBusinessError(Runnable call, ErrorCode expected) {
+        assertThatThrownBy(call::run).isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.errorCode()).isEqualTo(expected));
     }
 }

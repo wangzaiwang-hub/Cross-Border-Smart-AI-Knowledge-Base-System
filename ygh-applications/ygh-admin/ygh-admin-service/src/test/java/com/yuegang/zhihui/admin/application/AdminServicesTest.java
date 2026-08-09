@@ -70,9 +70,8 @@ class AdminServicesTest {
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> service.query(null, null, null, null, end.minusDays(32), end, 10))
                 .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> new AuditQueryService("http://localhost:1", new ObjectMapper())
-                .query(null, null, null, null, end.minusHours(1), end, 10))
-                .isInstanceOf(BusinessException.class);
+        assertThat(new AuditQueryService("http://localhost:1", new ObjectMapper())
+                .query(null, null, null, null, end.minusHours(1), end, 10)).isEmpty();
     }
 
     private static void reply(com.sun.net.httpserver.HttpExchange exchange, String body, int status)

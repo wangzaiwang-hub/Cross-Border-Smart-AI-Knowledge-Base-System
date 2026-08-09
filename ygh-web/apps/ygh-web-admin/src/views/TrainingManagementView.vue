@@ -129,7 +129,8 @@ async function assign() {
                 : undefined,
         });
         assignmentDialog.value = false;
-        ElMessage.success("岗位学习任务已分配");
+        ElMessage.success("学习任务已分配");
+        await load();
     } catch {
         ElMessage.error("任务分配失败，请核对目标和课程");
     } finally {
@@ -139,9 +140,18 @@ async function assign() {
 async function openContent(course: TrainingCourse) {
     selectedCourse.value = course;
     chapters.value = await listTrainingChapters(course.id);
+    resetChapterForm();
     selectedChapterId.value = chapters.value[0]?.id ?? "";
     await loadGates();
     contentDialog.value = true;
+}
+function nextChapterSequence() {
+    return chapters.value.reduce((max, chapter) => Math.max(max, chapter.sequenceNo), 0) + 1;
+}
+function resetChapterForm() {
+    chapterForm.title = "";
+    chapterForm.sequenceNo = nextChapterSequence();
+    chapterForm.minimumActiveSeconds = 60;
 }
 async function loadGates() {
     const courseGates = selectedCourse.value
@@ -154,6 +164,11 @@ async function loadGates() {
         : [];
     selectedGateId.value = gates.value[0]?.id ?? "";
 }
+function resetGateForm() {
+    gateForm.title = "";
+    gateForm.passScore = selectedCourse.value?.passScore ?? 80;
+    gateForm.maximumAttempts = 3;
+}
 async function addChapter() {
     if (!selectedCourse.value || !chapterForm.title.trim()) return;
     saving.value = true;
@@ -163,16 +178,20 @@ async function addChapter() {
             ...chapterForm,
         });
         chapters.value = await listTrainingChapters(selectedCourse.value.id);
-        chapterForm.title = "";
+        resetChapterForm();
         ElMessage.success("章节已创建");
     } catch {
-        ElMessage.error("章节创建失败");
+        ElMessage.error("章节创建失败，请检查顺序是否重复");
     } finally {
         saving.value = false;
     }
 }
 async function addGate() {
     if (!selectedChapterId.value || !gateForm.title.trim()) return;
+    if (gates.value.length) {
+        ElMessage.warning("当前章节已有关卡，请直接维护题库");
+        return;
+    }
     saving.value = true;
     try {
         await createTrainingGate({
@@ -180,10 +199,10 @@ async function addGate() {
             ...gateForm,
         });
         await loadGates();
-        gateForm.title = "";
+        resetGateForm();
         ElMessage.success("关卡已创建");
     } catch {
-        ElMessage.error("关卡创建失败");
+        ElMessage.error("关卡创建失败，请检查当前章节是否已有关卡");
     } finally {
         saving.value = false;
     }
@@ -489,7 +508,14 @@ onMounted(load);
                             >员工</el-radio-button
                         ></el-radio-group
                     ></el-form-item
-                ><el-form-item label="目标 ID"
+                ><el-form-item
+                    :label="
+                        assignmentForm.targetType === 'EMPLOYEE'
+                            ? '目标 ID（员工 ID 或用户 ID）'
+                            : assignmentForm.targetType === 'POSITION'
+                              ? '目标 ID（岗位 ID）'
+                              : '目标 ID（部门 ID）'
+                    "
                     ><el-input
                         v-model="assignmentForm.targetId" /></el-form-item
                 ><el-form-item label="课程"
@@ -552,7 +578,12 @@ onMounted(load);
                             <el-select
                                 v-model="selectedChapterId"
                                 style="width: 100%"
-                                @change="loadGates"
+                                @change="
+                                    () => {
+                                        resetGateForm();
+                                        loadGates();
+                                    }
+                                "
                             >
                                 <el-option
                                     v-for="chapter in chapters"
@@ -599,9 +630,21 @@ onMounted(load);
                             />
                         </el-form-item>
                     </el-form>
-                    <el-button type="primary" :loading="saving" @click="addGate"
+                    <el-button
+                        v-if="!gates.length"
+                        type="primary"
+                        :loading="saving"
+                        @click="addGate"
                         >新增关卡</el-button
                     >
+                    <el-alert
+                        v-else
+                        type="info"
+                        show-icon
+                        :closable="false"
+                        title="当前章节已有关卡，可在题库页继续新增题目"
+                        class="gate-hint"
+                    />
                 </el-tab-pane>
                 <el-tab-pane label="题库">
                     <el-form label-position="top">
@@ -667,5 +710,8 @@ onMounted(load);
     display: grid;
     grid-template-columns: 2fr 1fr 1fr;
     gap: 0 16px;
+}
+.gate-hint {
+    margin-top: 8px;
 }
 </style>

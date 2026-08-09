@@ -128,12 +128,18 @@ public final class HybridSearchService {
         if (!"PRODUCT".equals(command.category())) {
             indexVector(command, storageVersion);
         }
-        elastic.put().uri("/" + command.indexVersion() + "/_doc/" + command.chunkId()).body(Map.of(
-                "documentId", command.documentId(), "chunkId", command.chunkId(), "title", command.title(),
-                "content", command.content(), "category", command.category(), "visibility", command.visibility(),
-                "documentVersion", command.documentVersion(), "sourceUpdatedAt",
-                command.sourceUpdatedAt() == null ? "" : command.sourceUpdatedAt().toString()))
-                .retrieve().toBodilessEntity();
+        try {
+            elastic.put().uri("/" + storageVersion + "/_doc/" + command.chunkId()).body(Map.of(
+                    "documentId", command.documentId(), "chunkId", command.chunkId(), "title", command.title(),
+                    "content", command.content(), "category", command.category(), "visibility", command.visibility(),
+                    "documentVersion", command.documentVersion(), "sourceUpdatedAt",
+                    command.sourceUpdatedAt() == null ? "" : command.sourceUpdatedAt().toString()))
+                    .retrieve().toBodilessEntity();
+        } catch (RuntimeException exception) {
+            LOGGER.warn("lexical_index_unavailable indexVersion={} storageVersion={} documentId={} type={}",
+                    command.indexVersion(), storageVersion, command.documentId(), exception.getClass().getSimpleName());
+            throw new BusinessException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
     }
 
     private void indexVector(IndexChunkCommand command, String storageVersion) {

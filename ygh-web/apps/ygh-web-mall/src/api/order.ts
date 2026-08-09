@@ -1,5 +1,6 @@
 import { apiData } from '@ygh/web-shared'
 import { useHttp } from './client'
+import { getWallet } from './wallet'
 
 export interface Order {
   orderId: string
@@ -37,6 +38,10 @@ export async function payOrder(order: Order): Promise<Order> {
     return apiData(await useHttp().post(`/api/v1/orders/${order.orderId}/confirm-wallet-payment`))
   } catch {
     // No successful wallet transaction exists yet; continue with a simulated wallet payment.
+  }
+  const wallet = await getWallet()
+  if (wallet.currency !== order.currency || Number(wallet.availableBalance) < Number(order.totalAmount)) {
+    throw new Error('模拟钱包余额不足，请先完成虚拟充值')
   }
   const requestId = crypto.randomUUID()
   await useHttp().post('/api/v1/wallet/payments', { requestId, referenceId: order.orderId, amount: order.totalAmount, currency: order.currency })
