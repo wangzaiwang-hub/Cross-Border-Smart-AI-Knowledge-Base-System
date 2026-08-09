@@ -83,7 +83,16 @@ public final class TrainingDocumentProgressService {
                        (SELECT COUNT(*) FROM training_chapter WHERE course_id=a.course_id) total_chapters,
                        (SELECT COUNT(*) FROM training_chapter_progress WHERE assignment_id=a.id AND completed=TRUE) done_chapters,
                        (SELECT MAX(score) FROM training_quiz_attempt WHERE assignment_id=a.id) best
-                  FROM training_assignment a JOIN training_course c ON c.id=a.course_id
+                  FROM (
+                    SELECT ranked.* FROM (
+                        SELECT a.*, ROW_NUMBER() OVER(
+                            PARTITION BY user_id,course_id
+                            ORDER BY CASE status WHEN 'ASSIGNED' THEN 1 WHEN 'IN_PROGRESS' THEN 2 WHEN 'COMPLETED' THEN 3 ELSE 4 END,
+                                     assigned_at DESC,id DESC
+                        ) rn
+                          FROM training_assignment a
+                    ) ranked WHERE ranked.rn=1
+                  ) a JOIN training_course c ON c.id=a.course_id
                  ORDER BY a.assigned_at DESC
                 """, (row, index) -> {
             int totalDocs = row.getInt("total_docs"), doneDocs = row.getInt("done_docs");

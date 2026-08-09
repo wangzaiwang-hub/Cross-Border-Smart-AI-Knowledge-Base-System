@@ -17,9 +17,11 @@ class AddressCipherTest {
         first[first.length-1]^=1;
         assertThatThrownBy(()->cipher.decrypt(7,"recipientName",1,first)).isInstanceOf(IllegalStateException.class);
     }
-    @Test void rejectsWeakKeysAndUnknownVersions(){
+    @Test void rejectsWeakKeysAndInvalidVersions(){
         assertThatThrownBy(()->new AddressCipher(Base64.getEncoder().encodeToString(new byte[16]),1)).isInstanceOf(IllegalArgumentException.class);
-        var cipher=new AddressCipher(KEY,2); byte[] value=cipher.encrypt(1,"x","secret");
-        assertThatThrownBy(()->cipher.decrypt(1,"x",1,value)).isInstanceOf(IllegalStateException.class);
+        var previous=new AddressCipher(KEY,1); byte[] value=previous.encrypt(1,"x","secret");
+        var current=new AddressCipher(KEY,2);
+        assertThat(current.decrypt(1,"x",1,value)).isEqualTo("secret");
+        assertThatThrownBy(()->current.decrypt(1,"x",0,value)).isInstanceOf(IllegalStateException.class);
     }
 }

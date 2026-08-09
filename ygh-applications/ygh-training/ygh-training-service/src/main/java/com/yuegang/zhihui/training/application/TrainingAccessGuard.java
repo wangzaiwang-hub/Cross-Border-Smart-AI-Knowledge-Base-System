@@ -41,7 +41,7 @@ public final class TrainingAccessGuard {
     private void require(TrainingUserContext user, String sql, String resourceId) {
         if (user.courseManager()) return;
         Integer count = jdbc.queryForObject(sql, Integer.class, user.userId(), positive(resourceId));
-        if (count == null || count != 1) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (count == null || count < 1) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
     }
 
     private static long positive(String value) {

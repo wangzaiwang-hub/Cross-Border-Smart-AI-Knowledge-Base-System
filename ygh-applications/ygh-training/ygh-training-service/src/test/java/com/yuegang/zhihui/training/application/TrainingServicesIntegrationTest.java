@@ -89,6 +89,9 @@ class TrainingServicesIntegrationTest {
             assertThat(records.analytics().assigned()).isZero();
             AssignmentView assignment = assignments.assign(9, new CreateAssignmentRequest(
                     "42", path.id(), course.id(), OffsetDateTime.now().plusDays(7)));
+            assertThat(assignments.assign(9, new CreateAssignmentRequest(
+                    "42", path.id(), course.id(), OffsetDateTime.now().plusDays(9))).assignmentId())
+                    .isEqualTo(assignment.assignmentId());
             var access = new TrainingAccessGuard(dataSource);
             var learner = new TrainingUserContext(42, Set.of("EMPLOYEE"), Set.of());
             access.requireCourse(learner, course.id());

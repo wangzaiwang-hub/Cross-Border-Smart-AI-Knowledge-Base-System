@@ -39,7 +39,7 @@ public final class AddressCipher {
         finally { Arrays.fill(plain, (byte) 0); }
     }
     public String decrypt(long userId, String field, int storedVersion, byte[] value) {
-        if (storedVersion != keyVersion || value == null || value.length <= IV_BYTES + 16)
+        if (storedVersion < 1 || storedVersion > 65535 || value == null || value.length <= IV_BYTES + 16)
             throw new IllegalStateException("PII ciphertext or key version is invalid");
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
