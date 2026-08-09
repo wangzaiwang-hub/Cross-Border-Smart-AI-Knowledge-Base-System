@@ -1,6 +1,7 @@
 package com.yuegang.zhihui.training.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuegang.zhihui.common.core.BusinessException;
 import com.yuegang.zhihui.common.core.ErrorCode;
@@ -11,6 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -44,11 +46,11 @@ public final class TrainingQuizService {
         if (maximum != null && attempts != null && attempts >= maximum) throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
         int[] total = {0};
         int[] earned = {0};
-        jdbc.query("SELECT id,correct_answer_hash,score FROM training_question WHERE gate_id=?", rs -> {
+        jdbc.query("SELECT id,options_json,correct_answer_hash,score FROM training_question WHERE gate_id=?", rs -> {
             int value = rs.getInt("score");
             total[0] += value;
             String answer = request.answers().get(Long.toString(rs.getLong("id")));
-            if (answer != null && hash(answer).equalsIgnoreCase(rs.getString("correct_answer_hash"))) earned[0] += value;
+            if (answerMatches(answer, rs.getString("correct_answer_hash"), rs.getString("options_json"))) earned[0] += value;
             else jdbc.update("INSERT INTO training_weakness(user_id,knowledge_code,wrong_count,last_wrong_at) VALUES(?,?,1,NOW(6)) ON DUPLICATE KEY UPDATE wrong_count=wrong_count+1,last_wrong_at=NOW(6)", userId, "QUESTION:" + rs.getLong("id"));
         }, gateId);
         if (total[0] == 0) throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
@@ -68,6 +70,25 @@ public final class TrainingQuizService {
     private String answersJson(SubmitQuizRequest request) {
         try { return json.writeValueAsString(request.answers()); }
         catch (JsonProcessingException e) { throw new BusinessException(ErrorCode.VALIDATION_ERROR); }
+    }
+
+    private boolean answerMatches(String answer, String expectedHash, String optionsJson) {
+        if (answer == null) return false;
+        if (hash(answer).equalsIgnoreCase(expectedHash)) return true;
+        List<String> options = readOptions(optionsJson);
+        for (int i = 0; i < options.size(); i++) {
+            if (answer.strip().equals(options.get(i).strip())) {
+                String key = Character.toString((char) ('A' + i));
+                return hash(key).equalsIgnoreCase(expectedHash);
+            }
+        }
+        return false;
+    }
+
+    private List<String> readOptions(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        try { return json.readValue(value, new TypeReference<>() {}); }
+        catch (JsonProcessingException e) { return List.of(); }
     }
 
     private static String hash(String answer) {

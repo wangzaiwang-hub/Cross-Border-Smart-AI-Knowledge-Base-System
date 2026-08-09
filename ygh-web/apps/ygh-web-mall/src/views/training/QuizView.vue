@@ -77,7 +77,7 @@ onMounted(async () => {
                         ><el-radio
                             v-for="(option, index) in q.options"
                             :key="option"
-                            :value="option"
+                            :value="String.fromCharCode(65 + index)"
                             border
                             ><i>{{ String.fromCharCode(65 + index) }}</i
                             >{{ option }}</el-radio

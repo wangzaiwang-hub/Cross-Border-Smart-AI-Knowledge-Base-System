@@ -38,17 +38,20 @@ class TrainingServicesIntegrationTest {
             assertBusinessError(() -> content.createChapter(
                     new SaveChapterRequest(course.id(), "重复顺序", 1, 30)), ErrorCode.BUSINESS_CONFLICT);
             GateView gate = content.createGate(
-                    new SaveGateRequest(chapter.id(), "通关测验", 80, 2));
+                    new SaveGateRequest(chapter.id(), "通关测验", 80, 3));
             assertBusinessError(() -> content.createGate(
                     new SaveGateRequest(chapter.id(), "重复关卡", 80, 2)), ErrorCode.BUSINESS_CONFLICT);
             QuestionView question = content.createQuestion(new SaveQuestionRequest(
                     gate.id(), "SINGLE", "申报前应核对什么？", List.of("资料", "忽略"),
                     "资料", "核对申报资料", 100));
+            QuestionView keyedQuestion = content.createQuestion(new SaveQuestionRequest(
+                    gate.id(), "SINGLE", "请选择 A", List.of("A 选项", "B 选项"),
+                    "A", null, 1));
             content.createQuestion(new SaveQuestionRequest(
                     gate.id(), "TEXT", "补充说明", null, "完成", null, 1));
-            assertThat(content.questions(gate.id())).hasSize(2)
+            assertThat(content.questions(gate.id())).hasSize(3)
                     .extracting(QuestionView::stem)
-                    .containsExactlyInAnyOrder("申报前应核对什么？", "补充说明");
+                    .containsExactlyInAnyOrder("申报前应核对什么？", "请选择 A", "补充说明");
             assertThat(content.chapters(course.id())).hasSize(1);
             assertThat(content.courses(true)).isEmpty();
             assertThat(content.courses(false)).hasSize(1);
@@ -140,12 +143,15 @@ class TrainingServicesIntegrationTest {
             SubmitQuizRequest wrongSubmission = new SubmitQuizRequest(
                     assignment.assignmentId(), gate.id(), Map.of(question.id(), "忽略"), "quiz-request-wrong");
             assertThat(quizzes.submit(42, wrongSubmission).passed()).isFalse();
+            SubmitQuizRequest optionTextSubmission = new SubmitQuizRequest(
+                    assignment.assignmentId(), gate.id(), Map.of(keyedQuestion.id(), "A 选项"), "quiz-request-option-text");
+            assertThat(quizzes.submit(42, optionTextSubmission).score()).isPositive();
             SubmitQuizRequest submission = new SubmitQuizRequest(
                     assignment.assignmentId(), gate.id(), Map.of(question.id(), "资料"), "quiz-request-1");
             QuizAttemptView attempt = quizzes.submit(42, submission);
             assertThat(attempt.passed()).isTrue();
             assertThat(quizzes.submit(42, submission).attemptId()).isEqualTo(attempt.attemptId());
-            assertThat(records.attempts(42, assignment.assignmentId())).hasSize(2);
+            assertThat(records.attempts(42, assignment.assignmentId())).hasSize(3);
             assertThatThrownBy(() -> quizzes.submit(42, new SubmitQuizRequest(
                     assignment.assignmentId(), gate.id(), Map.of(), "quiz-request-over-limit")))
                     .isInstanceOf(BusinessException.class);
