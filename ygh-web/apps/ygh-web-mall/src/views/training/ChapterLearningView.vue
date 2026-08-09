@@ -31,11 +31,23 @@ const documents = ref<TrainingDocument[]>([]);
 const documentProgress = ref<DocumentProgress[]>([]);
 const progress = ref<Progress>();
 const saving = ref(false);
+const saveBlocked = ref(false);
 const preview = useBinaryDocumentPreview();
 const allDocumentsCompleted = computed(() =>
     documents.value.every((item) => state(item.id) === "COMPLETED"),
 );
 let timer = 0;
+function isBusinessConflict(error: unknown) {
+    const response = (error as {
+        response?: { status?: number; data?: { code?: string } };
+    }).response;
+    return response?.status === 409 || response?.data?.code === "BUSINESS_CONFLICT";
+}
+function blockSaving(message: string) {
+    if (!saveBlocked.value) ElMessage.error(message);
+    saveBlocked.value = true;
+    clearInterval(timer);
+}
 async function openDocument(item: TrainingDocument) {
     try {
         await preview.open({
@@ -57,7 +69,7 @@ function stateText(status: string) {
 }
 async function markCompleted(item: TrainingDocument) {
     try {
-        await save();
+        if (!(await save())) return;
         await completeDocument(assignmentId, item.id);
         documentProgress.value = await listDocumentProgress(assignmentId, chapterId);
         progress.value = await heartbeat(assignmentId, chapterId, 1);
@@ -67,7 +79,8 @@ async function markCompleted(item: TrainingDocument) {
     }
 }
 async function save() {
-    if (!assignmentId || unsaved.value <= 0) return;
+    if (saveBlocked.value) return false;
+    if (!assignmentId || unsaved.value <= 0) return true;
     saving.value = true;
     const active = Math.min(unsaved.value, 300);
     try {
@@ -78,8 +91,14 @@ async function save() {
             `active-seconds:${seconds.value}`,
         );
         unsaved.value -= active;
-    } catch {
-        ElMessage.error("学习进度保存失败，请保持页面打开后重试");
+        return true;
+    } catch (error) {
+        if (isBusinessConflict(error)) {
+            blockSaving("当前章节尚未解锁，请先完成前置章节和闯关");
+        } else {
+            ElMessage.error("学习进度保存失败，请保持页面打开后重试");
+        }
+        return false;
     } finally {
         saving.value = false;
     }
@@ -89,7 +108,7 @@ async function finish() {
         ElMessage.warning("请先阅读并完成本章全部文档任务点");
         return;
     }
-    await save();
+    if (!(await save())) return;
     if (gateId)
         await router.push({
             path: `/workspace/training/quiz/${gateId}`,
@@ -123,7 +142,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
     clearInterval(timer);
-    void save();
+    if (!saveBlocked.value) void save();
 });
 </script>
 <template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { Lock, VideoPlay } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import PageHeader from "@/components/PageHeader.vue";
@@ -10,17 +10,21 @@ import {
     listChapters,
     listCourses,
     listGates,
+    listAttempts,
     type Chapter,
     type ChapterProgress,
     type Course,
     type Gate,
     type Progress,
+    type QuizAttemptDetail,
 } from "@/api/training";
 const route = useRoute();
+const router = useRouter();
 const course = ref<Course>();
 const chapters = ref<Chapter[]>([]);
 const gates = ref<Gate[]>([]);
 const records = ref<ChapterProgress[]>([]);
+const attempts = ref<QuizAttemptDetail[]>([]);
 const progress = ref<Progress>();
 const loading = ref(true);
 const assignmentId = computed(() => String(route.query.assignment || ""));
@@ -30,12 +34,39 @@ const recordMap = computed(() =>
 const gateMap = computed(() =>
     Object.fromEntries(gates.value.map((x) => [x.chapterId, x])),
 );
+const passedGateIds = computed(
+    () => new Set(attempts.value.filter((x) => x.passed).map((x) => x.gateId)),
+);
+function gatePassed(chapter: Chapter) {
+    const gate = gateMap.value[chapter.id];
+    return !gate || passedGateIds.value.has(gate.id);
+}
+function completedWithGate(chapter: Chapter) {
+    return Boolean(recordMap.value[chapter.id]?.completed) && gatePassed(chapter);
+}
 function unlocked(chapter: Chapter) {
     if (!assignmentId.value) return false;
     if (chapter.sequenceNo === 1) return true;
     return chapters.value
         .filter((x) => x.sequenceNo < chapter.sequenceNo)
-        .every((x) => recordMap.value[x.id]?.completed);
+        .every((x) => completedWithGate(x));
+}
+function openChapter(chapter: Chapter) {
+    const gate = gateMap.value[chapter.id];
+    if (recordMap.value[chapter.id]?.completed && gate && !gatePassed(chapter)) {
+        void router.push({
+            path: `/workspace/training/quiz/${gate.id}`,
+            query: { assignment: assignmentId.value },
+        });
+        return;
+    }
+    void router.push({
+        path: `/workspace/training/chapters/${chapter.id}`,
+        query: {
+            assignment: assignmentId.value,
+            gate: gate?.id,
+        },
+    });
 }
 onMounted(async () => {
     const id = String(route.params.id);
@@ -58,9 +89,10 @@ onMounted(async () => {
     }
     if (assignmentId.value) {
         try {
-            [progress.value, records.value] = await Promise.all([
+            [progress.value, records.value, attempts.value] = await Promise.all([
                 getProgress(assignmentId.value),
                 listChapterProgress(assignmentId.value),
+                listAttempts(assignmentId.value),
             ]);
         } catch {
             ElMessage.warning("学习进度加载失败，已显示课程基础内容");
@@ -108,7 +140,9 @@ onMounted(async () => {
                             {{ Math.ceil(ch.minimumActiveSeconds / 60) }} 分钟 ·
                             {{
                                 recordMap[ch.id]?.completed
-                                    ? "已完成"
+                                    ? gatePassed(ch)
+                                        ? "已完成"
+                                        : "待闯关"
                                     : unlocked(ch)
                                       ? "可学习"
                                       : "完成前置章节后解锁"
@@ -128,17 +162,13 @@ onMounted(async () => {
                         "
                         size="small"
                         :icon="VideoPlay"
-                        @click="
-                            $router.push({
-                                path: `/workspace/training/chapters/${ch.id}`,
-                                query: {
-                                    assignment: assignmentId,
-                                    gate: gateMap[ch.id]?.id,
-                                },
-                            })
-                        "
+                        @click="openChapter(ch)"
                         >{{
-                            recordMap[ch.id]?.completed ? "复习" : "学习"
+                            recordMap[ch.id]?.completed && !gatePassed(ch)
+                                ? "闯关"
+                                : recordMap[ch.id]?.completed
+                                  ? "复习"
+                                  : "学习"
                         }}</el-button
                     >
                 </article>
