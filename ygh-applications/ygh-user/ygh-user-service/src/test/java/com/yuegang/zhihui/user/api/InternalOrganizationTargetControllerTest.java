@@ -17,7 +17,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 class InternalOrganizationTargetControllerTest {
     @Test
-    void employeeTargetAcceptsEmployeeIdOrUserId() {
+    void employeeTargetAcceptsEmployeeIdUserIdOrEmployeeNo() {
         try (var mysql = YghTestContainerFactory.mysql().start()) {
             Flyway.configure().dataSource(mysql.jdbcUrl(), mysql.username(), mysql.credential())
                     .locations("classpath:db/migration").load().migrate();
@@ -33,6 +33,7 @@ class InternalOrganizationTargetControllerTest {
 
             assertThat(controller.targets("EMPLOYEE", employee.id(), request).data()).containsExactly("42");
             assertThat(controller.targets("EMPLOYEE", "42", request).data()).containsExactly("42");
+            assertThat(controller.targets("EMPLOYEE", "E042", request).data()).containsExactly("42");
             assertThat(controller.targets("POSITION", position.id(), request).data()).containsExactly("42");
         }
     }
