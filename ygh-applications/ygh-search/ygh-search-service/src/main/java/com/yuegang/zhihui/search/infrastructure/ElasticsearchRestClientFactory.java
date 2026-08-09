@@ -10,8 +10,8 @@ public final class ElasticsearchRestClientFactory {
 
     public static RestClient create(String baseUrl, String username, String password) {
         if (username == null || username.isBlank()) {
-            username = System.getenv().getOrDefault("YGH_ELASTICSEARCH_USERNAME", "");
-            password = System.getenv().getOrDefault("YGH_ELASTICSEARCH_PASSWORD", "");
+            username = setting("YGH_ELASTICSEARCH_USERNAME", "YGH_SEARCH_ES_USERNAME");
+            password = setting("YGH_ELASTICSEARCH_PASSWORD", "YGH_SEARCH_ES_PASSWORD");
         }
         var builder = RestClient.builder().baseUrl(baseUrl);
         if (username != null && !username.isBlank()) {
@@ -20,5 +20,19 @@ public final class ElasticsearchRestClientFactory {
                     .encodeToString(credentials.getBytes(StandardCharsets.UTF_8)));
         }
         return builder.build();
+    }
+
+    private static String setting(String primary, String fallback) {
+        String value = System.getProperty(primary);
+        if (value == null || value.isBlank()) {
+            value = System.getenv(primary);
+        }
+        if (value == null || value.isBlank()) {
+            value = System.getProperty(fallback);
+        }
+        if (value == null || value.isBlank()) {
+            value = System.getenv(fallback);
+        }
+        return value == null ? "" : value;
     }
 }
