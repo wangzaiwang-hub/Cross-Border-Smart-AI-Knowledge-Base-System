@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { apiData } from "@ygh/web-shared";
 import {
     createScopedTrainingAssignment,
     createTrainingChapter,
@@ -15,8 +16,14 @@ import {
     listTrainingGates,
     listLearningPaths,
     listEmployeeLearningProgress,
+    listDepartments,
+    listPositions,
+    listEmployees,
     publishTrainingCourse,
     uploadTrainingDocument,
+    type Department,
+    type Position,
+    type Employee,
     type TrainingChapter,
     type TrainingAnalytics,
     type TrainingCourse,
@@ -24,13 +31,33 @@ import {
     type LearningPath,
     type EmployeeLearningProgress,
 } from "@/api/operations";
+import { useHttp } from "@/api/client";
 import EnterpriseTable from "@/components/EnterpriseTable.vue";
+interface TrainingDocument {
+    id: string;
+    chapterId: string;
+    fileName: string;
+    mediaType: string;
+    sizeBytes: number;
+    status: string;
+}
+const listTrainingDocuments = async (
+    chapterId: string,
+): Promise<TrainingDocument[]> =>
+    apiData(
+        await useHttp().get(
+            `/api/v1/training/chapters/${chapterId}/documents`,
+        ),
+    );
 const tab = ref("courses");
 const loading = ref(true);
 const data = ref<TrainingAnalytics>();
 const courses = ref<TrainingCourse[]>([]);
 const paths = ref<LearningPath[]>([]);
 const employeeProgress = ref<EmployeeLearningProgress[]>([]);
+const departments = ref<Department[]>([]);
+const positions = ref<Position[]>([]);
+const employees = ref<Employee[]>([]);
 const courseDialog = ref(false);
 const assignmentDialog = ref(false);
 const contentDialog = ref(false);
@@ -41,9 +68,11 @@ const saving = ref(false);
 const selectedCourse = ref<TrainingCourse>();
 const chapters = ref<TrainingChapter[]>([]);
 const gates = ref<TrainingGate[]>([]);
+const documents = ref<TrainingDocument[]>([]);
 const selectedChapterId = ref("");
 const selectedGateId = ref("");
 const documentFile = ref<File>();
+const documentFileInputKey = ref(0);
 const courseForm = reactive({
     title: "",
     description: "",
@@ -55,7 +84,7 @@ const assignmentForm = reactive<{
     targetId: string;
     courseId: string;
     dueAt: string;
-}>({ targetType: "POSITION", targetId: "", courseId: "", dueAt: "" });
+}>({ targetType: "EMPLOYEE", targetId: "", courseId: "", dueAt: "" });
 const chapterForm = reactive({
     title: "",
     sequenceNo: 1,
@@ -78,14 +107,65 @@ const pathCourseForm = reactive({
 });
 const learningStatusText = (status: string) =>
     ({ ASSIGNED: "未开始", IN_PROGRESS: "未完成", COMPLETED: "已完成" } as Record<string, string>)[status] || status;
+const departmentName = (id?: string) =>
+    departments.value.find((item) => item.id === id)?.name || "未分配部门";
+const employeeTargetOptions = computed(() =>
+    employees.value
+        .filter((employee) => employee.status === "ACTIVE")
+        .map((employee) => ({
+            label: `${employee.employeeNo} · ${employee.userId} · ${departmentName(employee.departmentId)}`,
+            value: employee.id,
+        })),
+);
+const targetOptions = computed(() => {
+    if (assignmentForm.targetType === "DEPARTMENT") {
+        return departments.value
+            .filter((department) => department.enabled)
+            .map((department) => ({
+                label: `${department.code} · ${department.name}`,
+                value: department.id,
+            }));
+    }
+    if (assignmentForm.targetType === "POSITION") {
+        return positions.value
+            .filter((position) => position.enabled)
+            .map((position) => ({
+                label: `${position.code} · ${position.name}`,
+                value: position.id,
+            }));
+    }
+    return employeeTargetOptions.value;
+});
+const targetPlaceholder = computed(() => {
+    if (assignmentForm.targetType === "DEPARTMENT") return "选择部门";
+    if (assignmentForm.targetType === "POSITION") return "选择岗位";
+    return "选择员工";
+});
+watch(
+    () => assignmentForm.targetType,
+    () => {
+        assignmentForm.targetId = "";
+    },
+);
 async function load() {
     loading.value = true;
     try {
-        [data.value, courses.value, paths.value, employeeProgress.value] = await Promise.all([
+        [
+            data.value,
+            courses.value,
+            paths.value,
+            employeeProgress.value,
+            departments.value,
+            positions.value,
+            employees.value,
+        ] = await Promise.all([
             getTrainingAnalytics(),
             listTrainingCourses(),
             listLearningPaths(),
             listEmployeeLearningProgress(),
+            listDepartments(),
+            listPositions(),
+            listEmployees(),
         ]);
     } catch {
         ElMessage.error("培训运营数据加载失败");
@@ -120,6 +200,10 @@ async function publish(course: TrainingCourse) {
     }
 }
 async function assign() {
+    if (!assignmentForm.targetId || !assignmentForm.courseId) {
+        ElMessage.warning("请选择分配目标和课程");
+        return;
+    }
     saving.value = true;
     try {
         await createScopedTrainingAssignment({
@@ -142,7 +226,7 @@ async function openContent(course: TrainingCourse) {
     chapters.value = await listTrainingChapters(course.id);
     resetChapterForm();
     selectedChapterId.value = chapters.value[0]?.id ?? "";
-    await loadGates();
+    await loadChapterResources();
     contentDialog.value = true;
 }
 function nextChapterSequence() {
@@ -153,7 +237,7 @@ function resetChapterForm() {
     chapterForm.sequenceNo = nextChapterSequence();
     chapterForm.minimumActiveSeconds = 60;
 }
-async function loadGates() {
+async function loadChapterResources() {
     const courseGates = selectedCourse.value
         ? await listTrainingGates(selectedCourse.value.id)
         : [];
@@ -163,6 +247,9 @@ async function loadGates() {
           )
         : [];
     selectedGateId.value = gates.value[0]?.id ?? "";
+    documents.value = selectedChapterId.value
+        ? await listTrainingDocuments(selectedChapterId.value)
+        : [];
 }
 function resetGateForm() {
     gateForm.title = "";
@@ -178,6 +265,8 @@ async function addChapter() {
             ...chapterForm,
         });
         chapters.value = await listTrainingChapters(selectedCourse.value.id);
+        selectedChapterId.value = chapters.value[chapters.value.length - 1]?.id ?? "";
+        await loadChapterResources();
         resetChapterForm();
         ElMessage.success("章节已创建");
     } catch {
@@ -198,7 +287,7 @@ async function addGate() {
             chapterId: selectedChapterId.value,
             ...gateForm,
         });
-        await loadGates();
+        await loadChapterResources();
         resetGateForm();
         ElMessage.success("关卡已创建");
     } catch {
@@ -239,7 +328,9 @@ async function uploadDocument() {
             documentFile.value,
         );
         documentFile.value = undefined;
-        ElMessage.success("培训文档已上传并等待处理");
+        documentFileInputKey.value++;
+        await loadChapterResources();
+        ElMessage.success("培训文档已上传");
     } catch {
         ElMessage.error("文档上传失败");
     } finally {
@@ -509,15 +600,21 @@ onMounted(load);
                         ></el-radio-group
                     ></el-form-item
                 ><el-form-item
-                    :label="
-                        assignmentForm.targetType === 'EMPLOYEE'
-                            ? '目标 ID（员工 ID 或用户 ID）'
-                            : assignmentForm.targetType === 'POSITION'
-                              ? '目标 ID（岗位 ID）'
-                              : '目标 ID（部门 ID）'
-                    "
-                    ><el-input
-                        v-model="assignmentForm.targetId" /></el-form-item
+                    :label="targetPlaceholder"
+                    ><el-select
+                        v-model="assignmentForm.targetId"
+                        filterable
+                        clearable
+                        :placeholder="targetPlaceholder"
+                        style="width: 100%"
+                    >
+                        <el-option
+                            v-for="option in targetOptions"
+                            :key="option.value"
+                            :label="option.label"
+                            :value="option.value"
+                        />
+                    </el-select></el-form-item
                 ><el-form-item label="课程"
                     ><el-select
                         v-model="assignmentForm.courseId"
@@ -581,7 +678,7 @@ onMounted(load);
                                 @change="
                                     () => {
                                         resetGateForm();
-                                        loadGates();
+                                        loadChapterResources();
                                     }
                                 "
                             >
@@ -595,6 +692,7 @@ onMounted(load);
                         </el-form-item>
                         <el-form-item label="培训文档">
                             <input
+                                :key="documentFileInputKey"
                                 type="file"
                                 accept=".pdf,.docx,.txt,.md"
                                 @change="
@@ -611,6 +709,42 @@ onMounted(load);
                             >
                         </el-form-item>
                     </el-form>
+                    <div class="document-list">
+                        <div class="document-list-head">
+                            <b>当前章节文档</b>
+                            <span>共 {{ documents.length }} 个</span>
+                        </div>
+                        <el-empty
+                            v-if="!documents.length"
+                            description="当前章节暂无培训文档"
+                        />
+                        <el-table
+                            v-else
+                            :data="documents"
+                            size="small"
+                            border
+                        >
+                            <el-table-column
+                                prop="fileName"
+                                label="文件名"
+                                min-width="220"
+                            />
+                            <el-table-column
+                                prop="mediaType"
+                                label="类型"
+                                min-width="160"
+                            />
+                            <el-table-column label="大小">
+                                <template #default="scope">
+                                    {{
+                                        (scope.row.sizeBytes / 1024).toFixed(1)
+                                    }}
+                                    KB
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="status" label="状态" />
+                        </el-table>
+                    </div>
                     <el-divider>新增关卡</el-divider>
                     <el-form label-position="top" class="editor-grid">
                         <el-form-item label="关卡标题">
@@ -713,5 +847,18 @@ onMounted(load);
 }
 .gate-hint {
     margin-top: 8px;
+}
+.document-list {
+    margin-top: 12px;
+}
+.document-list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: var(--muted);
+}
+.document-list-head b {
+    color: var(--ink);
 }
 </style>
