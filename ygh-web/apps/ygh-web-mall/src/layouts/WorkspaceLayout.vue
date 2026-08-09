@@ -6,9 +6,10 @@ import { Bell, Collection, CreditCard, Document, Goods, House, Location, Reading
 import { useHttp } from '@/api/client'
 
 const route = useRoute(); const router = useRouter(); const session = useSessionStore()
-const isInternalEmployee = computed(() =>
-  session.user?.roles.includes('EMPLOYEE') ?? false,
-)
+const isInternalEmployee = computed(() => {
+  const roles = session.user?.roles ?? []
+  return roles.includes('EMPLOYEE') && !roles.includes('ADMIN')
+})
 const menu = computed(() => [
   { group:'账户', items:[{to:'/workspace/profile',label:'个人资料',icon:User},{to:'/workspace/addresses',label:'收货地址',icon:Location},{to:'/workspace/notifications',label:'消息中心',icon:Bell}]},
   { group:'商城', items:[{to:'/workspace/cart',label:'购物车',icon:Goods},{to:'/workspace/orders',label:'我的订单',icon:Document},{to:'/workspace/wallet',label:'模拟钱包',icon:CreditCard}]},

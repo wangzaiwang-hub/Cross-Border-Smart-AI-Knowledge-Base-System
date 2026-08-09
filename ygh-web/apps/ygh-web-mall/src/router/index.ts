@@ -179,7 +179,8 @@ function useAuthorityRefreshHttp() {
 }
 
 function isInternalEmployee() {
-    return useSessionStore().user?.roles.includes("EMPLOYEE") ?? false;
+    const roles = useSessionStore().user?.roles ?? [];
+    return roles.includes("EMPLOYEE") && !roles.includes("ADMIN");
 }
 
 async function refreshSessionOnce() {
@@ -196,8 +197,10 @@ async function refreshSessionOnce() {
 
 router.beforeEach(async (to) => {
     const session = useSessionStore();
-    if (to.meta.requiresAuth && !session.authenticated)
-        return { path: "/login", query: { redirect: to.fullPath } };
+    if (to.meta.requiresAuth && !session.authenticated) {
+        if (!(await refreshSessionOnce()))
+            return { path: "/login", query: { redirect: to.fullPath } };
+    }
     if (to.meta.requiresInternalEmployee && !isInternalEmployee()) {
         if (await refreshSessionOnce() && isInternalEmployee()) return true;
         return "/403";

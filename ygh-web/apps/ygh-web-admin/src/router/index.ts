@@ -165,8 +165,10 @@ router.beforeEach(async (to) => {
         }
         return "/login";
     }
-    if (to.meta.requiresAuth && !session.authenticated)
-        return { path: "/login", query: { redirect: to.fullPath } };
+    if (to.meta.requiresAuth && !session.authenticated) {
+        if (!(await refreshSessionOnce()))
+            return { path: "/login", query: { redirect: to.fullPath } };
+    }
     if (to.meta.requiresAdmin && !session.isAdmin) {
         if (await refreshSessionOnce()) {
             const updated = useSessionStore();
