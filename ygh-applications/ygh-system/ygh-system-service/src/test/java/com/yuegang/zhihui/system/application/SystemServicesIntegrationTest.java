@@ -72,12 +72,13 @@ class SystemServicesIntegrationTest {
             assertThat(providers.view().apiKeyConfigured()).isFalse();
             var configured = providers.update(new UpdateAiProviderConfigRequest("DOUBAO_ARK",
                     "https://ark.cn-beijing.volces.com/api/v3", "doubao-chat-test",
-                    "doubao-embedding-test", "ark-api-key-sensitive", 0), 7);
+                    "doubao-embedding-test", true, "ark-api-key-sensitive", 0), 7);
             assertThat(configured.apiKeyConfigured()).isTrue();
+            assertThat(configured.webSearchEnabled()).isTrue();
             assertThat(configured.apiKeyMasked()).doesNotContain("sensitive");
             assertThat(providers.internal().apiKey()).isEqualTo("ark-api-key-sensitive");
             assertBusinessError(() -> providers.update(new UpdateAiProviderConfigRequest("DOUBAO_ARK",
-                    "http://insecure.example", "doubao-chat-test", "doubao-embedding-test", null,
+                    "http://insecure.example", "doubao-chat-test", "doubao-embedding-test", true, null,
                     configured.version()), 7), ErrorCode.VALIDATION_ERROR);
         }
     }

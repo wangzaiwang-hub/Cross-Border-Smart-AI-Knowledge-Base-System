@@ -10,6 +10,7 @@ public record UpdateAiProviderConfigRequest(
         @NotBlank @Size(max = 500) String baseUrl,
         @NotBlank @Pattern(regexp = "[A-Za-z0-9._:-]{3,200}") String chatModel,
         @NotBlank @Pattern(regexp = "[A-Za-z0-9._:-]{3,200}") String embeddingModel,
+        boolean webSearchEnabled,
         @JsonProperty(access = JsonProperty.Access.WRITE_ONLY) @Size(max = 4096) String apiKey,
         long version) {
 }

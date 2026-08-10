@@ -155,6 +155,11 @@ export interface NotificationTemplate {
     enabled: boolean;
     version: number;
 }
+export interface SendNotificationCommand {
+    userId: string;
+    templateCode: string;
+    variables: Record<string, string>;
+}
 export interface PromptConfig {
     id: string;
     code: string;
@@ -190,6 +195,7 @@ export interface AiProviderConfig {
     baseUrl: string;
     chatModel: string;
     embeddingModel: string;
+    webSearchEnabled: boolean;
     apiKeyConfigured: boolean;
     apiKeyMasked: string;
     version: number;
@@ -688,6 +694,10 @@ export const saveNotificationTemplate = async (
             template,
         ),
     );
+export const sendNotification = async (
+    command: SendNotificationCommand,
+): Promise<{ id: string; status: string; dispatched: number }> =>
+    apiData(await useHttp().post("/api/v1/admin/notifications/send", command));
 export const replayDeadLetter = async (id: string): Promise<void> => {
     await useHttp().post(
         `/api/v1/admin/notifications/dead-letters/${id}/replay`,
@@ -741,6 +751,7 @@ export const saveAiProviderConfig = async (command: {
     baseUrl: string;
     chatModel: string;
     embeddingModel: string;
+    webSearchEnabled: boolean;
     apiKey?: string;
     version: number;
 }): Promise<AiProviderConfig> =>

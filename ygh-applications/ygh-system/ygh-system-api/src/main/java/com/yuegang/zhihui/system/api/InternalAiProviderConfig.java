@@ -5,6 +5,7 @@ public record InternalAiProviderConfig(
         String baseUrl,
         String chatModel,
         String embeddingModel,
+        boolean webSearchEnabled,
         String apiKey,
         long version) {
     public boolean configured() {

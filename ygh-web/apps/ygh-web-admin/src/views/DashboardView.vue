@@ -62,7 +62,7 @@ onMounted(load);
                 ><b>{{ data?.summary.unavailableServices || 0 }}</b>
             </div>
             <div class="metric panel">
-                <span>待办总数</span
+                <span>服务异常数</span
                 ><b>{{
                     data?.pending.reduce((sum, x) => sum + x.count, 0) || 0
                 }}</b
@@ -82,7 +82,7 @@ onMounted(load);
             </section>
             <section class="panel todo">
                 <header>
-                    <b class="serif">运营待办</b
+                    <b class="serif">服务异常</b
                     ><el-tag type="danger"
                         >{{ data?.pending.length || 0 }} 类</el-tag
                     >
@@ -95,7 +95,7 @@ onMounted(load);
                     </div>
                     <el-badge :value="item.count" />
                 </article>
-                <el-empty v-if="!data?.pending.length" description="暂无待办" />
+                <el-empty v-if="!data?.pending.length" description="暂无服务异常" />
             </section>
         </div>
         <section class="panel services">

@@ -18,6 +18,50 @@ const editingId = ref<string>()
 const addresses = ref<Address[]>([])
 const empty = () => ({ label: '', recipientName: '', recipientPhone: '', countryCode: 'CN', provinceCode: '', provinceName: '', cityName: '', districtName: '', addressDetail: '', postalCode: '', defaultAddress: false, version: 0 })
 const form = reactive(empty())
+const fieldLabels: Record<string, string> = {
+  recipientName: '收货人',
+  recipientPhone: '联系电话',
+  countryCode: '国家/地区',
+  provinceName: '省份',
+  cityName: '城市',
+  districtName: '区 / 县',
+  addressDetail: '详细地址',
+  postalCode: '邮政编码',
+}
+
+function trimForm() {
+  form.label = form.label.trim()
+  form.recipientName = form.recipientName.trim()
+  form.recipientPhone = form.recipientPhone.trim()
+  form.countryCode = form.countryCode.trim()
+  form.provinceCode = form.provinceCode.trim()
+  form.provinceName = form.provinceName.trim()
+  form.cityName = form.cityName.trim()
+  form.districtName = form.districtName.trim()
+  form.addressDetail = form.addressDetail.trim()
+  form.postalCode = form.postalCode.trim()
+}
+
+function validateAddressForm(): string | undefined {
+  const requiredFields = ['recipientName', 'recipientPhone', 'countryCode', 'provinceName', 'cityName', 'districtName', 'addressDetail'] as const
+  const missing = requiredFields.find(field => !form[field])
+  return missing ? `请填写${fieldLabels[missing]}` : undefined
+}
+
+function saveErrorMessage(error: unknown): string {
+  const response = (error as { response?: { data?: { message?: string; data?: unknown } } }).response?.data
+  if (Array.isArray(response?.data)) {
+    const details = response.data
+      .map(item => {
+        const fieldError = item as { field?: string; message?: string }
+        const label = fieldError.field ? fieldLabels[fieldError.field] || fieldError.field : ''
+        return [label, fieldError.message].filter(Boolean).join('')
+      })
+      .filter(Boolean)
+    if (details.length) return details.join('；')
+  }
+  return response?.message || '地址保存失败，请检查必填项或版本冲突'
+}
 
 async function load() {
   loading.value = true
@@ -30,6 +74,12 @@ function openCreate() { editingId.value = undefined; Object.assign(form, empty()
 function openEdit(address: Address) { editingId.value = address.id; Object.assign(form, address); dialog.value = true }
 
 async function save() {
+  trimForm()
+  const validationError = validateAddressForm()
+  if (validationError) {
+    ElMessage.error(validationError)
+    return
+  }
   saving.value = true
   try {
     if (editingId.value) await updateAddress(editingId.value, form)
@@ -37,7 +87,7 @@ async function save() {
     dialog.value = false
     ElMessage.success('地址已保存')
     await load()
-  } catch { ElMessage.error('地址保存失败，请检查必填项或版本冲突') }
+  } catch (error) { ElMessage.error(saveErrorMessage(error)) }
   finally { saving.value = false }
 }
 

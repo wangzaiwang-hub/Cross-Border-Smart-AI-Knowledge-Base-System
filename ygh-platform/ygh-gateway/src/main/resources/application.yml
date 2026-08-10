@@ -30,51 +30,51 @@ spring:
         webflux:
           routes:
             - id: auth-service
-              uri: lb://ygh-auth-service
+              uri: ${YGH_AUTH_SERVICE_URI:lb://ygh-auth-service}
               predicates:
                 - Path=/api/v1/auth/**
             - id: user-service
-              uri: lb://ygh-user-service
+              uri: ${YGH_USER_SERVICE_URI:lb://ygh-user-service}
               predicates:
                 - Path=/api/v1/users/**,/api/v1/organization/**
             - id: system-service
-              uri: lb://ygh-system-service
+              uri: ${YGH_SYSTEM_SERVICE_URI:lb://ygh-system-service}
               predicates:
                 - Path=/api/v1/system/**,/api/v1/roles/**,/api/v1/permissions/**
             - id: product-service
-              uri: lb://ygh-product-service
+              uri: ${YGH_PRODUCT_SERVICE_URI:lb://ygh-product-service}
               predicates:
                 - Path=/api/v1/products/**,/api/v1/product-categories,/api/v1/product-brands,/api/v1/admin/products/**,/api/v1/admin/product-categories,/api/v1/admin/product-brands
             - id: inventory-service
-              uri: lb://ygh-inventory-service
+              uri: ${YGH_INVENTORY_SERVICE_URI:lb://ygh-inventory-service}
               predicates:
                 - Path=/api/v1/admin/inventory/**
             - id: order-service
-              uri: lb://ygh-order-service
+              uri: ${YGH_ORDER_SERVICE_URI:lb://ygh-order-service}
               predicates:
                 - Path=/api/v1/cart/**,/api/v1/orders/**,/api/v1/admin/orders/**
             - id: wallet-service
-              uri: lb://ygh-wallet-service
+              uri: ${YGH_WALLET_SERVICE_URI:lb://ygh-wallet-service}
               predicates:
                 - Path=/api/v1/wallet/**,/api/v1/admin/wallet/**
             - id: knowledge-service
-              uri: lb://ygh-knowledge-service
+              uri: ${YGH_KNOWLEDGE_SERVICE_URI:lb://ygh-knowledge-service}
               predicates:
                 - Path=/api/v1/knowledge/**,/api/v1/admin/knowledge/**
             - id: ai-service
-              uri: lb://ygh-ai-service
+              uri: ${YGH_AI_SERVICE_URI:lb://ygh-ai-service}
               predicates:
                 - Path=/api/v1/ai/**,/api/v1/admin/ai/**
             - id: training-service
-              uri: lb://ygh-training-service
+              uri: ${YGH_TRAINING_SERVICE_URI:lb://ygh-training-service}
               predicates:
                 - Path=/api/v1/training/**
             - id: notification-service
-              uri: lb://ygh-notification-service
+              uri: ${YGH_NOTIFICATION_SERVICE_URI:lb://ygh-notification-service}
               predicates:
                 - Path=/api/v1/notifications/**,/api/v1/admin/notifications/**
             - id: admin-service
-              uri: lb://ygh-admin-service
+              uri: ${YGH_ADMIN_SERVICE_URI:lb://ygh-admin-service}
               predicates:
                 - Path=/api/v1/admin/dashboard,/api/v1/admin/audit-logs
 

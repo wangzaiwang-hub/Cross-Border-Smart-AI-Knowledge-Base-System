@@ -88,7 +88,10 @@ class GatewaySecurityConfiguration {
                                 "/api/v1/products",
                                 "/api/v1/products/**",
                                 "/api/v1/product-categories",
-                                "/api/v1/product-brands").permitAll()
+                                "/api/v1/product-brands",
+                                "/api/v1/knowledge/documents",
+                                "/api/v1/knowledge/documents/**",
+                                "/api/v1/knowledge/search").permitAll()
                         .pathMatchers(
                                 "/api/v1/organization/**",
                                 "/api/v1/training/**").hasAnyRole("EMPLOYEE", "ADMIN")

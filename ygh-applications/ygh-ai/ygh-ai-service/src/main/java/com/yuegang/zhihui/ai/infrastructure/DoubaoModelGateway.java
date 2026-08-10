@@ -2,7 +2,11 @@ package com.yuegang.zhihui.ai.infrastructure;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yuegang.zhihui.ai.domain.ModelGateway;
+import com.yuegang.zhihui.ai.domain.ModelAnswer;
 import com.yuegang.zhihui.ai.domain.ModelProviderException;
+import com.yuegang.zhihui.ai.domain.ModelSource;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -16,29 +20,43 @@ public final class DoubaoModelGateway implements ModelGateway {
     private final RestClient client;
     private final String modelName;
     private final String responsesUrl;
+    private final boolean webSearchEnabled;
     public DoubaoModelGateway(String baseUrl,String apiKey,String modelName){
+        this(baseUrl, apiKey, modelName, false);
+    }
+    public DoubaoModelGateway(String baseUrl,String apiKey,String modelName,boolean webSearchEnabled){
         if(apiKey==null||apiKey.isBlank())throw new IllegalStateException("Doubao key missing");
         this.modelName=modelName;
+        this.webSearchEnabled=webSearchEnabled;
         responsesUrl=trimTrailingSlash(baseUrl)+"/responses";
         client=RestClient.builder()
                 .defaultHeader(HttpHeaders.AUTHORIZATION,"Bearer "+apiKey)
                 .build();
     }
     @Override public String answer(String system,String user){
+        return answerWithSources(system, user).text();
+    }
+    @Override public ModelAnswer answerWithSources(String system,String user){
         Map<?,?> response;
         try {
+            Map<String,Object> request=new LinkedHashMap<>();
+            request.put("model",modelName);
+            request.put("instructions",system);
+            request.put("input",user);
+            if(webSearchEnabled)request.put("tools",List.of(Map.of("type","web_search")));
             response=client.post().uri(responsesUrl)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("model",modelName,"instructions",system,"input",user))
+                    .body(request)
                     .retrieve().body(Map.class);
         } catch (RestClientResponseException exception) {
             throw providerFailure(exception);
         }
         String text=extractText(response);
         if(text==null||text.isBlank())throw new IllegalStateException("empty model response");
-        return text;
+        return new ModelAnswer(text,extractSources(response));
     }
     @Override public String modelName(){return modelName;}
+    @Override public boolean supportsWebSearch(){return webSearchEnabled;}
 
     private static String trimTrailingSlash(String value){
         if(value==null||value.isBlank())throw new IllegalArgumentException("Doubao base URL missing");
@@ -70,6 +88,29 @@ public final class DoubaoModelGateway implements ModelGateway {
                 &&("output_text".equals(type)||"text".equals(type))){
             if(!result.isEmpty())result.append('\n');
             result.append(content);
+        }
+    }
+
+    private static List<ModelSource> extractSources(Map<?,?> response){
+        if(response==null)return List.of();
+        Map<String,ModelSource> sources=new LinkedHashMap<>();
+        collectSources(JSON.valueToTree(response),sources);
+        return new ArrayList<>(sources.values()).stream().limit(8).toList();
+    }
+
+    private static void collectSources(JsonNode node,Map<String,ModelSource> sources){
+        if(node==null||node.isNull()||sources.size()>=8)return;
+        if(node.isObject()){
+            String url=node.path("url").asText("");
+            if((url.startsWith("https://")||url.startsWith("http://"))&&!sources.containsKey(url)){
+                String title=node.path("title").asText("互联网来源");
+                String excerpt=node.path("snippet").asText(node.path("text").asText("公开网络检索结果"));
+                sources.put(url,new ModelSource(title.isBlank()?"互联网来源":title,
+                        excerpt.isBlank()?"公开网络检索结果":excerpt,url));
+            }
+            node.elements().forEachRemaining(child->collectSources(child,sources));
+        }else if(node.isArray()){
+            node.elements().forEachRemaining(child->collectSources(child,sources));
         }
     }
 

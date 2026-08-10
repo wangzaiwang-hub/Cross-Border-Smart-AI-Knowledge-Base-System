@@ -36,15 +36,15 @@ export function useBinaryDocumentPreview() {
         }
 
         const lowerName = descriptor.fileName.toLowerCase();
-        const type = descriptor.mediaType.toLowerCase();
-        if (type.includes("pdf") || lowerName.endsWith(".pdf")) {
-            objectUrl.value = URL.createObjectURL(content);
-            mode.value = "pdf";
-            return;
-        }
+        const type = (content.type || descriptor.mediaType).toLowerCase();
         if (type.startsWith("text/") || lowerName.endsWith(".txt") || lowerName.endsWith(".md")) {
             text.value = await content.text();
             mode.value = "text";
+            return;
+        }
+        if (type.includes("pdf") || lowerName.endsWith(".pdf")) {
+            objectUrl.value = URL.createObjectURL(content);
+            mode.value = "pdf";
             return;
         }
         mode.value = "download";

@@ -84,10 +84,12 @@ export interface OrderSummary {
 }
 
 export interface Citation {
-  documentId: string
+  sourceType?: 'KNOWLEDGE' | 'WEB'
+  documentId?: string
   chunkId: string
   title: string
   excerpt: string
+  url?: string
   finalScore?: number
 }
 

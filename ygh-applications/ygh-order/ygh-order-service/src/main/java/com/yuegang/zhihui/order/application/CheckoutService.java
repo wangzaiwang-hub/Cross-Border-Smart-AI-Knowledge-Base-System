@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 public final class CheckoutService {
     private final RestClient products;
@@ -30,14 +31,25 @@ public final class CheckoutService {
         var items = new ArrayList<OrderItemCommand>();
         BigDecimal total = BigDecimal.ZERO;
         for (var requested : command.items()) {
-            ApiResponse<ProductView> response = products.get().uri("/api/v1/products/" + requested.skuId())
-                    .retrieve().body(new ParameterizedTypeReference<>() { });
+            ApiResponse<ProductView> response;
+            try {
+                response = products.get().uri("/api/v1/products/" + requested.skuId())
+                        .retrieve().body(new ParameterizedTypeReference<>() { });
+            } catch (RestClientResponseException e) {
+                throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
+            }
             if (response == null || response.data() == null
                     || response.data().status() != ProductStatus.PUBLISHED) {
                 throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
             }
-            if (inventory != null && inventory.get(requested.skuId()).available() < requested.quantity()) {
-                throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
+            if (inventory != null) {
+                try {
+                    if (inventory.get(requested.skuId()).available() < requested.quantity()) {
+                        throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
+                    }
+                } catch (RestClientResponseException e) {
+                    throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
+                }
             }
             ProductView product = response.data();
             var item = new OrderItemCommand(product.skuId(), product.skuCode(), product.name(), product.price(),

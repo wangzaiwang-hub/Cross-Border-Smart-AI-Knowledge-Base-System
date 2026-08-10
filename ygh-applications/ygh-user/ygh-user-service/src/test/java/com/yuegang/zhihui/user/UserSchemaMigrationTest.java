@@ -6,10 +6,12 @@ import com.yuegang.zhihui.common.test.YghTestContainerFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.LinkedHashSet;
+import java.util.Base64;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import com.yuegang.zhihui.user.infrastructure.JdbcUserProfileRepository;
+import com.yuegang.zhihui.user.infrastructure.AddressCipher;
 import com.yuegang.zhihui.user.api.UpdateUserProfileRequest;
 
 class UserSchemaMigrationTest {
@@ -18,7 +20,7 @@ class UserSchemaMigrationTest {
             Flyway flyway = Flyway.configure().dataSource(mysql.jdbcUrl(), mysql.username(), mysql.credential())
                     .locations("classpath:db/migration").cleanDisabled(true)
                     .baselineOnMigrate(false).outOfOrder(false).validateOnMigrate(true).load();
-            assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
+            assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
             flyway.validate();
             assertThat(flyway.migrate().migrationsExecuted).isZero();
             try (Connection connection = DriverManager.getConnection(
@@ -28,6 +30,9 @@ class UserSchemaMigrationTest {
                 assertThat(columns(connection, "user_address")).contains("recipient_name_ciphertext",
                         "recipient_phone_ciphertext", "address_detail_ciphertext", "pii_key_version", "default_user_id")
                         .doesNotContain("recipient_name", "recipient_phone", "address_detail");
+                assertThat(columns(connection, "user_profile")).contains(
+                        "phone_ciphertext", "email_ciphertext", "contact_pii_key_version")
+                        .doesNotContain("phone", "email");
                 assertThat(indexes(connection, "user_address"))
                         .contains("uk_user_address_one_default", "idx_user_address_owner_updated");
                 assertThat(importedTables(connection, "user_employee")).contains("user_profile", "user_department");
@@ -36,13 +41,20 @@ class UserSchemaMigrationTest {
                 insertConstraintFixtures(connection);
             }
             var repository = new JdbcUserProfileRepository(new DriverManagerDataSource(
-                    mysql.jdbcUrl(), mysql.username(), mysql.credential()));
+                    mysql.jdbcUrl(), mysql.username(), mysql.credential()),
+                    new AddressCipher(Base64.getEncoder().encodeToString(new byte[32]), 1));
             var initial = new UpdateUserProfileRequest("Bob", null, "zh-CN", "Asia/Shanghai", 0);
             assertThat(repository.save(2, initial)).get().extracting(profile -> profile.version()).isEqualTo(0L);
-            var changed = new UpdateUserProfileRequest("Bob Chen", "https://cdn.example/bob.png", "en-US", "UTC", 0);
+            var changed = new UpdateUserProfileRequest("Bob Chen", "https://cdn.example/bob.png",
+                    "+86 13800138000", "BOB@example.com", "en-US", "UTC", 0);
             assertThat(repository.save(2, changed)).get().extracting(profile -> profile.version()).isEqualTo(1L);
             assertThat(repository.save(2, initial)).isEmpty();
-            assertThat(repository.findByUserId(2)).get().extracting(profile -> profile.displayName()).isEqualTo("Bob Chen");
+            assertThat(repository.findByUserId(2)).get().satisfies(profile -> {
+                assertThat(profile.displayName()).isEqualTo("Bob Chen");
+                assertThat(profile.phone()).isEqualTo("+86 13800138000");
+                assertThat(profile.email()).isEqualTo("bob@example.com");
+                assertThat(profile.toString()).doesNotContain("13800138000", "bob@example.com");
+            });
         }
     }
 

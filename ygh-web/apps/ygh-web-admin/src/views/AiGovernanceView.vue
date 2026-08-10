@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
     getAiSummary,
     getAiProviderConfig,
@@ -37,6 +37,7 @@ const providerForm = reactive({
     apiKey: "",
     chatModel: "doubao-seed-2-0-lite-260215",
     embeddingModel: "doubao-embedding-text-240515",
+    webSearchEnabled: false,
     version: 0,
 });
 const chatModels = ["doubao-seed-2-0-lite-260215"];
@@ -132,6 +133,7 @@ async function openProviderConfig() {
             apiKey: "",
             chatModel: value.chatModel,
             embeddingModel: value.embeddingModel,
+            webSearchEnabled: value.webSearchEnabled,
             version: value.version,
         });
     } catch {
@@ -145,6 +147,17 @@ async function saveProviderConfig() {
         ElMessage.warning("首次配置必须填写 API Key");
         return;
     }
+    if (providerForm.webSearchEnabled && !providerConfig.value?.webSearchEnabled) {
+        try {
+            await ElMessageBox.confirm(
+                "火山方舟联网搜索属于按量计费插件，启用后每次模型判断需要联网时可能产生搜索和额外 Token 费用。确认启用吗？",
+                "确认启用联网搜索",
+                { confirmButtonText: "确认启用", cancelButtonText: "暂不启用", type: "warning" },
+            );
+        } catch {
+            return;
+        }
+    }
     saving.value = true;
     try {
         const value = await saveAiProviderConfig({
@@ -152,6 +165,7 @@ async function saveProviderConfig() {
             baseUrl: providerForm.baseUrl.trim(),
             chatModel: providerForm.chatModel.trim(),
             embeddingModel: providerForm.embeddingModel.trim(),
+            webSearchEnabled: providerForm.webSearchEnabled,
             apiKey: providerForm.apiKey.trim() || undefined,
             version: providerForm.version,
         });
@@ -330,6 +344,24 @@ onMounted(load);
                         <el-option v-for="model in embeddingModels" :key="model" :label="model" :value="model" />
                     </el-select>
                 </el-form-item>
+                <el-form-item label="互联网知识补充（Web Search）">
+                    <div>
+                        <el-switch
+                            v-model="providerForm.webSearchEnabled"
+                            active-text="允许模型按需联网"
+                            inactive-text="仅使用企业知识库与业务工具"
+                        />
+                        <el-alert
+                            v-if="providerForm.webSearchEnabled"
+                            class="web-search-warning"
+                            type="warning"
+                            :closable="false"
+                            show-icon
+                            title="联网搜索会产生额外费用"
+                            description="回答将优先使用企业知识库；资料不足或问题具有时效性时，模型可检索公开互联网，并在回答下方展示可点击来源。"
+                        />
+                    </div>
+                </el-form-item>
                 <el-text type="info">如果火山引擎控制台为账号分配的是 Endpoint ID，请直接输入。对话模型与向量模型必须在当前 Ark 账号中已开通；向量模型不可用时系统会自动降级为全文检索，知识问答仍可继续。</el-text>
             </el-form>
             <template #footer>
@@ -433,6 +465,7 @@ onMounted(load);
 .provider-details {
     margin-top: 18px;
 }
+.web-search-warning { margin-top: 12px; }
 .provider-details code,
 .configuration-steps code {
     color: var(--jade);

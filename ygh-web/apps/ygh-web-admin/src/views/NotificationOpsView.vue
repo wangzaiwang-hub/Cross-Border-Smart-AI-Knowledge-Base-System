@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RefreshRight } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
@@ -8,16 +8,31 @@ import {
     listNotificationTemplates,
     replayDeadLetter,
     saveNotificationTemplate,
+    sendNotification,
     type DeadLetter,
     type NotificationTemplate,
 } from "@/api/operations";
 import EnterpriseTable from "@/components/EnterpriseTable.vue";
 const loading = ref(true);
 const dispatching = ref(false);
+const sending = ref(false);
 const dead = ref<DeadLetter[]>([]);
 const templates = ref<NotificationTemplate[]>([]);
 const templateDialog = ref(false);
+const sendDialog = ref(false);
 const editingTemplate = ref<NotificationTemplate>();
+const sendForm = ref({
+    userId: "",
+    templateCode: "",
+    variables: {} as Record<string, string>,
+});
+const enabledTemplates = computed(() =>
+    templates.value.filter((template) => template.enabled),
+);
+const selectedSendTemplate = computed(() =>
+    templates.value.find((template) => template.code === sendForm.value.templateCode),
+);
+const sendVariables = computed(() => templateVariables(selectedSendTemplate.value));
 async function load() {
     loading.value = true;
     try {
@@ -30,6 +45,26 @@ async function load() {
     } finally {
         loading.value = false;
     }
+}
+function templateVariables(template?: NotificationTemplate) {
+    if (!template) return [];
+    const names = new Set<string>();
+    const pattern = /\{\{([A-Za-z][A-Za-z0-9_]{0,63})}}/g;
+    for (const text of [template.titleTemplate, template.contentTemplate]) {
+        let match = pattern.exec(text);
+        while (match) {
+            if (match[1]) names.add(match[1]);
+            match = pattern.exec(text);
+        }
+    }
+    return Array.from(names);
+}
+function syncSendVariables() {
+    const next: Record<string, string> = {};
+    for (const name of sendVariables.value) {
+        next[name] = sendForm.value.variables[name] || "";
+    }
+    sendForm.value.variables = next;
 }
 function editTemplate(template?: NotificationTemplate) {
     editingTemplate.value = template
@@ -44,6 +79,15 @@ function editTemplate(template?: NotificationTemplate) {
           };
     templateDialog.value = true;
 }
+function openSendDialog() {
+    sendForm.value = {
+        userId: "",
+        templateCode: enabledTemplates.value[0]?.code || "",
+        variables: {},
+    };
+    syncSendVariables();
+    sendDialog.value = true;
+}
 async function persistTemplate() {
     if (!editingTemplate.value) return;
     try {
@@ -53,6 +97,28 @@ async function persistTemplate() {
         ElMessage.success("通知模板已保存");
     } catch {
         ElMessage.error("模板保存失败，请检查编码和版本");
+    }
+}
+async function submitNotification() {
+    if (!sendForm.value.userId || !sendForm.value.templateCode) {
+        ElMessage.warning("请填写接收用户和通知模板");
+        return;
+    }
+    if (sendVariables.value.some((name) => !sendForm.value.variables[name])) {
+        ElMessage.warning("请填写模板所需变量");
+        return;
+    }
+    sending.value = true;
+    try {
+        const result = await sendNotification(sendForm.value);
+        sendDialog.value = false;
+        ElMessage.success(
+            `通知已创建，派发 ${result.dispatched} 条待发送消息`,
+        );
+    } catch {
+        ElMessage.error("通知发送失败，请检查用户 ID、模板和变量");
+    } finally {
+        sending.value = false;
     }
 }
 async function dispatch() {
@@ -87,9 +153,14 @@ onMounted(load);
             <h1>通知与补偿</h1>
             <p>站内信派发、重试与死信人工补偿。</p>
         </div>
-        <el-button type="primary" :loading="dispatching" @click="dispatch"
-            >立即派发待发送消息</el-button
-        >
+        <div class="head-actions">
+            <el-button @click="dispatch" :loading="dispatching"
+                >派发队列</el-button
+            >
+            <el-button type="primary" @click="openSendDialog"
+                >发送通知</el-button
+            >
+        </div>
     </div>
     <div class="metric-grid">
         <div class="metric panel">
@@ -199,8 +270,60 @@ onMounted(load);
             ></template
         ></el-dialog
     >
+    <el-dialog v-model="sendDialog" title="发送站内通知" width="640">
+        <el-form label-position="top">
+            <el-form-item label="接收用户 ID">
+                <el-input
+                    v-model="sendForm.userId"
+                    placeholder="填写员工或用户 ID"
+                />
+            </el-form-item>
+            <el-form-item label="通知模板">
+                <el-select
+                    v-model="sendForm.templateCode"
+                    placeholder="请选择模板"
+                    filterable
+                    @change="syncSendVariables"
+                >
+                    <el-option
+                        v-for="template in enabledTemplates"
+                        :key="template.code"
+                        :label="`${template.code} · ${template.titleTemplate}`"
+                        :value="template.code"
+                    />
+                </el-select>
+            </el-form-item>
+            <el-alert
+                v-if="selectedSendTemplate"
+                :title="selectedSendTemplate.contentTemplate"
+                type="info"
+                :closable="false"
+            />
+            <el-form-item
+                v-for="name in sendVariables"
+                :key="name"
+                :label="`变量：${name}`"
+            >
+                <el-input v-model="sendForm.variables[name]" />
+            </el-form-item>
+            <el-empty
+                v-if="sendForm.templateCode && !sendVariables.length"
+                description="当前模板不需要变量"
+            />
+        </el-form>
+        <template #footer>
+            <el-button @click="sendDialog = false">取消</el-button>
+            <el-button type="primary" :loading="sending" @click="submitNotification"
+                >发送</el-button
+            >
+        </template>
+    </el-dialog>
 </template>
 <style scoped>
+.head-actions {
+    display: flex;
+    gap: 10px;
+}
 .dead {
     margin-top: 14px;
 }

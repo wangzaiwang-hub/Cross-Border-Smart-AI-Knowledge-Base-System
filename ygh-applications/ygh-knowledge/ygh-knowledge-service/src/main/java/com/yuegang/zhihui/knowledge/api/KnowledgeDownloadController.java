@@ -9,8 +9,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -54,15 +56,34 @@ public final class KnowledgeDownloadController {
                     return new Row(result.getString(1), result.getString(2), result.getString(3), result.getLong(4));
                 }, documentId);
         Path file = root.resolve(row.key()).normalize();
-        if (!file.startsWith(root) || !Files.isRegularFile(file)) {
-            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (file.startsWith(root) && Files.isRegularFile(file)) {
+            Resource resource = new FileSystemResource(file);
+            ContentDisposition disposition = (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
+                    .filename(row.name(), StandardCharsets.UTF_8).build();
+            return ResponseEntity.ok().contentType(MediaType.parseMediaType(row.media())).contentLength(row.size())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                    .header("X-Content-Type-Options", "nosniff").body(resource);
         }
-        Resource resource = new FileSystemResource(file);
+
+        byte[] fallback = parsedChunks(documentId, row.name()).getBytes(StandardCharsets.UTF_8);
+        Resource resource = new ByteArrayResource(fallback);
         ContentDisposition disposition = (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
-                .filename(row.name(), StandardCharsets.UTF_8).build();
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType(row.media())).contentLength(row.size())
+                .filename(row.name() + ".txt", StandardCharsets.UTF_8).build();
+        return ResponseEntity.ok().contentType(MediaType.TEXT_PLAIN).contentLength(fallback.length)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                .header("X-Content-Type-Options", "nosniff").body(resource);
+                .header("X-Content-Type-Options", "nosniff")
+                .header("X-YGH-Content-Fallback", "parsed-chunks").body(resource);
+    }
+
+    private String parsedChunks(long documentId, String fileName) {
+        List<String> chunks = jdbc.queryForList("""
+                SELECT content FROM knowledge_chunk
+                WHERE document_id=? AND status='ACTIVE'
+                ORDER BY chunk_index
+                """, String.class, documentId);
+        if (chunks.isEmpty()) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        return "原始附件未同步，以下为知识库已解析正文，仅供页面预览和检索核对。\n\n文件：" + fileName
+                + "\n\n" + String.join("\n\n", chunks);
     }
 
     private record Row(String name, String media, String key, long size) { }

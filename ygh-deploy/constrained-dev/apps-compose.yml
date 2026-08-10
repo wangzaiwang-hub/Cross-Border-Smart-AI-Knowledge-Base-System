@@ -4,11 +4,16 @@ x-app: &app
   restart: unless-stopped
   env_file: [.env]
   networks: [ygh-apps]
-  mem_limit: 512m
+  mem_limit: 384m
   cpus: 0.50
+  environment: &runtime-env
+    JAVA_TOOL_OPTIONS: >-
+      -Xms64m -Xmx192m -XX:MaxMetaspaceSize=112m
+      -XX:MaxDirectMemorySize=48m -XX:+UseSerialGC
   logging: {driver: json-file, options: {max-size: 10m, max-file: "3"}}
 
 x-env: &common-env
+  <<: *runtime-env
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
   SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
   YGH_NACOS_SERVER_ADDR: ${YGH_NACOS_SERVER_ADDR:-192.168.154.10:8848}
@@ -94,7 +99,7 @@ services:
       YGH_SEARCH_BASE_URL: http://search:8089
       YGH_REDIS_HOST: ${YGH_VM_HOST:-192.168.154.10}
       YGH_REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
-      YGH_MQ_ENABLED: "true"
+      YGH_MQ_ENABLED: ${YGH_MQ_ENABLED:-false}
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   inventory:
     <<: *app
@@ -117,7 +122,7 @@ services:
       YGH_PRODUCT_INTERNAL_BASE_URL: http://product:8084
       YGH_INVENTORY_INTERNAL_BASE_URL: http://inventory:8085
       YGH_WALLET_INTERNAL_BASE_URL: http://wallet:8087
-      YGH_MQ_ENABLED: "true"
+      YGH_MQ_ENABLED: ${YGH_MQ_ENABLED:-false}
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   wallet:
     <<: *app
@@ -128,7 +133,7 @@ services:
       YGH_WALLET_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/wallet_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       YGH_WALLET_DB_APP_PASSWORD: ${YGH_WALLET_DB_APP_PASSWORD:?required}
       YGH_WALLET_DB_MIGRATION_PASSWORD: ${YGH_WALLET_DB_MIGRATION_PASSWORD:?required}
-      YGH_MQ_ENABLED: "true"
+      YGH_MQ_ENABLED: ${YGH_MQ_ENABLED:-false}
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   notification:
     <<: *app
@@ -139,7 +144,7 @@ services:
       YGH_NOTIFICATION_DB_URL: jdbc:mysql://${YGH_VM_HOST:-192.168.154.10}:3306/notification_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       YGH_NOTIFICATION_DB_APP_PASSWORD: ${YGH_NOTIFICATION_DB_APP_PASSWORD:?required}
       YGH_NOTIFICATION_DB_MIGRATION_PASSWORD: ${YGH_NOTIFICATION_DB_MIGRATION_PASSWORD:?required}
-      YGH_MQ_ENABLED: "true"
+      YGH_MQ_ENABLED: ${YGH_MQ_ENABLED:-false}
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
   admin:
     <<: *app
@@ -160,7 +165,7 @@ services:
       YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD: ${YGH_KNOWLEDGE_DB_MIGRATION_PASSWORD:?required}
       YGH_KNOWLEDGE_STORAGE_ROOT: /data/knowledge
       YGH_SEARCH_INTERNAL_BASE_URL: http://search:8089
-      YGH_MQ_ENABLED: "true"
+      YGH_MQ_ENABLED: ${YGH_MQ_ENABLED:-false}
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
     volumes: [knowledge-files:/data/knowledge]
     user: "0:0"
@@ -203,7 +208,7 @@ services:
       YGH_TRAINING_DB_MIGRATION_PASSWORD: ${YGH_TRAINING_DB_MIGRATION_PASSWORD:?required}
       YGH_TRAINING_STORAGE_ROOT: /data/training
       YGH_USER_INTERNAL_BASE_URL: http://user:8082
-      YGH_MQ_ENABLED: "true"
+      YGH_MQ_ENABLED: ${YGH_MQ_ENABLED:-false}
       YGH_ROCKETMQ_NAMESERVER: ${YGH_ROCKETMQ_NAMESERVER:-host.docker.internal:19876}
     volumes: [training-files:/data/training]
     user: "0:0"

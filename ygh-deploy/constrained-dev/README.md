@@ -22,6 +22,37 @@ RocketMQ、Seata 和 Elasticsearch 分别按 08、09、10 号文档逐个创建�
 
 客户手工部署不创建 `.env`。密码和密钥只填写到 Docker Desktop 容器参数、IDEA Run Configuration 的 Environment variables 以及客户密码管理器中。
 
+## 本地 Java 启动器 YAML 配置
+
+Windows 本地联调可以使用 `tools/local-runner/LocalServiceLauncher` 读取扁平 YAML 配置，避免在
+PowerShell 命令中反复粘贴环境变量。示例文件位于：
+
+```text
+tools/local-runner/ygh-core-services.yaml.example
+```
+
+使用时复制到仓库外，例如：
+
+```text
+E:/ygh-secrets/env/ygh-core-services.yaml
+```
+
+YAML 只支持扁平键值格式：
+
+```yaml
+YGH_AUTH_PORT: 8081
+YGH_AUTH_DB_APP_PASSWORD: replace-me
+```
+
+启动前先校验配置文件：
+
+```powershell
+java -cp tools\local-runner\target\classes com.yuegang.zhihui.tools.LocalServiceLauncher --env E:\ygh-secrets\env\ygh-core-services.yaml --check
+```
+
+真实密钥文件不得提交。仓库内临时测试文件 `ygh-deploy/constrained-dev/.env.yaml` 已被 `.gitignore`
+忽略，只允许用于本机测试。
+
 ## WSL 与 Docker Desktop
 
 Docker Desktop 运行且已启用 Ubuntu 集成时，禁止执行 `wsl --terminate Ubuntu`。该操作会直接杀掉 Docker 的发行版代理并触发 `DockerDesktop/Wsl/ExecError`。

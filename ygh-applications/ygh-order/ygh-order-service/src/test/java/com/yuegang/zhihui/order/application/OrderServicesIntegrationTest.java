@@ -54,10 +54,14 @@ class OrderServicesIntegrationTest {
             assertBusinessError(() -> cart.delete(42, changedCart.id(), changedCart.version()), ErrorCode.RESOURCE_NOT_FOUND);
 
             var firstRequest = request("create-1", "1001", 2, "19.90");
+            cart.save(42, new CartItemRequest("1001", 2, true, 0));
+            var unrelatedCartItem = cart.save(42, new CartItemRequest("2000", 1, true, 0));
             var first = facade.create(42, firstRequest);
             assertThat(first.status()).isEqualTo(OrderStatus.PENDING_PAYMENT);
             assertThat(first.totalAmount()).isEqualByComparingTo("39.80");
+            assertThat(cart.list(42)).containsExactly(unrelatedCartItem);
             assertThat(facade.create(42, firstRequest).orderId()).isEqualTo(first.orderId());
+            assertThat(cart.list(42)).containsExactly(unrelatedCartItem);
             verify(inventory, times(2)).reserve(any(InventoryCommand.class));
             assertThat(query.mine(42, null, 0)).containsExactly(first);
             assertThat(query.admin("PENDING_PAYMENT", 1000)).containsExactly(first);

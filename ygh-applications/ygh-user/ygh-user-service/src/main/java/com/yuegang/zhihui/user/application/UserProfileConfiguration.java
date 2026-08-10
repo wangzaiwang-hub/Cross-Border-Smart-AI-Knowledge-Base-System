@@ -11,7 +11,7 @@ import org.springframework.context.annotation.*;
 
 @Configuration(proxyBeanMethods = false)
 class UserProfileConfiguration {
-    @Bean UserProfileRepository userProfileRepository(DataSource dataSource) { return new JdbcUserProfileRepository(dataSource); }
+    @Bean UserProfileRepository userProfileRepository(DataSource dataSource, AddressCipher cipher) { return new JdbcUserProfileRepository(dataSource, cipher); }
     @Bean UserProfileService userProfileService(UserProfileRepository repository) { return new UserProfileService(repository); }
     @Bean AddressCipher addressCipher(@Value("${ygh.user.pii-key-base64}") String key,
             @Value("${ygh.user.pii-key-version:1}") int version) { return new AddressCipher(key, version); }

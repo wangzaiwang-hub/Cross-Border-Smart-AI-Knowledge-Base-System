@@ -5,6 +5,7 @@ import com.yuegang.zhihui.ai.api.ChatRequest;
 import com.yuegang.zhihui.ai.api.ChatResponse;
 import com.yuegang.zhihui.ai.api.CitationView;
 import com.yuegang.zhihui.ai.domain.ModelGateway;
+import com.yuegang.zhihui.ai.domain.ModelAnswer;
 import com.yuegang.zhihui.ai.domain.RetrievalGateway;
 import com.yuegang.zhihui.ai.infrastructure.CommerceToolGateway;
 import com.yuegang.zhihui.ai.infrastructure.CommerceToolGateway.ToolEvidence;
@@ -26,7 +27,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 public final class ChatService {
-    private static final String SYSTEM = "你是跨境智汇企业客服。只能依据提供的已审核资料和系统提供的只读工具结果回答；必须标注引用；资料不足时明确拒答；不得生成SQL、修改订单、调整余额或发布知识。";
+    private static final String SYSTEM = "你是跨境智汇企业客服。优先依据提供的已审核资料和系统只读工具；启用联网搜索时可用公开网络资料补充知识盲区和时效信息。回答必须区分已审核知识库、只读业务数据、模型通用知识与互联网来源；没有检索到已审核资料时，可以基于模型通用知识给出审慎建议，但必须明确提示该部分未经过企业知识库核验。不得生成SQL、修改订单、调整余额或发布知识。";
     private static final Pattern SKU = Pattern.compile("(?:SKU|商品)[：: #]*(\\d{1,20})", Pattern.CASE_INSENSITIVE);
     private static final Pattern ORDER = Pattern.compile("订单[号ID：: #]*(\\d{1,20})", Pattern.CASE_INSENSITIVE);
     private final RetrievalGateway retrieval;
@@ -65,29 +66,30 @@ public final class ChatService {
             Matcher order = ORDER.matcher(request.message());
             if (order.find()) evidence.add(tools.ownOrder(user, order.group(1)));
         }
-        boolean professional = request.message().matches(".*(政策|法规|通关|关税|溯源|原产地).*?");
         Prompt prompt = activePrompt();
-        if (hits.isEmpty() && evidence.isEmpty() && professional) {
-            return save(user, request, "当前已审核知识库中没有足够依据，无法可靠回答该专业问题。", List.of(), List.of(),
-                    true, "INSUFFICIENT_EVIDENCE", new Trace(retrievalMs, 0, prompt, 0, 0, hits));
-        }
         String context = hits.stream().map(hit -> "[" + hit.documentId() + "/" + hit.chunkId() + "] "
                 + hit.title() + "\n" + hit.excerpt()).reduce("", (left, right) -> left + "\n" + right);
         String toolContext = evidence.stream().map(value -> "[只读工具 " + value.name() + "] " + value.resultJson())
                 .reduce("", (left, right) -> left + "\n" + right);
-        String userPrompt = "已审核资料：\n" + context + "\n只读业务数据：\n" + toolContext + "\n\n问题：" + request.message();
-        List<CitationView> citations = hits.stream().map(hit -> new CitationView(
+        String userPrompt = "已审核资料：\n" + context + "\n只读业务数据：\n" + toolContext
+                + "\n\n回答要求：优先使用已审核资料和只读业务数据；如果资料不足且联网搜索已启用，请检索多个可信公开来源后回答并保留来源链接；如果资料不足且联网搜索不可用，请基于模型通用知识给出可操作建议，并在开头标注“未命中已审核知识库，以下为通用建议，需人工核验”。\n问题："
+                + request.message();
+        List<CitationView> knowledgeCitations = hits.stream().map(hit -> new CitationView(
                 "KNOWLEDGE", hit.chunkId(), hit.documentId(), hit.title(), hit.excerpt(), null,
                 hit.documentVersion(), hit.sourceUpdatedAt())).toList();
         if (!model.available()) {
             String answer = model.answer(SYSTEM, userPrompt);
             Prompt unavailable = new Prompt(prompt.id, prompt.version, model.modelName());
-            return save(user, request, answer, citations, evidence, true, "MODEL_NOT_CONFIGURED",
+            return save(user, request, answer, knowledgeCitations, evidence, true, "MODEL_NOT_CONFIGURED",
                     new Trace(retrievalMs, 0, unavailable, tokens(SYSTEM) + tokens(userPrompt), tokens(answer), hits));
         }
         long modelStarted = System.nanoTime();
-        String answer = model.answer(SYSTEM, userPrompt);
+        ModelAnswer generated = model.answerWithSources(SYSTEM, userPrompt);
+        String answer = generated.text();
         long modelMs = elapsed(modelStarted);
+        List<CitationView> citations = new ArrayList<>(knowledgeCitations);
+        generated.sources().forEach(source -> citations.add(new CitationView(
+                "WEB", digest(source.url()), source.title(), source.excerpt(), source.url())));
         return save(user, request, answer, citations, evidence, false, null,
                 new Trace(retrievalMs, modelMs, prompt, tokens(SYSTEM) + tokens(userPrompt), tokens(answer), hits));
     }

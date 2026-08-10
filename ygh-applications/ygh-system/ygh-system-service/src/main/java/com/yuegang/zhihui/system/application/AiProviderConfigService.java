@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 public final class AiProviderConfigService {
     private static final String SELECT = """
-            SELECT provider,base_url,chat_model,embedding_model,api_key_ciphertext,api_key_nonce,
+            SELECT provider,base_url,chat_model,embedding_model,web_search_enabled,api_key_ciphertext,api_key_nonce,
                    version,updated_at
             FROM system_ai_provider_config WHERE config_id=1
             """;
@@ -34,13 +34,13 @@ public final class AiProviderConfigService {
     public AiProviderConfigView view() {
         return jdbc.queryForObject(SELECT, (row, index) -> toView(
                 row.getString(1), row.getString(2), row.getString(3), row.getString(4),
-                row.getString(5), row.getLong(7), row.getTimestamp(8)));
+                row.getBoolean(5), row.getString(6), row.getLong(8), row.getTimestamp(9)));
     }
 
     public InternalAiProviderConfig internal() {
         return jdbc.queryForObject(SELECT, (row, index) -> new InternalAiProviderConfig(
                 row.getString(1), row.getString(2), row.getString(3), row.getString(4),
-                secrets.decrypt(row.getString(5), row.getString(6)), row.getLong(7)));
+                row.getBoolean(5), secrets.decrypt(row.getString(6), row.getString(7)), row.getLong(8)));
     }
 
     public AiProviderConfigView update(UpdateAiProviderConfigRequest request, long operator) {
@@ -58,17 +58,20 @@ public final class AiProviderConfigService {
         }
         int updated = jdbc.update("""
                 UPDATE system_ai_provider_config
-                   SET provider=?,base_url=?,chat_model=?,embedding_model=?,api_key_ciphertext=?,api_key_nonce=?,
+                   SET provider=?,base_url=?,chat_model=?,embedding_model=?,web_search_enabled=?,api_key_ciphertext=?,api_key_nonce=?,
                        updated_by=?,version=version+1
                  WHERE config_id=1 AND version=?
                 """, request.provider(), request.baseUrl().trim(), request.chatModel().trim(),
-                request.embeddingModel().trim(), ciphertext, nonce, operator, request.version());
+                request.embeddingModel().trim(), request.webSearchEnabled(), ciphertext, nonce, operator,
+                request.version());
         if (updated != 1) throw new BusinessException(ErrorCode.BUSINESS_CONFLICT);
         String oldDigest = digest(String.join("|", current.get("provider").toString(),
                 current.get("base_url").toString(), current.get("chat_model").toString(),
-                current.get("embedding_model").toString(), oldCiphertext == null ? "" : oldCiphertext));
+                current.get("embedding_model").toString(), current.get("web_search_enabled").toString(),
+                oldCiphertext == null ? "" : oldCiphertext));
         String newDigest = digest(String.join("|", request.provider(), request.baseUrl(), request.chatModel(),
-                request.embeddingModel(), ciphertext == null ? "" : ciphertext));
+                request.embeddingModel(), Boolean.toString(request.webSearchEnabled()),
+                ciphertext == null ? "" : ciphertext));
         jdbc.update("""
                 INSERT INTO system_configuration_audit(
                     id,config_type,config_key,old_digest,new_digest,operator_user_id
@@ -78,11 +81,12 @@ public final class AiProviderConfigService {
     }
 
     private static AiProviderConfigView toView(String provider, String baseUrl, String chatModel,
-                                               String embeddingModel, String ciphertext, long version,
+                                               String embeddingModel, boolean webSearchEnabled,
+                                               String ciphertext, long version,
                                                Timestamp updatedAt) {
         boolean configured = ciphertext != null && !ciphertext.isBlank();
         OffsetDateTime changed = updatedAt == null ? null : updatedAt.toInstant().atOffset(ZoneOffset.UTC);
-        return new AiProviderConfigView(provider, baseUrl, chatModel, embeddingModel, configured,
+        return new AiProviderConfigView(provider, baseUrl, chatModel, embeddingModel, webSearchEnabled, configured,
                 configured ? "••••••••" : "未配置", version, changed);
     }
 

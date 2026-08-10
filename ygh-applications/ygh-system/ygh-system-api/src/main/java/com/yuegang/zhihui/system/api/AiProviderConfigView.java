@@ -7,6 +7,7 @@ public record AiProviderConfigView(
         String baseUrl,
         String chatModel,
         String embeddingModel,
+        boolean webSearchEnabled,
         boolean apiKeyConfigured,
         String apiKeyMasked,
         long version,

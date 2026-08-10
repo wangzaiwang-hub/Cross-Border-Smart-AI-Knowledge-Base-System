@@ -26,14 +26,73 @@ const welcome: ChatMessage = {
     id: "welcome",
     role: "ASSISTANT",
     content:
-        "您好，我是跨境智汇 AI 客服。我可以依据已发布知识和授权商品信息，回答跨境政策、通关流程、商品溯源以及您的订单问题。",
+        "您好，我是跨境智汇 AI 客服。我会优先依据已发布知识和授权商品信息；管理员启用联网搜索后，也可以检索公开互联网补充最新政策与知识，并展示来源链接。",
     createdAt: new Date().toISOString(),
 };
 const messages = ref<ChatMessage[]>([welcome]);
 const conversations = ref<Conversation[]>([]);
 const conversationId = ref<string>();
 const feedbackMessages = ref(new Set<string>());
+const streamingMessageId = ref<string>();
 let controller: AbortController | undefined;
+
+function escapeHtml(value: string) {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function inlineMarkdown(value: string) {
+    return escapeHtml(value)
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+
+function renderMarkdown(value: string) {
+    const lines = value.trim().split(/\r?\n/);
+    const html: string[] = [];
+    let inList = false;
+    for (const line of lines) {
+        const text = line.trim();
+        if (!text) {
+            if (inList) {
+                html.push("</ul>");
+                inList = false;
+            }
+            continue;
+        }
+        const heading = text.match(/^(#{1,3})\s+(.+)$/);
+        const item = text.match(/^[-*]\s+(.+)$/);
+        const numbered = text.match(/^\d+[.、]\s+(.+)$/);
+        if (heading) {
+            const level = heading[1]?.length || 1;
+            const body = heading[2] || "";
+            if (inList) {
+                html.push("</ul>");
+                inList = false;
+            }
+            html.push(`<h${level}>${inlineMarkdown(body)}</h${level}>`);
+        } else if (item || numbered) {
+            const body = item?.[1] || numbered?.[1] || "";
+            if (!inList) {
+                html.push("<ul>");
+                inList = true;
+            }
+            html.push(`<li>${inlineMarkdown(body)}</li>`);
+        } else {
+            if (inList) {
+                html.push("</ul>");
+                inList = false;
+            }
+            html.push(`<p>${inlineMarkdown(text)}</p>`);
+        }
+    }
+    if (inList) html.push("</ul>");
+    return html.join("");
+}
 
 function httpStatus(error: unknown) {
     if (
@@ -79,10 +138,12 @@ async function openConversation(id: string) {
                 createdAt: x.createdAt,
                 refused: x.refused,
                 citations: x.citations.map((citation) => ({
+                    sourceType: citation.sourceType,
                     documentId: citation.documentId,
                     chunkId: citation.sourceId,
                     title: citation.title,
                     excerpt: `${citation.excerpt}${citation.documentVersion ? `（版本 ${citation.documentVersion}${citation.sourceUpdatedAt ? `，更新于 ${new Date(citation.sourceUpdatedAt).toLocaleString("zh-CN")}` : ""}）` : ""}`,
+                    url: citation.url,
                 })),
             })),
         ];
@@ -122,6 +183,7 @@ async function send() {
         createdAt: new Date().toISOString(),
     };
     messages.value.push(answer);
+    streamingMessageId.value = answer.id;
     input.value = "";
     sending.value = true;
     controller = new AbortController();
@@ -162,6 +224,7 @@ async function send() {
         }
     } finally {
         sending.value = false;
+        streamingMessageId.value = undefined;
         controller = undefined;
     }
 }
@@ -212,7 +275,7 @@ onMounted(loadConversations);
             <header>
                 <div>
                     <span class="status-dot" /><b>专业客服在线</b
-                    ><small>回答由知识库与业务工具共同支撑</small>
+                    ><small>回答由知识库、业务工具与可审计互联网来源共同支撑</small>
                 </div>
                 <el-button text :icon="Delete" @click="newChat">清空</el-button>
             </header>
@@ -235,21 +298,48 @@ onMounted(loadConversations);
                         {{ m.role === "USER" ? "我" : "智" }}
                     </div>
                     <div class="message-body">
-                        <div class="bubble">{{ m.content }}</div>
+                        <div
+                            v-if="m.content || m.id !== streamingMessageId"
+                            class="bubble"
+                            :class="{ markdown: m.role === 'ASSISTANT' }"
+                            v-html="
+                                m.role === 'ASSISTANT'
+                                    ? renderMarkdown(m.content)
+                                    : escapeHtml(m.content)
+                            "
+                        />
+                        <div v-else class="bubble typing"><i /><i /><i /></div>
                         <div v-if="m.citations?.length" class="citations">
                             <b
                                 ><Document />回答引用
                                 {{ m.citations.length }} 条</b
-                            ><RouterLink
+                            ><template
                                 v-for="c in m.citations"
-                                :key="c.chunkId"
-                                :to="`/knowledge/${c.documentId}`"
-                                ><span>{{ c.title }}</span
-                                ><small>{{ c.excerpt }}</small></RouterLink
+                                :key="`${c.sourceType || 'KNOWLEDGE'}-${c.chunkId}`"
                             >
+                                <a
+                                    v-if="c.sourceType === 'WEB' && c.url"
+                                    :href="c.url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    ><span>互联网 · {{ c.title }}</span
+                                    ><small>{{ c.excerpt }}</small></a
+                                >
+                                <RouterLink
+                                    v-else-if="c.documentId"
+                                    :to="`/knowledge/${c.documentId}`"
+                                    ><span>{{ c.title }}</span
+                                    ><small>{{ c.excerpt }}</small></RouterLink
+                                >
+                            </template>
                         </div>
                         <div
-                            v-if="m.role === 'ASSISTANT' && m.id !== 'welcome'"
+                            v-if="
+                                m.role === 'ASSISTANT' &&
+                                m.id !== 'welcome' &&
+                                m.id !== streamingMessageId &&
+                                m.content
+                            "
                             class="feedback"
                         >
                             <span v-if="feedbackMessages.has(m.id)"
@@ -266,7 +356,7 @@ onMounted(loadConversations);
                         </div>
                     </div>
                 </article>
-                <article v-if="sending" class="assistant">
+                <article v-if="sending && !streamingMessageId" class="assistant">
                     <div class="avatar">智</div>
                     <div class="bubble typing"><i /><i /><i /></div>
                 </article>
@@ -277,7 +367,6 @@ onMounted(loadConversations);
                         v-for="q in [
                             '进口零食需要哪些通关材料？',
                             '如何查看商品溯源？',
-                            '查询我的待支付订单',
                         ]"
                         :key="q"
                         @click="input = q"
@@ -311,17 +400,20 @@ onMounted(loadConversations);
 <style scoped>
 .ai-shell {
     height: calc(100vh - 102px);
-    min-height: 650px;
+    min-height: 0;
     display: grid;
     grid-template-columns: 270px 1fr;
     background: #edf1ec;
+    overflow: hidden;
 }
 .ai-shell > aside {
+    min-height: 0;
     display: flex;
     flex-direction: column;
     padding: 22px;
     background: #0b3431;
     color: white;
+    overflow: hidden;
 }
 .ai-brand {
     display: flex;
@@ -403,9 +495,11 @@ onMounted(loadConversations);
 }
 .ai-shell > main {
     min-width: 0;
+    min-height: 0;
     display: grid;
     grid-template-rows: 64px 1fr auto;
     background: #faf9f5;
+    overflow: hidden;
 }
 .ai-shell main > header {
     display: flex;
@@ -426,6 +520,7 @@ onMounted(loadConversations);
 .messages {
     overflow: auto;
     padding: 25px max(24px, calc((100% - 850px) / 2));
+    min-height: 0;
 }
 .login-notice {
     display: flex;
@@ -470,6 +565,38 @@ onMounted(loadConversations);
     border-radius: 2px 13px 13px 13px;
     line-height: 1.8;
     font-size: 14px;
+    overflow-wrap: anywhere;
+}
+.bubble.markdown :deep(p) {
+    margin: 0 0 9px;
+}
+.bubble.markdown :deep(p:last-child) {
+    margin-bottom: 0;
+}
+.bubble.markdown :deep(ul) {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+.bubble.markdown :deep(li + li) {
+    margin-top: 5px;
+}
+.bubble.markdown :deep(h1),
+.bubble.markdown :deep(h2),
+.bubble.markdown :deep(h3) {
+    margin: 4px 0 10px;
+    line-height: 1.45;
+    font-size: 16px;
+}
+.bubble.markdown :deep(strong) {
+    color: #0d4c46;
+}
+.bubble.markdown :deep(code) {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #edf4f0;
+    color: #9b3e2a;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
 }
 .user .bubble {
     background: var(--jade);

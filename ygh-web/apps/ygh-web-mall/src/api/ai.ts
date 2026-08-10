@@ -22,10 +22,12 @@ export interface StreamResult {
     refused: boolean;
 }
 interface BackendCitation {
+    sourceType?: "KNOWLEDGE" | "WEB";
     sourceId: string;
-    documentId: string;
+    documentId?: string;
     title: string;
     excerpt: string;
+    url?: string;
     documentVersion?: number;
     sourceUpdatedAt?: string;
 }
@@ -85,10 +87,12 @@ export async function streamChat(
             } else if (event.event === "citations") {
                 const values = JSON.parse(event.data) as BackendCitation[];
                 result.citations = values.map((x) => ({
+                    sourceType: x.sourceType,
                     documentId: x.documentId,
                     chunkId: x.sourceId,
                     title: x.title,
                     excerpt: x.excerpt,
+                    url: x.url,
                 }));
             } else if (event.event === "done")
                 result.refused = Boolean(

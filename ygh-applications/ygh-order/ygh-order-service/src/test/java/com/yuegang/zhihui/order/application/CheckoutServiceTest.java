@@ -20,6 +20,7 @@ class CheckoutServiceTest {
     void rebuildsTrustedSnapshotFromPublishedProductAndRejectsUnavailableProduct() throws Exception {
         var published = new AtomicBoolean(true);
         var inventoryAvailable = new AtomicBoolean(true);
+        var inventoryExists = new AtomicBoolean(true);
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api/v1/products/1001", exchange -> {
             String status = published.get() ? "PUBLISHED" : "OFF_SHELF";
@@ -33,6 +34,11 @@ class CheckoutServiceTest {
             exchange.close();
         });
         server.createContext("/internal/v1/inventory/1001", exchange -> {
+            if (!inventoryExists.get()) {
+                exchange.sendResponseHeaders(404, -1);
+                exchange.close();
+                return;
+            }
             long available = inventoryAvailable.get() ? 10 : 1;
             String body = """
                     {"code":"00000","message":"成功","data":{"skuId":"1001","available":%d,"locked":0,"sold":0,"version":1},"traceId":"trace","timestamp":"2026-07-12T08:00:00Z"}
@@ -62,6 +68,9 @@ class CheckoutServiceTest {
             assertThatThrownBy(() -> service.preview(request)).isInstanceOf(BusinessException.class);
             published.set(true);
             inventoryAvailable.set(false);
+            assertThatThrownBy(() -> service.preview(request)).isInstanceOf(BusinessException.class);
+            inventoryAvailable.set(true);
+            inventoryExists.set(false);
             assertThatThrownBy(() -> service.preview(request)).isInstanceOf(BusinessException.class);
         } finally {
             server.stop(0);
