@@ -109,16 +109,6 @@ const routes: RouteRecordRaw[] = [
                     permission: "notification:compensate",
                 },
             },
-            {
-                path: "system",
-                component: () => import("@/views/SystemConfigView.vue"),
-                meta: { title: "系统配置", permission: "system:config:read" },
-            },
-            {
-                path: "audit",
-                component: () => import("@/views/AuditView.vue"),
-                meta: { title: "审计与安全", permission: "audit:read" },
-            },
         ],
     },
     { path: "/403", component: () => import("@/views/ForbiddenView.vue") },
