@@ -9,6 +9,7 @@ import com.yuegang.zhihui.common.core.BusinessException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ class AdminServicesTest {
     private HttpServer server;
     private String base;
     private final AtomicReference<String> lokiQuery = new AtomicReference<>();
+    private final AtomicInteger flakyHealthAttempts = new AtomicInteger();
 
     @BeforeEach
     void start() throws Exception {
@@ -25,6 +27,13 @@ class AdminServicesTest {
         base = "http://localhost:" + server.getAddress().getPort();
         server.createContext("/health-up", exchange -> reply(exchange, "{\"status\":\"UP\"}", 200));
         server.createContext("/health-empty", exchange -> reply(exchange, "{}", 200));
+        server.createContext("/health-flaky", exchange -> {
+            if (flakyHealthAttempts.incrementAndGet() == 1) {
+                reply(exchange, "{\"status\":\"DOWN\"}", 503);
+            } else {
+                reply(exchange, "{\"status\":\"UP\"}", 200);
+            }
+        });
         server.createContext("/loki/api/v1/query_range", exchange -> {
             lokiQuery.set(exchange.getRequestURI().getQuery());
             reply(exchange,
@@ -50,6 +59,16 @@ class AdminServicesTest {
                 .containsExactlyInAnyOrder("UP", "UNKNOWN", "DOWN");
         assertThat(dashboard.pending()).hasSize(2);
         assertThat(new AdminDashboardService("invalid-entry").dashboard().services()).isEmpty();
+    }
+
+    @Test
+    void retriesOneTransientHealthRequestFailure() {
+        var dashboard = new AdminDashboardService("product=" + base + "/health-flaky").dashboard();
+
+        assertThat(flakyHealthAttempts.get()).isEqualTo(2);
+        assertThat(dashboard.services()).singleElement().satisfies(status ->
+                assertThat(status.status()).isEqualTo("UP"));
+        assertThat(dashboard.pending()).isEmpty();
     }
 
     @Test

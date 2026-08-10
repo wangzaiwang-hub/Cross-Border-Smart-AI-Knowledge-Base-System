@@ -68,13 +68,16 @@ public final class AdminDashboardService {
     private AdminDashboardView.ServiceStatus probe(String name, String url) {
         long startedAt = System.nanoTime();
         String status = "DOWN";
-        try {
-            Map<?, ?> response = client.get().uri(url).retrieve().body(Map.class);
-            if (response != null) {
-                status = Objects.toString(response.get("status"), "UNKNOWN");
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                Map<?, ?> response = client.get().uri(url).retrieve().body(Map.class);
+                status = response == null
+                        ? "UNKNOWN"
+                        : Objects.toString(response.get("status"), "UNKNOWN");
+                break;
+            } catch (RuntimeException ignored) {
+                status = "DOWN";
             }
-        } catch (RuntimeException ignored) {
-            status = "DOWN";
         }
         return new AdminDashboardView.ServiceStatus(
                 name, status, (System.nanoTime() - startedAt) / 1_000_000);
