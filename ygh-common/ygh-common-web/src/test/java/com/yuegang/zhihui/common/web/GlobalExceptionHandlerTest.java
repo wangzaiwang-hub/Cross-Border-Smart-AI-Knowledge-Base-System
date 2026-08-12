@@ -25,6 +25,12 @@ import org.springframework.validation.method.MethodValidationResult;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.ServletRequestBindingException;
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GlobalExceptionHandlerTest {
 
@@ -55,6 +61,54 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().code()).isEqualTo("INTERNAL_ERROR");
         assertThat(response.getBody().message()).isEqualTo("系统内部错误");
         assertThat(response.getBody().message()).doesNotContain("password");
+    }
+
+    @Test
+    void unreadableJsonIsASecretFreeValidationFailure() {
+        var response = handler.handleUnreadableMessage(null, requestWithTraceId("trace-json"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("VALIDATION_ERROR");
+        assertThat(response.getBody().traceId()).isEqualTo("trace-json");
+        assertThat(response.getBody().data()).containsExactly(
+                FieldValidationError.sanitized("body", "请求体格式不合法"));
+    }
+
+    @Test
+    void standardMvcProtocolFailuresRemainSanitized4xxResponses() {
+        var request = requestWithTraceId("trace-protocol");
+        var method = handler.handleMethodNotSupported(
+                new HttpRequestMethodNotSupportedException("PUT", List.of("POST")), request);
+        assertThat(method.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(method.getHeaders().getAllow()).containsExactly(org.springframework.http.HttpMethod.POST);
+        assertThat(method.getBody()).isNotNull();
+        assertThat(method.getBody().code()).isEqualTo("VALIDATION_ERROR");
+
+        var media = handler.handleMediaTypeNotSupported(
+                new HttpMediaTypeNotSupportedException(
+                        MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON)), request);
+        assertThat(media.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        assertThat(media.getHeaders().getAccept()).containsExactly(MediaType.APPLICATION_JSON);
+
+        var binding = handler.handleRequestBindingFailure(
+                new ServletRequestBindingException("secret-internal-detail"), request);
+        assertThat(binding.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(binding.getBody()).isNotNull();
+        assertThat(binding.getBody().toString()).doesNotContain("secret-internal-detail");
+
+        var unacceptable = handler.handleMediaTypeNotAcceptable(
+                new HttpMediaTypeNotAcceptableException(List.of(MediaType.APPLICATION_JSON)), request);
+        assertThat(unacceptable.getStatusCode()).isEqualTo(HttpStatus.NOT_ACCEPTABLE);
+        assertThat(unacceptable.getHeaders().getAccept()).containsExactly(MediaType.APPLICATION_JSON);
+
+        var missing = handler.handleResourceNotFound(
+                new NoResourceFoundException(
+                        org.springframework.http.HttpMethod.GET, "/private/secret", "/private/secret"), request);
+        assertThat(missing.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(missing.getBody()).isNotNull();
+        assertThat(missing.getBody().code()).isEqualTo("RESOURCE_NOT_FOUND");
+        assertThat(missing.getBody().toString()).doesNotContain("/private/secret");
     }
 
     @Test

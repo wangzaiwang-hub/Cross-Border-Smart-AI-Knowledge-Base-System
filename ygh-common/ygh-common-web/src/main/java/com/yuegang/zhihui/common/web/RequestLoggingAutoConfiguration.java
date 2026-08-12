@@ -19,6 +19,12 @@ public class RequestLoggingAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(GlobalExceptionHandler.class)
+    GlobalExceptionHandler globalExceptionHandler() {
+        return new GlobalExceptionHandler();
+    }
+
+    @Bean
     @ConditionalOnMissingBean(RequestLoggingFilter.class)
     RequestLoggingFilter requestLoggingFilter(RequestLogSink sink) {
         return new RequestLoggingFilter(sink);
@@ -33,6 +39,24 @@ public class RequestLoggingAutoConfiguration {
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
         registration.setEnabled(true);
         registration.addUrlPatterns("/*");
+        return registration;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AuditLoggingFilter.class)
+    AuditLoggingFilter auditLoggingFilter() {
+        return new AuditLoggingFilter();
+    }
+
+    @Bean
+    FilterRegistrationBean<AuditLoggingFilter> auditLoggingFilterRegistration(
+            AuditLoggingFilter filter
+    ) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setName("yghAuditLoggingFilter");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
+        registration.setEnabled(true);
+        registration.addUrlPatterns("/api/*", "/internal/*");
         return registration;
     }
 }

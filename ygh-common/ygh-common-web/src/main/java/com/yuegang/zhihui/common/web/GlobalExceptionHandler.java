@@ -13,6 +13,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.bind.ServletRequestBindingException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -85,6 +94,65 @@ public class GlobalExceptionHandler {
         return validationFailure(fieldErrors, request);
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiResponse<List<FieldValidationError>>> handleUnreadableMessage(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request
+    ) {
+        return validationFailure(
+                List.of(FieldValidationError.sanitized("body", "请求体格式不合法")), request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<ApiResponse<List<FieldValidationError>>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request
+    ) {
+        return protocolFailure(
+                exception.getStatusCode(), exception.getHeaders(), "method", "请求方法不受支持", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<ApiResponse<List<FieldValidationError>>> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException exception,
+            HttpServletRequest request
+    ) {
+        return protocolFailure(
+                exception.getStatusCode(), exception.getHeaders(), "contentType", "媒体类型不受支持", request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    ResponseEntity<ApiResponse<List<FieldValidationError>>> handleMediaTypeNotAcceptable(
+            HttpMediaTypeNotAcceptableException exception,
+            HttpServletRequest request
+    ) {
+        return protocolFailure(
+                exception.getStatusCode(), exception.getHeaders(), "accept", "无法生成可接受的响应类型", request);
+    }
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    ResponseEntity<ApiResponse<Void>> handleResourceNotFound(
+            Exception exception,
+            HttpServletRequest request
+    ) {
+        var errorResponse = (ErrorResponse) exception;
+        var body = ApiResponse.<Void>failure(
+                ErrorCode.RESOURCE_NOT_FOUND,
+                ErrorCode.RESOURCE_NOT_FOUND.defaultMessage(),
+                TraceIdResolver.resolve(request));
+        return ResponseEntity.status(errorResponse.getStatusCode())
+                .headers(errorResponse.getHeaders()).body(body);
+    }
+
+    @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ApiResponse<List<FieldValidationError>>> handleRequestBindingFailure(
+            Exception exception,
+            HttpServletRequest request
+    ) {
+        return validationFailure(
+                List.of(FieldValidationError.sanitized("request", "请求参数不合法")), request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(
             Exception exception,
@@ -141,5 +209,20 @@ public class GlobalExceptionHandler {
                 fieldErrors,
                 TraceIdResolver.resolve(request));
         return ResponseEntity.badRequest().body(body);
+    }
+
+    private ResponseEntity<ApiResponse<List<FieldValidationError>>> protocolFailure(
+            org.springframework.http.HttpStatusCode status,
+            HttpHeaders headers,
+            String field,
+            String message,
+            HttpServletRequest request
+    ) {
+        var body = ApiResponse.failure(
+                ErrorCode.VALIDATION_ERROR,
+                ErrorCode.VALIDATION_ERROR.defaultMessage(),
+                List.of(FieldValidationError.sanitized(field, message)),
+                TraceIdResolver.resolve(request));
+        return ResponseEntity.status(status).headers(headers).body(body);
     }
 }

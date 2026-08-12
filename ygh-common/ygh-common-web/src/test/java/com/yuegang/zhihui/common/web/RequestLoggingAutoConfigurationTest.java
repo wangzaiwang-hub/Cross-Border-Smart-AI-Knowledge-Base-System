@@ -21,16 +21,24 @@ class RequestLoggingAutoConfigurationTest {
         contextRunner.run(context -> {
             assertThat(context).hasSingleBean(RequestLogSink.class);
             assertThat(context).hasSingleBean(RequestLoggingFilter.class);
-            assertThat(context).hasSingleBean(FilterRegistrationBean.class);
+            assertThat(context).hasSingleBean(AuditLoggingFilter.class);
+            assertThat(context).hasSingleBean(GlobalExceptionHandler.class);
 
             var filter = context.getBean(RequestLoggingFilter.class);
             var registrations = context.getBeansOfType(FilterRegistrationBean.class);
-            assertThat(registrations).hasSize(1);
-            var registration = registrations.values().iterator().next();
+            assertThat(registrations).hasSize(2);
+            var registration = registrations.get("requestLoggingFilterRegistration");
             assertThat(registration.getFilter()).isSameAs(filter);
             assertThat(registration.isEnabled()).isTrue();
             assertThat(registration.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 10);
             assertThat(registration.getUrlPatterns()).containsExactly("/*");
+
+            var auditRegistration = registrations.get("auditLoggingFilterRegistration");
+            assertThat(auditRegistration.getFilter())
+                    .isSameAs(context.getBean(AuditLoggingFilter.class));
+            assertThat(auditRegistration.isEnabled()).isTrue();
+            assertThat(auditRegistration.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 20);
+            assertThat(auditRegistration.getUrlPatterns()).containsExactly("/api/*", "/internal/*");
         });
     }
 

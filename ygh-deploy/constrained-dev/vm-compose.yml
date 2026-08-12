@@ -16,7 +16,6 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./mysql/conf.d/ygh-low-memory.cnf:/etc/mysql/conf.d/ygh-low-memory.cnf:ro,Z
-      - ./mysql/init:/docker-entrypoint-initdb.d:ro,Z
     networks: [ygh-core]
     mem_limit: 640m
     cpus: 0.60
@@ -40,7 +39,7 @@ services:
     command:
       - sh
       - -c
-      - exec redis-server --appendonly yes --appendfsync everysec --maxmemory 96mb --maxmemory-policy allkeys-lru --requirepass "$${REDIS_PASSWORD}"
+      - exec redis-server --appendonly yes --appendfsync everysec --maxmemory 96mb --maxmemory-policy noeviction --requirepass "$${REDIS_PASSWORD}"
     ports:
       - "192.168.154.10:6379:6379"
     volumes:

@@ -1,0 +1,29 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Order payment confirmation API",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/v1/orders/{id}/confirm-wallet-payment": {
+      "post": {
+        "tags": ["order-controller"],
+        "operationId": "confirmPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Wallet payment confirmed" },
+          "401": { "description": "Authentication required" },
+          "404": { "description": "Order not found" },
+          "409": { "description": "Order cannot be confirmed" }
+        }
+      }
+    }
+  }
+}

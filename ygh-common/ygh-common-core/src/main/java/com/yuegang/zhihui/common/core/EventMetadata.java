@@ -13,10 +13,13 @@ public record EventMetadata(
         String businessKey
 ) {
 
+    private static final String SAFE_ID = "[A-Za-z0-9][A-Za-z0-9._:-]{0,127}";
+    private static final String SAFE_TRACE = "[A-Za-z0-9][A-Za-z0-9._-]{0,127}";
+    private static final String SAFE_PRODUCER = "[a-z0-9][a-z0-9-]{0,63}";
+
     public EventMetadata {
-        requireText(eventId, "eventId");
-        requireText(eventType, "eventType");
-        if (!eventType.matches("[A-Z][A-Z0-9_]*")) {
+        requireMatch(eventId, "eventId", SAFE_ID);
+        if (eventType == null || !eventType.matches("[A-Z][A-Z0-9_]{0,63}")) {
             throw new IllegalArgumentException("eventType must be an uppercase stable code");
         }
         if (eventVersion < 1) {
@@ -25,14 +28,14 @@ public record EventMetadata(
         if (occurredAt == null) {
             throw new IllegalArgumentException("occurredAt must not be null");
         }
-        requireText(traceId, "traceId");
-        requireText(producer, "producer");
-        requireText(businessKey, "businessKey");
+        requireMatch(traceId, "traceId", SAFE_TRACE);
+        requireMatch(producer, "producer", SAFE_PRODUCER);
+        requireMatch(businessKey, "businessKey", SAFE_ID);
     }
 
-    private static void requireText(String value, String fieldName) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(fieldName + " must not be blank");
+    private static void requireMatch(String value, String fieldName, String pattern) {
+        if (value == null || !value.matches(pattern)) {
+            throw new IllegalArgumentException(fieldName + " is malformed");
         }
     }
 }
