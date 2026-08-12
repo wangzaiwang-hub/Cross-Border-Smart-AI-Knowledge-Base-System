@@ -11,6 +11,10 @@ YGH_NACOS_DISCOVERY_GROUP: YGH_GROUP
 YGH_NACOS_USERNAME: nacos
 YGH_NACOS_PASSWORD: replace-me
 
+# Optional local log directory used by the application logback config and
+# LocalServiceLauncher's Nacos client log isolation.
+YGH_LOG_PATH: E:/ygh-logs
+
 YGH_REDIS_HOST: 192.168.220.171
 YGH_REDIS_PORT: 6379
 YGH_REDIS_PASSWORD: replace-me

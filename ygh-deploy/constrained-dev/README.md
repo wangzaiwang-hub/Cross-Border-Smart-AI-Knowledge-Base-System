@@ -50,6 +50,18 @@ YGH_AUTH_DB_APP_PASSWORD: replace-me
 java -cp tools\local-runner\target\classes com.yuegang.zhihui.tools.LocalServiceLauncher --env E:\ygh-secrets\env\ygh-core-services.yaml --check
 ```
 
+`--check` 会读取配置并检查 `YGH_NACOS_SERVER_ADDR`、`*_DB_URL` 和 `*_JDBC_URL` 中的主机端口是否可建立
+TCP 连接。若出现 `Connection refused`，先启动或修正对应 MySQL、PGVector、Nacos 地址，再启动业务服务。
+
+本地多服务同时运行时建议在外部配置中设置：
+
+```yaml
+YGH_LOG_PATH: E:/ygh-logs
+```
+
+启动器会默认把 Nacos 客户端日志写入 `${YGH_LOG_PATH}/nacos-client/<service>/nacos/`，避免多个业务服务同时
+抢占 Windows 用户目录下的 `logs/nacos/config.log` 或 `remote.log` 并触发 Logback `RenameUtil` 重命名告警。
+
 真实密钥文件不得提交。仓库内临时测试文件 `ygh-deploy/constrained-dev/.env.yaml` 已被 `.gitignore`
 忽略，只允许用于本机测试。
 

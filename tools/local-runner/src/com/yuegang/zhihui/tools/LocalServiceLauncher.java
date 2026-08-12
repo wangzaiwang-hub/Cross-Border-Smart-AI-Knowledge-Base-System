@@ -4,9 +4,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -52,6 +59,7 @@ public final class LocalServiceLauncher {
         int loaded = loadConfiguration(envFile);
         if (parsed.checkOnly()) {
             System.out.println("OK: loaded " + loaded + " config entries from " + envFile);
+            runConnectivityChecks();
             return;
         }
 
@@ -159,9 +167,108 @@ public final class LocalServiceLauncher {
 
     private static void applyRuntimeDefaults(String service) {
         System.setProperty("spring.main.banner-mode", System.getProperty("spring.main.banner-mode", "console"));
+        System.setProperty("JM.LOG.PATH", System.getProperty("JM.LOG.PATH",
+                Path.of(System.getProperty("YGH_LOG_PATH", "logs"), "nacos-client", service).toString()));
         if (!service.endsWith("-migration")) {
             System.setProperty("spring.flyway.enabled", System.getProperty("spring.flyway.enabled", "false"));
         }
+    }
+
+    private static void runConnectivityChecks() {
+        List<Endpoint> endpoints = new ArrayList<>();
+        addNacosEndpoint(endpoints);
+        addJdbcEndpoints(endpoints);
+        if (endpoints.isEmpty()) {
+            System.out.println("OK: no connectivity endpoints found in config");
+            return;
+        }
+
+        int failures = 0;
+        Duration timeout = Duration.ofSeconds(3);
+        for (Endpoint endpoint : endpoints) {
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(endpoint.host(), endpoint.port()), (int) timeout.toMillis());
+                System.out.println("OK: " + endpoint.name() + " reachable at "
+                        + endpoint.host() + ":" + endpoint.port());
+            } catch (IOException failure) {
+                failures++;
+                System.out.println("FAIL: " + endpoint.name() + " unreachable at "
+                        + endpoint.host() + ":" + endpoint.port() + " (" + failure.getMessage() + ")");
+            }
+        }
+
+        if (failures > 0) {
+            throw new IllegalStateException("Connectivity check failed for " + failures
+                    + " endpoint(s). Start the dependency containers or fix the local env file.");
+        }
+    }
+
+    private static void addNacosEndpoint(List<Endpoint> endpoints) {
+        String serverAddr = System.getProperty("YGH_NACOS_SERVER_ADDR");
+        if (serverAddr == null || serverAddr.isBlank()) {
+            return;
+        }
+        String firstServer = serverAddr.split(",", 2)[0].trim();
+        HostPort hostPort = parseHostPort(firstServer, 8848);
+        endpoints.add(new Endpoint("YGH_NACOS_SERVER_ADDR", hostPort.host(), hostPort.port()));
+    }
+
+    private static void addJdbcEndpoints(List<Endpoint> endpoints) {
+        Properties properties = System.getProperties();
+        for (String name : properties.stringPropertyNames()) {
+            if (!name.endsWith("_DB_URL") && !name.endsWith("_JDBC_URL")) {
+                continue;
+            }
+            String value = properties.getProperty(name);
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            HostPort hostPort = parseJdbcHostPort(value);
+            if (hostPort != null) {
+                endpoints.add(new Endpoint(name, hostPort.host(), hostPort.port()));
+            }
+        }
+    }
+
+    private static HostPort parseJdbcHostPort(String jdbcUrl) {
+        String url = jdbcUrl.trim();
+        if (!url.startsWith("jdbc:")) {
+            return null;
+        }
+        String withoutJdbc = url.substring("jdbc:".length());
+        int schemeSeparator = withoutJdbc.indexOf("://");
+        if (schemeSeparator < 0) {
+            return null;
+        }
+        String scheme = withoutJdbc.substring(0, schemeSeparator);
+        int defaultPort = switch (scheme) {
+            case "mysql" -> 3306;
+            case "postgresql" -> 5432;
+            default -> -1;
+        };
+        if (defaultPort < 0) {
+            return null;
+        }
+        try {
+            URI uri = new URI(withoutJdbc);
+            if (uri.getHost() == null) {
+                return null;
+            }
+            return new HostPort(uri.getHost(), uri.getPort() > 0 ? uri.getPort() : defaultPort);
+        } catch (URISyntaxException ignored) {
+            return null;
+        }
+    }
+
+    private static HostPort parseHostPort(String value, int defaultPort) {
+        String host = value;
+        int port = defaultPort;
+        int separator = value.lastIndexOf(':');
+        if (separator > 0 && separator < value.length() - 1) {
+            host = value.substring(0, separator);
+            port = Integer.parseInt(value.substring(separator + 1));
+        }
+        return new HostPort(host, port);
     }
 
     private static void invokeMain(String mainClassName, String[] args) throws Exception {
@@ -186,6 +293,12 @@ public final class LocalServiceLauncher {
                 + LocalServiceLauncher.class.getName()
                 + " --env=<external-yaml-or-properties-file> [--check] <service>");
         System.out.println("Services: " + MAIN_CLASSES.keySet());
+    }
+
+    private record Endpoint(String name, String host, int port) {
+    }
+
+    private record HostPort(String host, int port) {
     }
 
     private record Arguments(String service, Path envFile, String[] applicationArgs, boolean help, boolean checkOnly) {
